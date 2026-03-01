@@ -6,8 +6,10 @@ const path = require('path');
 const session = require('express-session');
 const passport = require('passport');
 const { Strategy: GoogleStrategy } = require('passport-google-oauth20');
+const { Strategy: LocalStrategy } = require('passport-local');
 const { Pool } = require('pg');
 const pgSession = require('connect-pg-simple')(session);
+const bcrypt = require('bcrypt');
 
 const app = express();
 const server = createServer(app);
@@ -25,9 +27,10 @@ async function initDB() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
-      google_id TEXT UNIQUE NOT NULL,
+      google_id TEXT UNIQUE,
+      email TEXT UNIQUE,
+      password_hash TEXT,
       name TEXT NOT NULL,
-      email TEXT,
       avatar_url TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       last_seen TIMESTAMPTZ DEFAULT NOW()
@@ -87,6 +90,19 @@ passport.deserializeUser(async (id, done) => {
   } catch(e) { done(e); }
 });
 
+// ── LOCAL STRATEGY (email + senha) ──
+passport.use(new LocalStrategy({ usernameField: 'email' }, async (email, password, done) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase()]);
+    const user = rows[0];
+    if (!user || !user.password_hash) return done(null, false, { message: 'Email ou senha incorretos' });
+    const ok = await bcrypt.compare(password, user.password_hash);
+    if (!ok) return done(null, false, { message: 'Email ou senha incorretos' });
+    await pool.query('UPDATE users SET last_seen = NOW() WHERE id = $1', [user.id]);
+    done(null, user);
+  } catch(e) { done(e); }
+}));
+
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -128,6 +144,38 @@ app.get('/auth/google/callback',
 
 app.get('/auth/logout', (req, res) => {
   req.logout(() => res.redirect('/'));
+});
+
+// ── EMAIL/SENHA: CADASTRO ──
+app.post('/auth/register', async (req, res) => {
+  const { name, email, password } = req.body;
+  if (!name || !email || !password) return res.status(400).json({ error: 'Preencha todos os campos' });
+  if (password.length < 6) return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres' });
+  try {
+    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+    if (existing.rows.length) return res.status(400).json({ error: 'Este email já está cadastrado' });
+    const hash = await bcrypt.hash(password, 12);
+    const { rows } = await pool.query(
+      'INSERT INTO users (id, name, email, password_hash) VALUES ($1,$2,$3,$4) RETURNING *',
+      [uuid(), name.trim(), email.toLowerCase(), hash]
+    );
+    req.login(rows[0], err => {
+      if (err) return res.status(500).json({ error: 'Erro ao fazer login' });
+      res.json({ ok: true });
+    });
+  } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
+});
+
+// ── EMAIL/SENHA: LOGIN ──
+app.post('/auth/login', (req, res, next) => {
+  passport.authenticate('local', (err, user, info) => {
+    if (err) return res.status(500).json({ error: 'Erro interno' });
+    if (!user) return res.status(401).json({ error: info?.message || 'Email ou senha incorretos' });
+    req.login(user, err => {
+      if (err) return res.status(500).json({ error: 'Erro ao fazer login' });
+      res.json({ ok: true });
+    });
+  })(req, res, next);
 });
 
 app.get('/auth/me', (req, res) => {
