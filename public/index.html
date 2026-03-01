@@ -1034,19 +1034,35 @@ function loadVideo(video,doBroadcast){
     iframe.allow='autoplay; fullscreen'; iframe.allowFullscreen=true; wrap.appendChild(iframe);
   } else if(src==='gdrive'){
     $('src-badge').textContent='GD';
-    // Convert any Drive URL format to embed URL
     const fileIdMatch = url.match(/\/d\/([a-zA-Z0-9_-]{10,})/)||url.match(/id=([a-zA-Z0-9_-]{10,})/);
     if(!fileIdMatch){ toast('URL do Google Drive inválida'); return; }
     const fileId = fileIdMatch[1];
-    const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
-    const iframe=document.createElement('iframe');
-    iframe.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
-    iframe.src=embedUrl;
-    iframe.allow='autoplay; fullscreen';
-    iframe.allowFullscreen=true;
-    wrap.appendChild(iframe);
-    // Drive doesn't support external JS control — show info toast
-    setTimeout(()=>toast('Google Drive: use os controles dentro do player 📁'),1500);
+    // Use direct streaming URL — works for publicly shared files
+    const streamUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
+    $('src-badge').textContent='GD';
+    const v=document.createElement('video');
+    v.src=streamUrl;
+    v.controls=false;
+    v.preload='metadata';
+    v.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;';
+    v.volume=parseFloat($('vol').value);
+    wrap.appendChild(v);
+    nativeVid=v;
+    v.addEventListener('play',()=>{if(isSyncing)return;isPlaying=true;$('pbtn').textContent='⏸';if(amIHost)send('STATE',{playing:true,currentTime:v.currentTime});});
+    v.addEventListener('pause',()=>{if(isSyncing)return;isPlaying=false;$('pbtn').textContent='▶';if(amIHost)send('STATE',{playing:false,currentTime:v.currentTime});});
+    v.addEventListener('seeked',()=>{if(isSyncing)return;if(amIHost)send('SEEK',{t:v.currentTime});});
+    v.addEventListener('error',(e)=>{
+      // Fallback to preview iframe if direct URL fails
+      toast('Carregando via preview... 📁');
+      wrap.removeChild(v); nativeVid=null;
+      const iframe=document.createElement('iframe');
+      iframe.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
+      iframe.src=`https://drive.google.com/file/d/${fileId}/preview`;
+      iframe.allow='autoplay; fullscreen';
+      iframe.allowFullscreen=true;
+      wrap.appendChild(iframe);
+    });
+    v.addEventListener('loadedmetadata',()=>{const t=expectedNow();if(t>0)v.currentTime=t;if(syncPlaying)v.play().catch(()=>{});});
   } else {
     const ext=src==='local'?'LOCAL':(url.split('.').pop().split('?')[0].toUpperCase().substring(0,4)||'VID');
     $('src-badge').textContent=ext;
