@@ -592,7 +592,7 @@ let rtt = 80, pingTs = 0, pingInterval = null;
 let syncTime = 0, syncWall = 0, syncPlaying = false;
 
 // YT
-let ytReady = false, ytCurrentTime = 0, ytPendingSeek = null, ytLastInfoTs = 0;
+let ytReady = false, ytCurrentTime = 0, ytPendingSeek = null, ytPendingState = null, ytLastInfoTs = 0;
 
 // Soft sync
 let softSyncInterval = null;
@@ -898,19 +898,23 @@ function handle(msg) {
 
   if(type==='STATE'){
     applySyncClock(payload.playing,payload.currentTime,payload.serverNow||Date.now());
-    if(!ytReady&&ytIframe)return;
+    if(ytIframe&&!ytReady){
+      // YT not ready yet — store pending state to apply when ready
+      ytPendingState={playing:payload.playing,t:payload.currentTime};
+      return;
+    }
     applyPlayState(payload.playing,payload.currentTime);
   }
 
   if(type==='SEEK'){
     applySyncClock(syncPlaying,payload.t,Date.now());
-    if(!ytReady&&ytIframe)return;
+    if(ytIframe&&!ytReady){ytPendingSeek=payload.t;return;}
     isSyncing=true; seekTo(payload.t); isSyncing=false;
   }
 
   if(type==='SYNC_TICK'){
     applySyncClock(payload.playing,payload.currentTime,payload.serverNow||Date.now());
-    if(!ytReady&&ytIframe)return;
+    if(ytIframe&&!ytReady)return;
     if(payload.playing!==isPlaying){applyPlayState(payload.playing,payload.currentTime);return;}
     if(syncPlaying){
       const drift=curTime()-expectedNow();
@@ -941,9 +945,12 @@ function startSoftSync(){
     if(!syncPlaying||syncWall===0)return;
     if(ytIframe&&!ytReady)return;
     const expected=expectedNow(), current=curTime();
-    if(current===0&&expected>2)return;
+    // Only skip if video literally hasn't started loading yet
+    if(current===0&&expected<1)return;
     const drift=current-expected;
-    if(Math.abs(drift)>HARD_SEEK_THRESHOLD){isSyncing=true;seekTo(Math.max(0,expected));setRate(RATE_NORMAL);isSyncing=false;}
+    if(Math.abs(drift)>HARD_SEEK_THRESHOLD){
+      isSyncing=true;seekTo(Math.max(0,expected));setRate(RATE_NORMAL);isSyncing=false;
+    }
     else if(drift>SOFT_SYNC_THRESHOLD)setRate(RATE_SLOW);
     else if(drift<-SOFT_SYNC_THRESHOLD)setRate(RATE_FAST);
     else setRate(RATE_NORMAL);
@@ -1019,13 +1026,28 @@ function loadVideo(video,doBroadcast){
 }
 
 // ── YOUTUBE API ───────────────────────────────────────────
+function onYTReady() {
+  ytReady = true;
+  // Apply any pending seek first
+  const t = ytPendingSeek !== null ? ytPendingSeek : expectedNow();
+  ytPendingSeek = null;
+  if(t > 0.5) ytCmd('seekTo', [t, true]);
+  // Apply pending play state
+  if(ytPendingState) {
+    const ps = ytPendingState; ytPendingState = null;
+    if(ps.playing) doPlay(); else doPause();
+  } else {
+    if(syncPlaying) doPlay(); else doPause();
+  }
+}
+
 function onYTMsg(e){
   try{
     const d=typeof e.data==='string'?JSON.parse(e.data):e.data; if(!d)return;
-    if(!ytReady&&d.event==='onReady'){ytReady=true;const t=expectedNow();if(t>1)seekTo(t);if(syncPlaying)doPlay();else doPause();return;}
+    if(!ytReady&&d.event==='onReady'){onYTReady();return;}
     if(!d.info)return;
     if(d.info.currentTime!==undefined){ytCurrentTime=d.info.currentTime;ytLastInfoTs=Date.now();}
-    if(!ytReady&&d.info.playerState!==undefined&&d.info.playerState!==-1){ytReady=true;const t=expectedNow();if(t>1)seekTo(t);if(syncPlaying)doPlay();else doPause();}
+    if(!ytReady&&d.info.playerState!==undefined&&d.info.playerState!==-1){onYTReady();}
     if(d.info.playerState===1&&!isSyncing){isPlaying=true;$('pbtn').textContent='⏸';if(amIHost)send('STATE',{playing:true,currentTime:ytCurrentTime});else{isSyncing=true;if(!syncPlaying)ytCmd('pauseVideo');isSyncing=false;}}
     if(d.info.playerState===2&&!isSyncing){isPlaying=false;$('pbtn').textContent='▶';if(amIHost)send('STATE',{playing:false,currentTime:ytCurrentTime});else{isSyncing=true;if(syncPlaying)ytCmd('playVideo');isSyncing=false;}}
   }catch(err){}
