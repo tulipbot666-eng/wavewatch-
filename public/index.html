@@ -19,19 +19,16 @@
   --sub: #8b8ea8;
   --danger: #ff4567;
   --ok: #00d4aa;
-  --r: 12px;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{height:100%;overflow:hidden;}
 body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;}
-
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
-
 body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:9999;opacity:.4;}
 
-/* LOBBY */
+/* ── LOBBY ── */
 #lobby{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;background:var(--bg);}
 #lobby::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(232,67,147,.12) 0%,transparent 70%),radial-gradient(ellipse 60% 40% at 80% 100%,rgba(124,92,252,.1) 0%,transparent 60%);pointer-events:none;}
 .lobby-inner{width:100%;max-width:420px;position:relative;z-index:1;}
@@ -40,6 +37,16 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 .brand-logo span{background:linear-gradient(135deg,var(--accent),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
 .brand-sub{color:var(--sub);font-size:.85rem;margin-top:.4rem;font-family:'DM Mono',monospace;}
 .glass{background:rgba(15,16,24,.8);border:1px solid var(--border);border-radius:18px;padding:2rem;backdrop-filter:blur(20px);}
+
+/* login view */
+.google-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:.75rem;padding:.85rem 1.5rem;background:#fff;color:#1f1f1f;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:1rem;font-weight:600;cursor:pointer;transition:all .2s;box-shadow:0 2px 12px rgba(0,0,0,.3);}
+.google-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.4);}
+.google-btn svg{width:22px;height:22px;flex-shrink:0;}
+.lobby-or{text-align:center;color:var(--sub);font-size:.8rem;margin:1.2rem 0;font-family:'DM Mono',monospace;position:relative;}
+.lobby-or::before,.lobby-or::after{content:'';position:absolute;top:50%;width:40%;height:1px;background:var(--border);}
+.lobby-or::before{left:0;} .lobby-or::after{right:0;}
+
+/* guest mode */
 .ltabs{display:flex;gap:3px;background:var(--bg);border-radius:10px;padding:3px;margin-bottom:1.8rem;}
 .ltab{flex:1;padding:.55rem;border:none;background:transparent;color:var(--sub);font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:600;border-radius:8px;cursor:pointer;transition:all .2s;}
 .ltab.on{background:var(--s3);color:var(--text);}
@@ -51,14 +58,14 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 .av-opt{width:40px;height:40px;border-radius:50%;border:2px solid var(--border);cursor:pointer;transition:all .2s;font-size:1.3rem;display:flex;align-items:center;justify-content:center;background:var(--s2);}
 .av-opt.on{border-color:var(--accent);transform:scale(1.1);}
 .av-label{font-size:.72rem;color:var(--sub);margin-bottom:.4rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.8px;display:block;}
-.pill-btn{width:100%;padding:.8rem;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:1rem;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:.2px;}
+.pill-btn{width:100%;padding:.8rem;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:1rem;font-weight:600;cursor:pointer;transition:all .2s;}
 .pill-btn.primary{background:linear-gradient(135deg,var(--accent),var(--a2));color:#fff;box-shadow:0 4px 24px rgba(232,67,147,.3);}
-.pill-btn.primary:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(232,67,147,.4);}
+.pill-btn.primary:hover{transform:translateY(-2px);}
 .pill-btn.ghost{background:var(--s3);color:var(--text);border:1px solid var(--border);}
 .pill-btn.ghost:hover{border-color:var(--accent);color:var(--accent);}
 .lerr{color:var(--danger);font-size:.8rem;margin-top:.6rem;font-family:'DM Mono',monospace;text-align:center;}
 
-/* APP SHELL */
+/* ── APP ── */
 #app{display:none;height:100vh;flex-direction:column;}
 .topbar{height:52px;background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 1rem;gap:.8rem;flex-shrink:0;z-index:50;}
 .tb-logo{font-size:1.1rem;font-weight:700;letter-spacing:-.5px;}
@@ -66,18 +73,23 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 .room-badge{font-family:'DM Mono',monospace;font-size:.72rem;background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:.25rem .65rem;color:var(--a3);cursor:pointer;transition:all .2s;user-select:none;}
 .room-badge:hover{background:var(--s2);border-color:var(--a3);}
 .members-wrap{display:flex;align-items:center;gap:.4rem;}
-.member-av{width:26px;height:26px;border-radius:50%;border:2px solid var(--bg);font-size:.85rem;display:flex;align-items:center;justify-content:center;background:var(--s3);margin-left:-6px;cursor:pointer;transition:transform .15s;}
+.member-av{width:26px;height:26px;border-radius:50%;border:2px solid var(--bg);font-size:.85rem;display:flex;align-items:center;justify-content:center;background:var(--s3);margin-left:-6px;cursor:pointer;transition:transform .15s;overflow:hidden;}
 .member-av:first-child{margin-left:0;}
-.member-av:hover{transform:scale(1.15);z-index:2;}
+.member-av img{width:100%;height:100%;object-fit:cover;}
 .live-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite;flex-shrink:0;}
 .live-lbl{font-size:.72rem;color:var(--sub);font-family:'DM Mono',monospace;}
 .tb-right{margin-left:auto;display:flex;gap:.5rem;align-items:center;}
 .tb-btn{background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:.3rem .7rem;color:var(--sub);font-size:.76rem;cursor:pointer;font-family:'DM Mono',monospace;transition:all .2s;white-space:nowrap;}
 .tb-btn:hover{color:var(--text);border-color:var(--accent);}
 .tb-btn.hot{background:linear-gradient(135deg,var(--accent),var(--a2));color:#fff;border-color:transparent;}
-.tb-btn.hot:hover{transform:translateY(-1px);}
 
-/* MAIN LAYOUT */
+/* user avatar in topbar */
+.tb-user{display:flex;align-items:center;gap:.5rem;cursor:pointer;padding:.2rem .5rem;border-radius:8px;transition:background .2s;}
+.tb-user:hover{background:var(--s3);}
+.tb-user-av{width:28px;height:28px;border-radius:50%;overflow:hidden;background:var(--s3);flex-shrink:0;}
+.tb-user-av img{width:100%;height:100%;object-fit:cover;}
+.tb-user-name{font-size:.78rem;font-weight:600;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
 .main{display:flex;flex:1;overflow:hidden;min-height:0;}
 .varea{flex:1;display:flex;flex-direction:column;min-width:0;background:#000;}
 
@@ -86,12 +98,12 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 .ph-ring{width:90px;height:90px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:2.5rem;position:relative;}
 .ph-ring::before{content:'';position:absolute;inset:-8px;border-radius:50%;border:1px solid rgba(232,67,147,.15);}
 .ph-ring::after{content:'';position:absolute;inset:-16px;border-radius:50%;border:1px solid rgba(124,92,252,.08);}
-.ph-title{font-size:1.3rem;font-weight:600;text-align:center;}
+.ph-title{font-size:1.3rem;font-weight:600;}
 .ph-sub{color:var(--sub);font-size:.85rem;text-align:center;line-height:1.7;}
 .ph-fmts{display:flex;gap:.35rem;flex-wrap:wrap;justify-content:center;}
 .fmt-chip{font-family:'DM Mono',monospace;font-size:.62rem;padding:.2rem .5rem;border-radius:6px;background:var(--s2);border:1px solid var(--border);color:var(--sub);}
 .add-video-btn{background:linear-gradient(135deg,var(--accent),var(--a2));color:#fff;border:none;padding:.75rem 2rem;border-radius:50px;font-family:'DM Sans',sans-serif;font-weight:600;font-size:.95rem;cursor:pointer;box-shadow:0 4px 20px rgba(232,67,147,.35);transition:all .2s;}
-.add-video-btn:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(232,67,147,.45);}
+.add-video-btn:hover{transform:translateY(-2px);}
 
 #vwrap{flex:1;position:relative;background:#000;display:none;min-height:0;}
 #vwrap iframe,#vwrap video{position:absolute;top:0;left:0;width:100%;height:100%;border:none;}
@@ -106,7 +118,6 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 .vi-title{font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .vi-sub{font-size:.75rem;color:var(--sub);margin-top:.15rem;font-family:'DM Mono',monospace;}
 
-/* CONTROLS */
 .ctrl{height:52px;background:var(--s1);border-top:1px solid var(--border);display:none;align-items:center;gap:.6rem;padding:0 1rem;flex-shrink:0;}
 .c-btn{background:none;border:none;color:var(--text);font-size:1.1rem;cursor:pointer;padding:.3rem .35rem;border-radius:6px;transition:all .15s;line-height:1;flex-shrink:0;}
 .c-btn:hover{background:var(--s3);color:var(--accent);}
@@ -124,12 +135,11 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 /* SIDEBAR */
 .sidebar{width:320px;background:var(--s1);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
 .stabs{display:flex;border-bottom:1px solid var(--border);}
-.stab{flex:1;padding:.7rem .5rem;background:none;border:none;color:var(--sub);font-family:'DM Sans',sans-serif;font-weight:600;font-size:.78rem;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;}
+.stab{flex:1;padding:.7rem .3rem;background:none;border:none;color:var(--sub);font-family:'DM Sans',sans-serif;font-weight:600;font-size:.72rem;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;}
 .stab.on{color:var(--text);border-bottom-color:var(--accent);}
 .panel{display:none;flex-direction:column;flex:1;overflow:hidden;}
 .panel.on{display:flex;}
 
-/* CHAT */
 .msgs{flex:1;overflow-y:auto;padding:.75rem;display:flex;flex-direction:column;gap:.4rem;}
 .msg{border-radius:10px;padding:.55rem .75rem;font-size:.84rem;line-height:1.55;animation:msgIn .2s ease;}
 @keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -137,7 +147,8 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 .msg.me{background:rgba(232,67,147,.12);border:1px solid rgba(232,67,147,.15);}
 .msg.sys{background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.12);text-align:center;color:var(--a3);font-size:.75rem;font-family:'DM Mono',monospace;}
 .msg-head{display:flex;align-items:center;gap:.4rem;margin-bottom:.2rem;}
-.msg-av{font-size:.9rem;}
+.msg-av{width:20px;height:20px;border-radius:50%;overflow:hidden;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.75rem;}
+.msg-av img{width:100%;height:100%;object-fit:cover;}
 .msg-name{font-size:.7rem;font-weight:600;color:var(--accent);font-family:'DM Mono',monospace;}
 .msg-time{font-size:.62rem;color:var(--sub);margin-left:auto;font-family:'DM Mono',monospace;}
 .msg-text{color:var(--text);}
@@ -147,7 +158,6 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 .send-btn{background:var(--accent);border:none;border-radius:10px;padding:.52rem .75rem;color:#fff;cursor:pointer;font-size:1rem;transition:all .2s;flex-shrink:0;}
 .send-btn:hover{background:var(--a2);}
 
-/* QUEUE */
 .queue-wrap{flex:1;overflow-y:auto;padding:.75rem;display:flex;flex-direction:column;gap:.4rem;}
 .q-empty{color:var(--sub);font-size:.82rem;text-align:center;padding:2rem 0;font-family:'DM Mono',monospace;}
 .qi{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:.6rem .75rem;display:flex;align-items:center;gap:.6rem;cursor:pointer;transition:all .2s;animation:msgIn .2s ease;}
@@ -158,18 +168,38 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 .qi-title{font-size:.82rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .qi-src{font-size:.65rem;color:var(--sub);font-family:'DM Mono',monospace;margin-top:.1rem;}
 .qi-rm{color:var(--sub);cursor:pointer;flex-shrink:0;padding:2px 4px;border-radius:4px;transition:all .15s;}
-.qi-rm:hover{color:var(--danger);background:rgba(255,69,103,.1);}
+.qi-rm:hover{color:var(--danger);}
 
-/* HISTORY */
 .history-wrap{flex:1;overflow-y:auto;padding:.75rem;display:flex;flex-direction:column;gap:.4rem;}
-
-/* MEMBERS */
 .members-panel{flex:1;overflow-y:auto;padding:.75rem;display:flex;flex-direction:column;gap:.4rem;}
 .member-row{display:flex;align-items:center;gap:.6rem;padding:.5rem .7rem;border-radius:10px;background:var(--s2);}
-.member-emoji{font-size:1.4rem;}
+.member-emoji{width:32px;height:32px;border-radius:50%;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;}
+.member-emoji img{width:100%;height:100%;object-fit:cover;}
 .member-name{font-size:.88rem;font-weight:500;}
 .member-badge{font-size:.62rem;font-family:'DM Mono',monospace;padding:.12rem .38rem;border-radius:5px;background:var(--s3);color:var(--sub);margin-left:auto;}
 .member-badge.host{background:rgba(232,67,147,.15);color:var(--accent);}
+
+/* FRIENDS PANEL */
+.friends-panel{flex:1;overflow-y:auto;padding:.75rem;display:flex;flex-direction:column;gap:.5rem;}
+.friends-search{display:flex;gap:.4rem;margin-bottom:.5rem;}
+.friends-search input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.5rem .75rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.84rem;outline:none;transition:border-color .2s;}
+.friends-search input:focus{border-color:var(--accent);}
+.friends-search button{background:var(--accent);border:none;border-radius:8px;padding:.5rem .75rem;color:#fff;cursor:pointer;font-size:.82rem;white-space:nowrap;}
+.friend-row{display:flex;align-items:center;gap:.6rem;padding:.5rem .7rem;border-radius:10px;background:var(--s2);border:1px solid var(--border);}
+.friend-av{width:32px;height:32px;border-radius:50%;overflow:hidden;background:var(--s3);flex-shrink:0;}
+.friend-av img{width:100%;height:100%;object-fit:cover;}
+.friend-info{flex:1;min-width:0;}
+.friend-name{font-size:.84rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.friend-status{font-size:.65rem;color:var(--sub);font-family:'DM Mono',monospace;}
+.friend-status.online{color:var(--ok);}
+.friend-actions{display:flex;gap:.3rem;}
+.f-btn{background:var(--s3);border:1px solid var(--border);border-radius:6px;padding:.25rem .5rem;color:var(--sub);font-size:.7rem;cursor:pointer;transition:all .15s;font-family:'DM Mono',monospace;}
+.f-btn:hover{border-color:var(--accent);color:var(--accent);}
+.f-btn.accept{border-color:var(--ok);color:var(--ok);}
+.f-btn.accept:hover{background:rgba(0,212,170,.1);}
+.f-btn.danger:hover{border-color:var(--danger);color:var(--danger);}
+.friends-section-title{font-size:.68rem;color:var(--sub);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.8px;padding:.3rem 0 .2rem;}
+.pending-badge{background:var(--accent);color:#fff;font-size:.6rem;border-radius:10px;padding:.1rem .35rem;margin-left:.3rem;}
 
 /* MODAL */
 .overlay{display:none;position:fixed;inset:0;background:rgba(8,9,15,.85);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(8px);}
@@ -183,12 +213,10 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 .src-opt{background:var(--bg);border:2px solid var(--border);border-radius:10px;padding:.7rem .4rem;text-align:center;cursor:pointer;transition:all .2s;font-size:.78rem;font-weight:600;}
 .src-opt:hover,.src-opt.on{border-color:var(--accent);color:var(--accent);background:rgba(232,67,147,.06);}
 .src-opt .ico{font-size:1.3rem;display:block;margin-bottom:.2rem;}
-
 .yt-search-wrap{position:relative;margin-bottom:.8rem;}
 .yt-search-inp{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:.7rem 2.5rem .7rem 1rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.92rem;outline:none;transition:border-color .2s;}
 .yt-search-inp:focus{border-color:var(--accent);}
-.yt-search-btn{position:absolute;right:.5rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--sub);transition:color .15s;padding:.2rem;}
-.yt-search-btn:hover{color:var(--accent);}
+.yt-search-btn{position:absolute;right:.5rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--sub);padding:.2rem;}
 .yt-results{display:flex;flex-direction:column;gap:.4rem;max-height:280px;overflow-y:auto;margin-bottom:.8rem;}
 .yt-item{display:flex;gap:.7rem;padding:.6rem;border-radius:10px;border:1px solid var(--border);cursor:pointer;transition:all .15s;background:var(--bg);}
 .yt-item:hover{border-color:var(--accent);background:var(--s2);}
@@ -197,7 +225,6 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 .yt-item-title{font-size:.82rem;font-weight:500;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .yt-item-ch{font-size:.72rem;color:var(--sub);margin-top:.2rem;font-family:'DM Mono',monospace;}
 .yt-loading{text-align:center;padding:1.5rem;color:var(--sub);font-size:.82rem;font-family:'DM Mono',monospace;}
-
 .dz{border:2px dashed var(--border);border-radius:12px;padding:1.8rem 1rem;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:.8rem;}
 .dz:hover,.dz.drag{border-color:var(--accent);background:rgba(232,67,147,.04);}
 .dz-ico{font-size:2.2rem;margin-bottom:.4rem;}
@@ -209,7 +236,6 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 .merr{color:var(--danger);font-size:.78rem;font-family:'DM Mono',monospace;min-height:1rem;margin:.3rem 0;}
 .mbtns{display:flex;gap:.5rem;margin-top:.8rem;}
 .mbtns .pill-btn{flex:1;padding:.7rem;}
-
 .yt-preview{display:flex;gap:.8rem;padding:.75rem;background:var(--bg);border-radius:10px;margin-bottom:.8rem;border:1px solid var(--border);}
 .yt-preview img{width:80px;height:50px;border-radius:6px;object-fit:cover;flex-shrink:0;}
 .yt-preview-info{flex:1;min-width:0;}
@@ -239,6 +265,18 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
       <div class="brand-sub">// watch together, anywhere</div>
     </div>
     <div class="glass">
+      <!-- Google login -->
+      <div id="l-google">
+        <a href="/auth/google" style="text-decoration:none">
+          <button class="google-btn">
+            <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+            Entrar com Google
+          </button>
+        </a>
+        <div class="lobby-or">ou entre como visitante</div>
+      </div>
+
+      <!-- Guest mode -->
       <div class="ltabs">
         <button class="ltab on" onclick="lTab('create')">Criar Sala</button>
         <button class="ltab" onclick="lTab('join')">Entrar</button>
@@ -247,14 +285,10 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
         <div class="field"><label>Seu nome</label><input type="text" id="l-name" placeholder="Como quer ser chamado?" maxlength="20"></div>
         <span class="av-label">Escolha um avatar</span>
         <div class="avatar-pick" id="av-pick">
-          <div class="av-opt on" data-av="🎬">🎬</div>
-          <div class="av-opt" data-av="🎵">🎵</div>
-          <div class="av-opt" data-av="🦊">🦊</div>
-          <div class="av-opt" data-av="🐼">🐼</div>
-          <div class="av-opt" data-av="🌙">🌙</div>
-          <div class="av-opt" data-av="⚡">⚡</div>
-          <div class="av-opt" data-av="🍕">🍕</div>
-          <div class="av-opt" data-av="👾">👾</div>
+          <div class="av-opt on" data-av="🎬">🎬</div><div class="av-opt" data-av="🎵">🎵</div>
+          <div class="av-opt" data-av="🦊">🦊</div><div class="av-opt" data-av="🐼">🐼</div>
+          <div class="av-opt" data-av="🌙">🌙</div><div class="av-opt" data-av="⚡">⚡</div>
+          <div class="av-opt" data-av="🍕">🍕</div><div class="av-opt" data-av="👾">👾</div>
         </div>
         <button class="pill-btn primary" onclick="createRoom()">🎬 Criar Sala</button>
       </div>
@@ -263,14 +297,10 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
         <div class="field"><label>Código da Sala</label><input type="text" id="j-code" placeholder="WAVE-XXXX" maxlength="9" style="text-transform:uppercase;letter-spacing:2px"></div>
         <span class="av-label">Escolha um avatar</span>
         <div class="avatar-pick" id="av-pick-j">
-          <div class="av-opt on" data-av="🎬">🎬</div>
-          <div class="av-opt" data-av="🎵">🎵</div>
-          <div class="av-opt" data-av="🦊">🦊</div>
-          <div class="av-opt" data-av="🐼">🐼</div>
-          <div class="av-opt" data-av="🌙">🌙</div>
-          <div class="av-opt" data-av="⚡">⚡</div>
-          <div class="av-opt" data-av="🍕">🍕</div>
-          <div class="av-opt" data-av="👾">👾</div>
+          <div class="av-opt on" data-av="🎬">🎬</div><div class="av-opt" data-av="🎵">🎵</div>
+          <div class="av-opt" data-av="🦊">🦊</div><div class="av-opt" data-av="🐼">🐼</div>
+          <div class="av-opt" data-av="🌙">🌙</div><div class="av-opt" data-av="⚡">⚡</div>
+          <div class="av-opt" data-av="🍕">🍕</div><div class="av-opt" data-av="👾">👾</div>
         </div>
         <button class="pill-btn primary" onclick="joinRoom()">🚀 Entrar</button>
       </div>
@@ -288,6 +318,7 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
     <div class="live-lbl" id="live-lbl">0 online</div>
     <div class="members-wrap" id="members-wrap"></div>
     <div class="tb-right">
+      <div class="tb-user" id="tb-user" style="display:none" onclick="openAddModal()"></div>
       <button class="tb-btn hot" onclick="openAddModal()">+ Vídeo</button>
       <button class="tb-btn" onclick="leaveRoom()">Sair</button>
     </div>
@@ -306,10 +337,7 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
         <button class="add-video-btn" onclick="openAddModal()">+ Adicionar Vídeo</button>
       </div>
       <div id="vwrap">
-        <div class="vinfo" id="vinfo">
-          <div class="vi-title" id="vi-title"></div>
-          <div class="vi-sub" id="vi-sub"></div>
-        </div>
+        <div class="vinfo" id="vinfo"><div class="vi-title" id="vi-title"></div><div class="vi-sub" id="vi-sub"></div></div>
         <div class="reacts-wrap">
           <button class="r-btn" onclick="react('❤️')">❤️</button>
           <button class="r-btn" onclick="react('😂')">😂</button>
@@ -321,7 +349,7 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
       </div>
       <div class="ctrl" id="ctrl">
         <button class="c-btn" id="pbtn" onclick="togglePlay()">▶</button>
-        <button class="c-btn" onclick="skip(-10)" title="-10s">⏪</button>
+        <button class="c-btn" onclick="skip(-10)">⏪</button>
         <div class="prog-wrap">
           <div class="prog" id="prog" onclick="seekClick(event)">
             <div class="prog-buf" id="prog-buf"></div>
@@ -333,7 +361,7 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
           </div>
         </div>
         <div class="vol-wrap">🔊<input type="range" id="vol" min="0" max="1" step="0.05" value="0.7" oninput="setVol(this.value)"></div>
-        <button class="c-btn" onclick="skip(10)" title="+10s">⏩</button>
+        <button class="c-btn" onclick="skip(10)">⏩</button>
         <button class="c-btn" onclick="goFS()">⛶</button>
         <span class="src-badge" id="src-badge">YT</span>
       </div>
@@ -341,10 +369,11 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 
     <div class="sidebar" id="sidebar">
       <div class="stabs">
-        <button class="stab on" onclick="sTab('chat',this)">💬 Chat</button>
-        <button class="stab" onclick="sTab('queue',this)">📋 Fila</button>
-        <button class="stab" onclick="sTab('history',this)">🕘 Histórico</button>
+        <button class="stab on" onclick="sTab('chat',this)">💬</button>
+        <button class="stab" onclick="sTab('queue',this)">📋</button>
+        <button class="stab" onclick="sTab('history',this)">🕘</button>
         <button class="stab" onclick="sTab('members',this)">👥</button>
+        <button class="stab" id="friends-tab" onclick="sTab('friends',this)" style="display:none">👫 <span id="pending-badge" class="pending-badge" style="display:none">0</span></button>
       </div>
       <div class="panel on" id="p-chat">
         <div class="msgs" id="msgs"></div>
@@ -359,11 +388,16 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
           <button class="pill-btn ghost" style="font-size:.82rem;padding:.6rem" onclick="openAddModal()">+ Adicionar à fila</button>
         </div>
       </div>
-      <div class="panel" id="p-history">
-        <div class="history-wrap" id="history-wrap"></div>
-      </div>
-      <div class="panel" id="p-members">
-        <div class="members-panel" id="members-panel"></div>
+      <div class="panel" id="p-history"><div class="history-wrap" id="history-wrap"></div></div>
+      <div class="panel" id="p-members"><div class="members-panel" id="members-panel"></div></div>
+      <div class="panel" id="p-friends">
+        <div class="friends-panel" id="friends-panel">
+          <div class="friends-search">
+            <input type="text" id="friend-search" placeholder="Buscar usuário..." onkeydown="if(event.key==='Enter')searchUsers()">
+            <button onclick="searchUsers()">Buscar</button>
+          </div>
+          <div id="friends-list"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -372,17 +406,14 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 <!-- ADD VIDEO MODAL -->
 <div class="overlay" id="add-modal">
   <div class="modal">
-    <div class="modal-title">
-      🎬 Adicionar Vídeo
-      <button class="modal-close" onclick="closeModal('add-modal')">✕</button>
-    </div>
+    <div class="modal-title">🎬 Adicionar Vídeo<button class="modal-close" onclick="closeModal('add-modal')">✕</button></div>
     <div class="src-grid">
       <div class="src-opt on" data-s="youtube" onclick="selSrc(this,'youtube')"><span class="ico">▶️</span>YouTube</div>
-      <div class="src-opt" data-s="vimeo"   onclick="selSrc(this,'vimeo')"  ><span class="ico">🎥</span>Vimeo</div>
-      <div class="src-opt" data-s="twitch"  onclick="selSrc(this,'twitch')" ><span class="ico">🟣</span>Twitch</div>
-      <div class="src-opt" data-s="direct"  onclick="selSrc(this,'direct')" ><span class="ico">🔗</span>URL direta</div>
-      <div class="src-opt" data-s="gdrive"  onclick="selSrc(this,'gdrive')" ><span class="ico">📁</span>Google Drive</div>
-      <div class="src-opt" data-s="local"   onclick="selSrc(this,'local')"  ><span class="ico">💾</span>Arquivo</div>
+      <div class="src-opt" data-s="vimeo" onclick="selSrc(this,'vimeo')"><span class="ico">🎥</span>Vimeo</div>
+      <div class="src-opt" data-s="twitch" onclick="selSrc(this,'twitch')"><span class="ico">🟣</span>Twitch</div>
+      <div class="src-opt" data-s="direct" onclick="selSrc(this,'direct')"><span class="ico">🔗</span>URL direta</div>
+      <div class="src-opt" data-s="gdrive" onclick="selSrc(this,'gdrive')"><span class="ico">📁</span>Google Drive</div>
+      <div class="src-opt" data-s="local" onclick="selSrc(this,'local')"><span class="ico">💾</span>Arquivo</div>
     </div>
     <div id="yt-section">
       <div class="yt-search-wrap">
@@ -397,8 +428,7 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
       <input class="minp" id="vurl" placeholder="https://...">
     </div>
     <div id="local-section" style="display:none">
-      <div class="dz" id="dz" onclick="document.getElementById('ff').click()"
-           ondragover="dzO(event,true)" ondragleave="dzO(event,false)" ondrop="dzD(event)">
+      <div class="dz" id="dz" onclick="document.getElementById('ff').click()" ondragover="dzO(event,true)" ondragleave="dzO(event,false)" ondrop="dzD(event)">
         <div class="dz-ico">📂</div>
         <p><strong>Clique ou arraste</strong> um arquivo de vídeo<br><span style="font-size:.72rem">MP4 · WebM · MKV · MOV · AVI</span></p>
       </div>
@@ -415,94 +445,75 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 <div class="toast" id="toast"></div>
 
 <script>
-// ═══════════════════════════════════════════════════════════
-// CONFIG
-// ═══════════════════════════════════════════════════════════
-const WS_URL = location.protocol === 'https:'
-  ? `wss://${location.host}`
-  : `ws://${location.host}`;
+const WS_URL = location.protocol === 'https:' ? `wss://${location.host}` : `ws://${location.host}`;
 
-// ═══════════════════════════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════════════════════════
-let ws = null;
-let myUser = null;
-let roomId = '';
-let roomState = null;
+// ── STATE ─────────────────────────────────────────────────
+let ws = null, myUser = null, roomId = '', roomState = null;
 let ytIframe = null, nativeVid = null;
-let isPlaying = false;
-let isSyncing = false;          // true when WE are applying a sync — prevents feedback loops
+let isPlaying = false, isSyncing = false;
 let currentSrc = 'youtube', pickedFile = null;
-let ytInfoCache = {};
-let selectedAvatar = '🎬';
-let amIHost = false;
-let localQueue = [];
-let rendered = new Set();
+let ytInfoCache = {}, selectedAvatar = '🎬';
+let amIHost = false, localQueue = [], rendered = new Set();
+let loggedInUser = null; // Google account data
 
-// ── RTT tracking ──────────────────────────────────────────
-let rtt = 80;          // smoothed RTT in ms (EMA)
-let pingTs = 0;
-let pingInterval = null;
+// RTT
+let rtt = 80, pingTs = 0, pingInterval = null;
 
-// ── The master sync clock ─────────────────────────────────
-// Instead of storing just "what time is it?", we store:
-//   syncTime    = video position at moment of last event
-//   syncWall    = real-world Date.now() at moment of last event
-//   syncPlaying = whether video was playing at that moment
-// Then we can always compute: position = syncTime + (now - syncWall)
-let syncTime = 0;
-let syncWall = 0;
-let syncPlaying = false;
+// Sync clock
+let syncTime = 0, syncWall = 0, syncPlaying = false;
 
-// ── YouTube player state ──────────────────────────────────
-let ytReady = false;
-let ytCurrentTime = 0;
-let ytPendingSeek = null;
-let ytLastInfoTs = 0;       // when we last got a currentTime update from YT
+// YT
+let ytReady = false, ytCurrentTime = 0, ytPendingSeek = null, ytLastInfoTs = 0;
 
-// ── Soft sync state ───────────────────────────────────────
-// Instead of hard-seeking for small drifts, we adjust playbackRate smoothly
+// Soft sync
 let softSyncInterval = null;
-const SOFT_SYNC_THRESHOLD = 0.3;  // drifts smaller than this: use rate adjustment
-const HARD_SEEK_THRESHOLD = 2.5;  // drifts larger than this: hard seek
-const RATE_FAST = 1.08;           // slightly faster to catch up
-const RATE_SLOW = 0.92;           // slightly slower to fall back
-const RATE_NORMAL = 1.0;
+const SOFT_SYNC_THRESHOLD = 0.3;
+const HARD_SEEK_THRESHOLD = 2.5;
+const RATE_FAST = 1.08, RATE_SLOW = 0.92, RATE_NORMAL = 1.0;
 
-// ═══════════════════════════════════════════════════════════
-// UTILS
-// ═══════════════════════════════════════════════════════════
+// ── UTILS ─────────────────────────────────────────────────
 function $(id) { return document.getElementById(id); }
-function ft(s) { if (!s || isNaN(s)) return '0:00'; return `${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2,'0')}`; }
+function ft(s) { if (!s||isNaN(s)) return '0:00'; return `${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2,'0')}`; }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function toast(msg, d=2500) { const el=$('toast'); el.textContent=msg; el.classList.add('on'); setTimeout(()=>el.classList.remove('on'),d); }
-function extractYT(url) { const m=url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/); return m?m[1]:null; }
+function toast(msg,d=2500){const el=$('toast');el.textContent=msg;el.classList.add('on');setTimeout(()=>el.classList.remove('on'),d);}
+function extractYT(url){const m=url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);return m?m[1]:null;}
+function expectedNow(){if(!syncPlaying||syncWall===0)return syncTime;return syncTime+(Date.now()-syncWall)/1000;}
+function curTime(){if(nativeVid)return nativeVid.currentTime||0;if(ytIframe)return ytCurrentTime||0;return 0;}
+function curDur(){if(nativeVid)return nativeVid.duration||0;return 0;}
 
-// Compute where the video should be RIGHT NOW based on the sync clock
-function expectedNow() {
-  if (!syncPlaying || syncWall === 0) return syncTime;
-  return syncTime + (Date.now() - syncWall) / 1000;
+// Avatar HTML helper — supports both Google photo URL and emoji
+function avatarHTML(user, size=28) {
+  if (user?.avatarUrl) return `<img src="${esc(user.avatarUrl)}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='<span>${esc(user.avatar||'👤')}</span>'">`;
+  return `<span style="font-size:${Math.round(size*0.6)}px">${esc(user?.avatar||'👤')}</span>`;
 }
 
-// Get current player position
-function curTime() {
-  if (nativeVid) return nativeVid.currentTime || 0;
-  if (ytIframe) return ytCurrentTime || 0;
-  return 0;
-}
-function curDur() {
-  if (nativeVid) return nativeVid.duration || 0;
-  return 0;
+// ── GOOGLE AUTH ───────────────────────────────────────────
+async function loadAuthState() {
+  try {
+    const res = await fetch('/auth/me');
+    const { user } = await res.json();
+    loggedInUser = user;
+    if (user) {
+      // Show user in lobby
+      const googleDiv = $('l-google');
+      googleDiv.innerHTML = `
+        <div style="display:flex;align-items:center;gap:.75rem;padding:.75rem;background:var(--s2);border-radius:12px;margin-bottom:1rem;border:1px solid var(--border)">
+          <img src="${esc(user.avatarUrl||'')}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'">
+          <div style="flex:1;min-width:0"><div style="font-weight:600;font-size:.9rem">${esc(user.name)}</div><div style="font-size:.72rem;color:var(--sub);font-family:'DM Mono',monospace">${esc(user.email||'')}</div></div>
+          <a href="/auth/logout" style="font-size:.72rem;color:var(--sub);font-family:'DM Mono',monospace;text-decoration:none;padding:.25rem .5rem;border-radius:6px;border:1px solid var(--border)">Sair</a>
+        </div>`;
+      // Pre-fill name
+      $('l-name').value = user.name;
+      $('j-name').value = user.name;
+    }
+  } catch(e) {}
 }
 
-// ═══════════════════════════════════════════════════════════
-// LOBBY
-// ═══════════════════════════════════════════════════════════
+// ── LOBBY ─────────────────────────────────────────────────
 document.querySelectorAll('.av-opt').forEach(el => {
   el.onclick = () => {
     el.closest('.avatar-pick').querySelectorAll('.av-opt').forEach(e=>e.classList.remove('on'));
-    el.classList.add('on');
-    selectedAvatar = el.dataset.av;
+    el.classList.add('on'); selectedAvatar = el.dataset.av;
   };
 });
 
@@ -534,775 +545,465 @@ async function joinRoom() {
   } catch(e) { showLErr('Erro ao conectar — servidor offline?'); }
 }
 
-function showLErr(m) { $('lerr').textContent=m; setTimeout(()=>$('lerr').textContent='',3500); }
+function showLErr(m){$('lerr').textContent=m;setTimeout(()=>$('lerr').textContent='',3500);}
 
-// ═══════════════════════════════════════════════════════════
-// APP + WEBSOCKET
-// ═══════════════════════════════════════════════════════════
+// ── APP ───────────────────────────────────────────────────
 function enterApp(id, name) {
   roomId = id;
-  myUser = { id: null, name, avatar: selectedAvatar };
+  myUser = {
+    id: null, name,
+    avatar: selectedAvatar,
+    avatarUrl: loggedInUser?.avatarUrl || null,
+    googleId: loggedInUser?.id || null
+  };
   $('lobby').style.display = 'none';
   $('app').style.display = 'flex';
   $('room-badge').textContent = '📋 ' + roomId;
+
+  // Show Google user in topbar
+  if (loggedInUser) {
+    const el = $('tb-user');
+    el.style.display = 'flex';
+    el.innerHTML = `<div class="tb-user-av"><img src="${esc(loggedInUser.avatarUrl||'')}" onerror="this.style.display='none'"></div><span class="tb-user-name">${esc(loggedInUser.name)}</span>`;
+    $('friends-tab').style.display = '';
+    loadFriends();
+  }
+
   connectWS();
 }
 
+// ── WEBSOCKET ─────────────────────────────────────────────
 function connectWS() {
   ws = new WebSocket(WS_URL);
-  ws.onopen = () => {
-    send('JOIN', { roomId, user: myUser });
-    startPing();
-  };
-  ws.onmessage = (e) => {
-    try { handle(JSON.parse(e.data)); } catch(err) { console.error(err); }
-  };
-  ws.onclose = () => {
-    clearInterval(pingInterval);
-    setTimeout(connectWS, 2000);
-  };
+  ws.onopen = () => { send('JOIN',{roomId,user:myUser}); startPing(); };
+  ws.onmessage = (e) => { try{handle(JSON.parse(e.data));}catch(err){console.error(err);} };
+  ws.onclose = () => { clearInterval(pingInterval); setTimeout(connectWS,2000); };
 }
 
-function send(type, payload) {
-  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type, payload }));
+function send(type,payload){if(ws&&ws.readyState===1)ws.send(JSON.stringify({type,payload}));}
+
+function startPing(){
+  if(pingInterval)clearInterval(pingInterval);
+  pingInterval=setInterval(()=>{pingTs=Date.now();send('PING',{ts:pingTs});},2000);
 }
 
-// ── PING — sends every 2s, measures RTT with EMA smoothing ──
-function startPing() {
-  if (pingInterval) clearInterval(pingInterval);
-  pingInterval = setInterval(() => {
-    pingTs = Date.now();
-    send('PING', { ts: pingTs });
-  }, 2000);
-}
-
-// ═══════════════════════════════════════════════════════════
-// WS MESSAGE HANDLER
-// ═══════════════════════════════════════════════════════════
+// ── WS HANDLER ────────────────────────────────────────────
 function handle(msg) {
-  const { type, payload } = msg;
+  const {type,payload}=msg;
 
-  if (type === 'ROOM_STATE') {
-    roomState = payload;
-    myUser.id = payload.members.find(m=>m.name===myUser.name)?.id || myUser.id;
-    amIHost = payload.host === myUser.id;
-    updateHostUI();
-    renderMembers(payload.members);
-    renderQueue(payload.queue);
-    renderHistory(payload.history);
-    updateLiveLbl(payload.memberCount || payload.members.length);
-    // Apply the server clock — this is the reference point
-    applySyncClock(payload.playing, payload.currentTime, payload.serverNow || Date.now());
-    if (payload.video) loadVideo(payload.video, false);
+  if(type==='ROOM_STATE'){
+    roomState=payload;
+    myUser.id=payload.members.find(m=>m.name===myUser.name)?.id||myUser.id;
+    amIHost=payload.host===myUser.id;
+    updateHostUI(); renderMembers(payload.members);
+    renderQueue(payload.queue); renderHistory(payload.history);
+    updateLiveLbl(payload.memberCount||payload.members.length);
+    applySyncClock(payload.playing,payload.currentTime,payload.serverNow||Date.now());
+    if(payload.video)loadVideo(payload.video,false);
     startSoftSync();
   }
 
-  if (type === 'USER_JOINED') {
-    sysMsg(`${payload.user.avatar} ${payload.user.name} entrou na sala`);
-    updateLiveLbl(payload.memberCount);
-  }
+  if(type==='USER_JOINED'){sysMsg(`${payload.user.avatar||'👤'} ${payload.user.name} entrou na sala`);updateLiveLbl(payload.memberCount);}
+  if(type==='HOST_CHANGED'){amIHost=payload.hostId===myUser.id;updateHostUI();updateYTOverlay();if(amIHost)sysMsg('👑 Você agora é o host da sala');}
+  if(type==='USER_LEFT'){sysMsg(`${payload.user?.avatar||'👤'} ${payload.user?.name||'Alguém'} saiu`);updateLiveLbl(payload.memberCount);}
+  if(type==='PONG'){const m=Date.now()-payload.ts;rtt=Math.round(rtt*0.7+m*0.3);}
+  if(type==='CHAT'){renderChatMsg(payload);}
+  if(type==='REACTION'){spawnFloat(payload.emoji);}
 
-  if (type === 'HOST_CHANGED') {
-    amIHost = payload.hostId === myUser.id;
-    updateHostUI();
-    updateYTOverlay();
-    if (amIHost) sysMsg('👑 Você agora é o host da sala');
-  }
-
-  if (type === 'USER_LEFT') {
-    sysMsg(`${payload.user?.avatar||'👤'} ${payload.user?.name||'Alguém'} saiu`);
-    updateLiveLbl(payload.memberCount);
-  }
-
-  if (type === 'PONG') {
-    // EMA smoothing: weight new sample 30%, historical 70%
-    const measured = Date.now() - payload.ts;
-    rtt = Math.round(rtt * 0.7 + measured * 0.3);
-  }
-
-  if (type === 'CHAT') {
-    renderChatMsg(payload);
-  }
-
-  if (type === 'REACTION') {
-    spawnFloat(payload.emoji, payload.user);
-  }
-
-  if (type === 'VIDEO') {
-    if (payload.video) {
-      applySyncClock(false, 0, Date.now());
-      loadVideo(payload.video, false);
+  if(type==='VIDEO'){
+    if(payload.video){
+      applySyncClock(false,0,Date.now());
+      loadVideo(payload.video,false);
       sysMsg(`${payload.by?.avatar||''} ${payload.by?.name||'Alguém'} adicionou: ${payload.video.title}`);
     }
   }
 
-  if (type === 'QUEUE_UPDATE') {
-    renderQueue(payload.queue);
+  if(type==='QUEUE_UPDATE'){renderQueue(payload.queue);}
+
+  if(type==='STATE'){
+    applySyncClock(payload.playing,payload.currentTime,payload.serverNow||Date.now());
+    if(!ytReady&&ytIframe)return;
+    applyPlayState(payload.playing,payload.currentTime);
   }
 
-  // STATE is a definitive play/pause event from the host (with RTT compensation already applied)
-  if (type === 'STATE') {
-    applySyncClock(payload.playing, payload.currentTime, payload.serverNow || Date.now());
-    if (!ytReady && ytIframe) return;
-    applyPlayState(payload.playing, payload.currentTime);
+  if(type==='SEEK'){
+    applySyncClock(syncPlaying,payload.t,Date.now());
+    if(!ytReady&&ytIframe)return;
+    isSyncing=true; seekTo(payload.t); isSyncing=false;
   }
 
-  // SEEK is a position jump (with RTT compensation already applied by server)
-  if (type === 'SEEK') {
-    applySyncClock(syncPlaying, payload.t, Date.now());
-    if (!ytReady && ytIframe) return;
-    isSyncing = true;
-    seekTo(payload.t);
-    isSyncing = false;
-  }
-
-  // SYNC_TICK is the periodic heartbeat — used for soft drift correction
-  if (type === 'SYNC_TICK') {
-    // Update our reference clock
-    applySyncClock(payload.playing, payload.currentTime, payload.serverNow || Date.now());
-    if (!ytReady && ytIframe) return;
-
-    // Correct play/pause state immediately if wrong
-    if (payload.playing !== isPlaying) {
-      applyPlayState(payload.playing, payload.currentTime);
-      return;
-    }
-
-    // For drift: let the soft sync loop handle it (runs every 500ms)
-    // Only hard-seek here if massively out of sync
-    if (syncPlaying) {
-      const drift = curTime() - expectedNow();
-      if (Math.abs(drift) > HARD_SEEK_THRESHOLD) {
-        isSyncing = true;
-        seekTo(Math.max(0, expectedNow()));
-        isSyncing = false;
-      }
+  if(type==='SYNC_TICK'){
+    applySyncClock(payload.playing,payload.currentTime,payload.serverNow||Date.now());
+    if(!ytReady&&ytIframe)return;
+    if(payload.playing!==isPlaying){applyPlayState(payload.playing,payload.currentTime);return;}
+    if(syncPlaying){
+      const drift=curTime()-expectedNow();
+      if(Math.abs(drift)>HARD_SEEK_THRESHOLD){isSyncing=true;seekTo(Math.max(0,expectedNow()));setRate(RATE_NORMAL);isSyncing=false;}
     }
   }
 }
 
-// ─────────────────────────────────────────────────────────
-// applySyncClock — stores the reference clock.
-// serverNow is the server's Date.now() at time of sending,
-// so we can account for server→client one-way latency too.
-// ─────────────────────────────────────────────────────────
-function applySyncClock(playing, videoTime, serverNow) {
-  const oneWay = rtt / 2;                    // estimated one-way latency
-  const networkDelay = (Date.now() - serverNow) + oneWay; // total transit ms
-  // If playing, the video has advanced by networkDelay ms since server sent this
-  syncTime = videoTime + (playing ? networkDelay / 1000 : 0);
-  syncWall = Date.now();
-  syncPlaying = playing;
+function applySyncClock(playing,videoTime,serverNow){
+  const oneWay=rtt/2;
+  const networkDelay=(Date.now()-serverNow)+oneWay;
+  syncTime=videoTime+(playing?networkDelay/1000:0);
+  syncWall=Date.now(); syncPlaying=playing;
 }
 
-// ─────────────────────────────────────────────────────────
-// applyPlayState — immediately sets play/pause and corrects position
-// ─────────────────────────────────────────────────────────
-function applyPlayState(playing, t) {
-  isSyncing = true;
-  const target = Math.max(0, t);
-  const current = curTime();
-  // Only seek if significantly off — avoids unnecessary jumps
-  if (Math.abs(current - target) > 0.5) seekTo(target);
-  if (playing) doPlay(); else doPause();
-  isSyncing = false;
+function applyPlayState(playing,t){
+  isSyncing=true;
+  const target=Math.max(0,t);
+  if(Math.abs(curTime()-target)>0.5)seekTo(target);
+  if(playing)doPlay();else doPause();
+  isSyncing=false;
 }
 
-// ═══════════════════════════════════════════════════════════
-// SOFT SYNC LOOP — runs every 500ms
-// This is the Rave magic: instead of hard seeks for small drifts,
-// we adjust playbackRate so the correction is completely invisible.
-// ═══════════════════════════════════════════════════════════
-function startSoftSync() {
-  if (softSyncInterval) clearInterval(softSyncInterval);
-  softSyncInterval = setInterval(() => {
-    if (!syncPlaying || syncWall === 0) return;
-    if (ytIframe && !ytReady) return;
-
-    const expected = expectedNow();
-    const current = curTime();
-    if (current === 0 && expected > 2) return; // player not ready yet
-
-    const drift = current - expected; // positive = we're ahead, negative = behind
-
-    if (Math.abs(drift) > HARD_SEEK_THRESHOLD) {
-      // Too far out of sync — hard seek
-      isSyncing = true;
-      seekTo(Math.max(0, expected));
-      setRate(RATE_NORMAL);
-      isSyncing = false;
-    } else if (drift > SOFT_SYNC_THRESHOLD) {
-      // We're running ahead — slow down a bit
-      setRate(RATE_SLOW);
-    } else if (drift < -SOFT_SYNC_THRESHOLD) {
-      // We're running behind — speed up a bit
-      setRate(RATE_FAST);
-    } else {
-      // Within acceptable range — normal speed
-      setRate(RATE_NORMAL);
-    }
-  }, 500);
+// ── SOFT SYNC ─────────────────────────────────────────────
+function startSoftSync(){
+  if(softSyncInterval)clearInterval(softSyncInterval);
+  softSyncInterval=setInterval(()=>{
+    if(!syncPlaying||syncWall===0)return;
+    if(ytIframe&&!ytReady)return;
+    const expected=expectedNow(), current=curTime();
+    if(current===0&&expected>2)return;
+    const drift=current-expected;
+    if(Math.abs(drift)>HARD_SEEK_THRESHOLD){isSyncing=true;seekTo(Math.max(0,expected));setRate(RATE_NORMAL);isSyncing=false;}
+    else if(drift>SOFT_SYNC_THRESHOLD)setRate(RATE_SLOW);
+    else if(drift<-SOFT_SYNC_THRESHOLD)setRate(RATE_FAST);
+    else setRate(RATE_NORMAL);
+  },500);
 }
 
-function setRate(rate) {
-  if (nativeVid && nativeVid.playbackRate !== rate) nativeVid.playbackRate = rate;
-  if (ytIframe && ytReady) {
-    // YouTube iframe API supports setPlaybackRate
-    ytCmd('setPlaybackRate', [rate]);
-  }
+function setRate(r){
+  if(nativeVid&&nativeVid.playbackRate!==r)nativeVid.playbackRate=r;
+  if(ytIframe&&ytReady)ytCmd('setPlaybackRate',[r]);
 }
 
-// ═══════════════════════════════════════════════════════════
-// VIDEO LOADING
-// ═══════════════════════════════════════════════════════════
-function loadVideo(video, doBroadcast) {
-  const { src, url, title, author } = video;
+// ── VIDEO LOADING ─────────────────────────────────────────
+function loadVideo(video,doBroadcast){
+  const{src,url,title,author}=video;
+  if(ytIframe){ytIframe=null;}
+  ytReady=false;ytCurrentTime=0;ytPendingSeek=null;
+  if(nativeVid){nativeVid.pause();nativeVid=null;}
 
-  if (ytIframe) { ytIframe = null; }
-  ytReady = false;
-  ytCurrentTime = 0;
-  ytPendingSeek = null;
-  if (nativeVid) { nativeVid.pause(); nativeVid = null; }
+  const wrap=$('vwrap');
+  const reacts=wrap.querySelector('.reacts-wrap');
+  const vinfo=$('vinfo');
+  wrap.innerHTML='';wrap.appendChild(reacts);wrap.appendChild(vinfo);
 
-  const wrap = $('vwrap');
-  const reacts = wrap.querySelector('.reacts-wrap');
-  const vinfo = $('vinfo');
-  wrap.innerHTML = '';
-  wrap.appendChild(reacts);
-  wrap.appendChild(vinfo);
+  $('vph').style.display='none'; wrap.style.display='block'; $('ctrl').style.display='flex';
+  $('vi-title').textContent=title||''; $('vi-sub').textContent=author||'';
+  $('vinfo').style.display=title?'block':'none';
+  isPlaying=false; $('pbtn').textContent='▶';
+  $('prog-fill').style.width='0%'; $('tlbl-cur').textContent='0:00'; $('tlbl-dur').textContent='0:00';
 
-  $('vph').style.display = 'none';
-  wrap.style.display = 'block';
-  $('ctrl').style.display = 'flex';
-  $('vi-title').textContent = title || '';
-  $('vi-sub').textContent = author || '';
-  $('vinfo').style.display = title ? 'block' : 'none';
-  isPlaying = false;
-  $('pbtn').textContent = '▶';
-  $('prog-fill').style.width = '0%';
-  $('tlbl-cur').textContent = '0:00';
-  $('tlbl-dur').textContent = '0:00';
-
-  if (src === 'youtube') {
-    $('src-badge').textContent = 'YT';
-    const vid = extractYT(url);
-    if (!vid) { toast('URL inválida'); return; }
-
-    // Start iframe at the expected position to minimize initial seek
-    const startAt = Math.floor(Math.max(0, expectedNow()));
-
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
-    iframe.src = `https://www.youtube-nocookie.com/embed/${vid}?autoplay=0&controls=0&rel=0&modestbranding=1&enablejsapi=1&start=${startAt}&origin=${encodeURIComponent(location.origin)}`;
-    iframe.allow = 'autoplay; fullscreen; accelerometer; encrypted-media; gyroscope; picture-in-picture';
-    iframe.allowFullscreen = true;
-    wrap.appendChild(iframe);
-    ytIframe = iframe;
-
-    // Overlay — guests can't click through to native YT controls
-    const overlay = document.createElement('div');
-    overlay.id = 'yt-overlay';
-    overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;';
-    overlay.onclick = () => { if (!amIHost) toast('Apenas o host pode controlar o vídeo ▶'); };
+  if(src==='youtube'){
+    $('src-badge').textContent='YT';
+    const vid=extractYT(url); if(!vid){toast('URL inválida');return;}
+    const startAt=Math.floor(Math.max(0,expectedNow()));
+    const iframe=document.createElement('iframe');
+    iframe.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
+    iframe.src=`https://www.youtube-nocookie.com/embed/${vid}?autoplay=0&controls=0&rel=0&modestbranding=1&enablejsapi=1&start=${startAt}&origin=${encodeURIComponent(location.origin)}`;
+    iframe.allow='autoplay; fullscreen; accelerometer; encrypted-media; gyroscope; picture-in-picture';
+    iframe.allowFullscreen=true; wrap.appendChild(iframe); ytIframe=iframe;
+    const overlay=document.createElement('div');
+    overlay.id='yt-overlay';overlay.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;';
+    overlay.onclick=()=>{if(!amIHost)toast('Apenas o host pode controlar o vídeo ▶');};
     wrap.appendChild(overlay);
-
-    window.removeEventListener('message', onYTMsg);
-    window.addEventListener('message', onYTMsg);
-
-    iframe.addEventListener('load', () => {
-      try { iframe.contentWindow.postMessage(JSON.stringify({ event: 'listening' }), '*'); } catch(e) {}
-    });
-
-  } else if (src === 'vimeo') {
-    $('src-badge').textContent = 'VM';
-    const m = url.match(/vimeo\.com\/(\d+)/);
-    if (!m) { toast('URL Vimeo inválida'); return; }
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
-    iframe.src = `https://player.vimeo.com/video/${m[1]}?autoplay=0`;
-    iframe.allow = 'autoplay; fullscreen'; iframe.allowFullscreen = true;
-    wrap.appendChild(iframe);
-
-  } else if (src === 'twitch') {
-    $('src-badge').textContent = 'TW';
-    const ch = url.replace(/https?:\/\/(www\.)?twitch\.tv\//,'').split('/')[0];
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
-    iframe.src = `https://player.twitch.tv/?channel=${ch}&parent=${location.hostname}`;
-    iframe.allow = 'autoplay; fullscreen'; iframe.allowFullscreen = true;
-    wrap.appendChild(iframe);
-
+    window.removeEventListener('message',onYTMsg); window.addEventListener('message',onYTMsg);
+    iframe.addEventListener('load',()=>{try{iframe.contentWindow.postMessage(JSON.stringify({event:'listening'}),'*');}catch(e){}});
+  } else if(src==='vimeo'){
+    $('src-badge').textContent='VM';
+    const m=url.match(/vimeo\.com\/(\d+)/); if(!m){toast('URL Vimeo inválida');return;}
+    const iframe=document.createElement('iframe');
+    iframe.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
+    iframe.src=`https://player.vimeo.com/video/${m[1]}?autoplay=0`;
+    iframe.allow='autoplay; fullscreen'; iframe.allowFullscreen=true; wrap.appendChild(iframe);
+  } else if(src==='twitch'){
+    $('src-badge').textContent='TW';
+    const ch=url.replace(/https?:\/\/(www\.)?twitch\.tv\//,'').split('/')[0];
+    const iframe=document.createElement('iframe');
+    iframe.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
+    iframe.src=`https://player.twitch.tv/?channel=${ch}&parent=${location.hostname}`;
+    iframe.allow='autoplay; fullscreen'; iframe.allowFullscreen=true; wrap.appendChild(iframe);
   } else {
-    // Native video (MP4, WebM, local file, etc.)
-    const ext = src==='local'?'LOCAL':(url.split('.').pop().split('?')[0].toUpperCase().substring(0,4)||'VID');
-    $('src-badge').textContent = ext;
-    const v = document.createElement('video');
-    v.src = url; v.controls = false; v.preload = 'metadata';
-    v.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;';
-    v.volume = parseFloat($('vol').value);
-    wrap.appendChild(v);
-    nativeVid = v;
-
-    v.addEventListener('play', () => {
-      if (isSyncing) return;
-      isPlaying = true; $('pbtn').textContent = '⏸';
-      if (amIHost) send('STATE', { playing: true, currentTime: v.currentTime });
-    });
-    v.addEventListener('pause', () => {
-      if (isSyncing) return;
-      isPlaying = false; $('pbtn').textContent = '▶';
-      if (amIHost) send('STATE', { playing: false, currentTime: v.currentTime });
-    });
-    v.addEventListener('seeked', () => {
-      if (isSyncing) return;
-      if (amIHost) send('SEEK', { t: v.currentTime });
-    });
-    v.addEventListener('error', () => toast('Erro ao carregar vídeo'));
-
-    // Seek to correct position once metadata loads
-    v.addEventListener('loadedmetadata', () => {
-      const target = expectedNow();
-      if (target > 0) v.currentTime = target;
-      if (syncPlaying) v.play().catch(()=>{});
-    });
+    const ext=src==='local'?'LOCAL':(url.split('.').pop().split('?')[0].toUpperCase().substring(0,4)||'VID');
+    $('src-badge').textContent=ext;
+    const v=document.createElement('video');
+    v.src=url;v.controls=false;v.preload='metadata';
+    v.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;';
+    v.volume=parseFloat($('vol').value); wrap.appendChild(v); nativeVid=v;
+    v.addEventListener('play',()=>{if(isSyncing)return;isPlaying=true;$('pbtn').textContent='⏸';if(amIHost)send('STATE',{playing:true,currentTime:v.currentTime});});
+    v.addEventListener('pause',()=>{if(isSyncing)return;isPlaying=false;$('pbtn').textContent='▶';if(amIHost)send('STATE',{playing:false,currentTime:v.currentTime});});
+    v.addEventListener('seeked',()=>{if(isSyncing)return;if(amIHost)send('SEEK',{t:v.currentTime});});
+    v.addEventListener('error',()=>toast('Erro ao carregar vídeo'));
+    v.addEventListener('loadedmetadata',()=>{const t=expectedNow();if(t>0)v.currentTime=t;if(syncPlaying)v.play().catch(()=>{});});
   }
-
-  if (doBroadcast) {
-    send('VIDEO', { video });
-  }
+  if(doBroadcast)send('VIDEO',{video});
 }
 
-// ═══════════════════════════════════════════════════════════
-// YOUTUBE POSTMESSAGE API
-// ═══════════════════════════════════════════════════════════
-function onYTMsg(e) {
-  try {
-    const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-    if (!d) return;
-
-    // Player ready
-    if (!ytReady && d.event === 'onReady') {
-      ytReady = true;
-      // Apply pending sync state
-      const target = expectedNow();
-      if (target > 1) seekTo(target);
-      if (syncPlaying) doPlay(); else doPause();
-      return;
-    }
-
-    if (!d.info) return;
-
-    // Track current time — YT sends this frequently
-    if (d.info.currentTime !== undefined) {
-      ytCurrentTime = d.info.currentTime;
-      ytLastInfoTs = Date.now();
-    }
-
-    // Fallback ready detection
-    if (!ytReady && d.info.playerState !== undefined && d.info.playerState !== -1) {
-      ytReady = true;
-      const target = expectedNow();
-      if (target > 1) seekTo(target);
-      if (syncPlaying) doPlay(); else doPause();
-    }
-
-    // Player state changes — only host can trigger remote changes
-    if (d.info.playerState === 1 && !isSyncing) {
-      // Video started playing
-      isPlaying = true; $('pbtn').textContent = '⏸';
-      if (amIHost) {
-        send('STATE', { playing: true, currentTime: ytCurrentTime });
-      } else {
-        // Guest tried to play on their own — revert to correct state
-        isSyncing = true;
-        if (!syncPlaying) ytCmd('pauseVideo');
-        isSyncing = false;
-      }
-    }
-
-    if (d.info.playerState === 2 && !isSyncing) {
-      // Video paused
-      isPlaying = false; $('pbtn').textContent = '▶';
-      if (amIHost) {
-        send('STATE', { playing: false, currentTime: ytCurrentTime });
-      } else {
-        isSyncing = true;
-        if (syncPlaying) ytCmd('playVideo');
-        isSyncing = false;
-      }
-    }
-  } catch(err) {}
+// ── YOUTUBE API ───────────────────────────────────────────
+function onYTMsg(e){
+  try{
+    const d=typeof e.data==='string'?JSON.parse(e.data):e.data; if(!d)return;
+    if(!ytReady&&d.event==='onReady'){ytReady=true;const t=expectedNow();if(t>1)seekTo(t);if(syncPlaying)doPlay();else doPause();return;}
+    if(!d.info)return;
+    if(d.info.currentTime!==undefined){ytCurrentTime=d.info.currentTime;ytLastInfoTs=Date.now();}
+    if(!ytReady&&d.info.playerState!==undefined&&d.info.playerState!==-1){ytReady=true;const t=expectedNow();if(t>1)seekTo(t);if(syncPlaying)doPlay();else doPause();}
+    if(d.info.playerState===1&&!isSyncing){isPlaying=true;$('pbtn').textContent='⏸';if(amIHost)send('STATE',{playing:true,currentTime:ytCurrentTime});else{isSyncing=true;if(!syncPlaying)ytCmd('pauseVideo');isSyncing=false;}}
+    if(d.info.playerState===2&&!isSyncing){isPlaying=false;$('pbtn').textContent='▶';if(amIHost)send('STATE',{playing:false,currentTime:ytCurrentTime});else{isSyncing=true;if(syncPlaying)ytCmd('playVideo');isSyncing=false;}}
+  }catch(err){}
 }
+function ytCmd(cmd,args){if(ytIframe?.contentWindow){try{ytIframe.contentWindow.postMessage(JSON.stringify({event:'command',func:cmd,args:args||[]}),'*');}catch(e){}}}
 
-function ytCmd(cmd, args) {
-  if (ytIframe?.contentWindow) {
-    try {
-      ytIframe.contentWindow.postMessage(
-        JSON.stringify({ event: 'command', func: cmd, args: args || [] }), '*'
-      );
-    } catch(e) {}
-  }
-}
-
-// ═══════════════════════════════════════════════════════════
-// HOST UI
-// ═══════════════════════════════════════════════════════════
-function updateHostUI() {
-  let badge = $('host-badge');
-  if (!badge) {
-    badge = document.createElement('span');
-    badge.id = 'host-badge';
-    badge.style.cssText = 'font-size:.65rem;font-family:"DM Mono",monospace;padding:.15rem .45rem;border-radius:5px;background:rgba(232,67,147,.2);color:var(--accent);border:1px solid rgba(232,67,147,.3);';
-    $('tb-right').prepend(badge);
-  }
-  badge.textContent = amIHost ? '👑 host' : '👤 membro';
-  const ctrl = $('ctrl');
-  ctrl.querySelectorAll('.c-btn, #vol').forEach(b => {
-    b.style.opacity = amIHost ? '' : '0.35';
-    b.style.pointerEvents = amIHost ? '' : 'none';
-    b.title = amIHost ? '' : 'Apenas o host pode controlar';
-  });
-  $('prog').style.pointerEvents = amIHost ? 'auto' : 'none';
-  $('prog').style.cursor = amIHost ? 'pointer' : 'default';
+// ── HOST UI ───────────────────────────────────────────────
+function updateHostUI(){
+  let badge=$('host-badge');
+  if(!badge){badge=document.createElement('span');badge.id='host-badge';badge.style.cssText='font-size:.65rem;font-family:"DM Mono",monospace;padding:.15rem .45rem;border-radius:5px;background:rgba(232,67,147,.2);color:var(--accent);border:1px solid rgba(232,67,147,.3);';$('tb-right').prepend(badge);}
+  badge.textContent=amIHost?'👑 host':'👤 membro';
+  $('ctrl').querySelectorAll('.c-btn,#vol').forEach(b=>{b.style.opacity=amIHost?'':'0.35';b.style.pointerEvents=amIHost?'':'none';});
+  $('prog').style.pointerEvents=amIHost?'auto':'none';
+  $('prog').style.cursor=amIHost?'pointer':'default';
   updateYTOverlay();
 }
+function updateYTOverlay(){const o=$('yt-overlay');if(o)o.style.cursor=amIHost?'default':'not-allowed';}
 
-function updateYTOverlay() {
-  const overlay = $('yt-overlay');
-  if (!overlay) return;
-  overlay.style.cursor = amIHost ? 'default' : 'not-allowed';
+// ── CONTROLS ──────────────────────────────────────────────
+function togglePlay(){if(!amIHost){toast('Apenas o host pode pausar/dar play ▶');return;}const n=!isPlaying;if(n)doPlay();else doPause();send('STATE',{playing:n,currentTime:curTime()});}
+function skip(s){if(!amIHost){toast('Apenas o host pode avançar/voltar ⏩');return;}const t=Math.max(0,curTime()+s);seekTo(t);send('SEEK',{t});}
+function seekClick(e){if(!amIHost)return;const dur=curDur();if(!dur&&!ytIframe)return;const r=$('prog').getBoundingClientRect();const t=Math.max(0,Math.min(dur||600,((e.clientX-r.left)/r.width)*(dur||600)));seekTo(t);send('SEEK',{t});}
+function doPlay(){isPlaying=true;$('pbtn').textContent='⏸';if(ytIframe&&ytReady)ytCmd('playVideo');if(nativeVid)nativeVid.play().catch(()=>{});}
+function doPause(){isPlaying=false;$('pbtn').textContent='▶';if(ytIframe&&ytReady)ytCmd('pauseVideo');if(nativeVid)nativeVid.pause();setRate(RATE_NORMAL);}
+function seekTo(t){if(ytIframe){if(ytReady)ytCmd('seekTo',[t,true]);else ytPendingSeek=t;}if(nativeVid)nativeVid.currentTime=t;}
+function setVol(v){if(nativeVid)nativeVid.volume=v;ytCmd('setVolume',[v*100]);}
+function goFS(){const w=$('vwrap');if(!document.fullscreenElement)w.requestFullscreen&&w.requestFullscreen();else document.exitFullscreen&&document.exitFullscreen();}
+
+setInterval(()=>{
+  const cur=curTime(),dur=curDur();
+  if(dur){$('prog-fill').style.width=((cur/dur)*100)+'%';$('tlbl-dur').textContent=ft(dur);}
+  else if(ytIframe&&isPlaying){const ms=Date.now()-ytLastInfoTs;$('tlbl-cur').textContent=ft(ytCurrentTime+(isPlaying?ms/1000:0));return;}
+  $('tlbl-cur').textContent=ft(cur);
+},400);
+
+// ── CHAT ──────────────────────────────────────────────────
+function sendChat(){const inp=$('chat-inp');const text=inp.value.trim();if(!text)return;send('CHAT',{text});inp.value='';inp.style.height='';}
+function chatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}}
+
+function renderChatMsg(payload){
+  if(rendered.has(payload.id))return; rendered.add(payload.id);
+  const isMe=payload.user?.id===myUser?.id||payload.user?.name===myUser?.name;
+  const div=document.createElement('div');
+  div.className='msg '+(isMe?'me':'them');
+  const ts=new Date(payload.ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const avEl=payload.user?.avatarUrl?`<img src="${esc(payload.user.avatarUrl)}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">`:`<span>${esc(payload.user?.avatar||'👤')}</span>`;
+  div.innerHTML=`<div class="msg-head"><div class="msg-av">${avEl}</div><span class="msg-name">${esc(payload.user?.name||'?')}</span><span class="msg-time">${ts}</span></div><div class="msg-text">${esc(payload.text)}</div>`;
+  const msgs=$('msgs');msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;
 }
 
-// ═══════════════════════════════════════════════════════════
-// PLAYER CONTROLS
-// ═══════════════════════════════════════════════════════════
-function togglePlay() {
-  if (!amIHost) { toast('Apenas o host pode pausar/dar play ▶'); return; }
-  const newPlaying = !isPlaying;
-  if (newPlaying) doPlay(); else doPause();
-  send('STATE', { playing: newPlaying, currentTime: curTime() });
+function sysMsg(text){const div=document.createElement('div');div.className='msg sys';div.textContent=text;const msgs=$('msgs');msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;}
+
+// ── REACTIONS ─────────────────────────────────────────────
+function react(emoji){send('REACTION',{emoji});}
+function spawnFloat(emoji){const wrap=$('vwrap');if(!wrap)return;const el=document.createElement('div');el.className='float-r';el.textContent=emoji;el.style.left=(10+Math.random()*80)+'%';el.style.bottom='60px';wrap.appendChild(el);setTimeout(()=>el.remove(),2500);}
+
+// ── FRIENDS ───────────────────────────────────────────────
+async function loadFriends(){
+  try{
+    const [fr,pr]=await Promise.all([fetch('/api/friends').then(r=>r.json()),fetch('/api/friends/pending').then(r=>r.json())]);
+    renderFriends(fr.friends||[],pr.pending||[]);
+  }catch(e){}
 }
 
-function skip(s) {
-  if (!amIHost) { toast('Apenas o host pode avançar/voltar ⏩'); return; }
-  const t = Math.max(0, curTime() + s);
-  seekTo(t);
-  send('SEEK', { t });
-}
+function renderFriends(friends,pending){
+  const list=$('friends-list'); list.innerHTML='';
+  const badge=$('pending-badge');
+  if(pending.length){badge.style.display='';badge.textContent=pending.length;}
+  else badge.style.display='none';
 
-function seekClick(e) {
-  if (!amIHost) return;
-  const dur = curDur();
-  if (!dur && !ytIframe) return;
-  const r = $('prog').getBoundingClientRect();
-  const t = Math.max(0, Math.min(dur || 600, ((e.clientX - r.left) / r.width) * (dur || 600)));
-  seekTo(t);
-  send('SEEK', { t });
-}
-
-function doPlay() {
-  isPlaying = true; $('pbtn').textContent = '⏸';
-  if (ytIframe && ytReady) ytCmd('playVideo');
-  if (nativeVid) nativeVid.play().catch(()=>{});
-}
-
-function doPause() {
-  isPlaying = false; $('pbtn').textContent = '▶';
-  if (ytIframe && ytReady) ytCmd('pauseVideo');
-  if (nativeVid) nativeVid.pause();
-  setRate(RATE_NORMAL); // always reset rate on pause
-}
-
-function seekTo(t) {
-  if (ytIframe) {
-    if (ytReady) ytCmd('seekTo', [t, true]);
-    else ytPendingSeek = t;
+  if(pending.length){
+    const t=document.createElement('div');t.className='friends-section-title';t.textContent='Solicitações recebidas';list.appendChild(t);
+    pending.forEach(u=>{
+      const d=document.createElement('div');d.className='friend-row';
+      d.innerHTML=`<div class="friend-av"><img src="${esc(u.avatar_url||'')}" onerror="this.style.display='none'"></div><div class="friend-info"><div class="friend-name">${esc(u.name)}</div></div><div class="friend-actions"><button class="f-btn accept" onclick="acceptFriend('${esc(u.id)}')">✓ Aceitar</button><button class="f-btn danger" onclick="removeFriend('${esc(u.id)}')">✕</button></div>`;
+      list.appendChild(d);
+    });
   }
-  if (nativeVid) nativeVid.currentTime = t;
-}
 
-function setVol(v) {
-  if (nativeVid) nativeVid.volume = v;
-  ytCmd('setVolume', [v * 100]);
-}
+  const accepted=friends.filter(f=>f.status==='accepted');
+  const sent=friends.filter(f=>f.status==='pending');
 
-function goFS() {
-  const w = $('vwrap');
-  if (!document.fullscreenElement) w.requestFullscreen && w.requestFullscreen();
-  else document.exitFullscreen && document.exitFullscreen();
-}
-
-// ── Progress bar update loop ────────────────────────────
-setInterval(() => {
-  const cur = curTime();
-  const dur = curDur();
-
-  if (dur) {
-    $('prog-fill').style.width = ((cur / dur) * 100) + '%';
-    $('tlbl-dur').textContent = ft(dur);
-  } else if (ytIframe && isPlaying) {
-    // For YT, interpolate between postMessage updates
-    const msAgo = Date.now() - ytLastInfoTs;
-    const interpolated = ytCurrentTime + (isPlaying ? msAgo / 1000 : 0);
-    $('tlbl-cur').textContent = ft(interpolated);
-    return;
+  if(accepted.length){
+    const t=document.createElement('div');t.className='friends-section-title';t.textContent='Amigos';list.appendChild(t);
+    accepted.forEach(u=>{
+      const d=document.createElement('div');d.className='friend-row';
+      d.innerHTML=`<div class="friend-av"><img src="${esc(u.avatar_url||'')}" onerror="this.style.display='none'"></div><div class="friend-info"><div class="friend-name">${esc(u.name)}</div></div><div class="friend-actions"><button class="f-btn danger" onclick="removeFriend('${esc(u.id)}')">Remover</button></div>`;
+      list.appendChild(d);
+    });
   }
-  $('tlbl-cur').textContent = ft(cur);
-}, 400);
 
-// ═══════════════════════════════════════════════════════════
-// CHAT
-// ═══════════════════════════════════════════════════════════
-function sendChat() {
-  const inp = $('chat-inp');
-  const text = inp.value.trim();
-  if (!text) return;
-  send('CHAT', { text });
-  inp.value = '';
-  inp.style.height = '';
+  if(sent.length){
+    const t=document.createElement('div');t.className='friends-section-title';t.textContent='Solicitações enviadas';list.appendChild(t);
+    sent.forEach(u=>{
+      const d=document.createElement('div');d.className='friend-row';
+      d.innerHTML=`<div class="friend-av"><img src="${esc(u.avatar_url||'')}" onerror="this.style.display='none'"></div><div class="friend-info"><div class="friend-name">${esc(u.name)}</div><div class="friend-status">Aguardando...</div></div><div class="friend-actions"><button class="f-btn danger" onclick="removeFriend('${esc(u.id)}')">Cancelar</button></div>`;
+      list.appendChild(d);
+    });
+  }
+
+  if(!pending.length&&!friends.length){list.innerHTML='<div class="q-empty">Nenhum amigo ainda.<br>Busque pelo nome acima!</div>';}
 }
 
-function chatKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+async function searchUsers(){
+  const q=$('friend-search').value.trim(); if(!q)return;
+  try{
+    const res=await fetch(`/api/users/search?q=${encodeURIComponent(q)}`);
+    const{users}=await res.json();
+    const list=$('friends-list');
+    list.innerHTML='<div class="friends-section-title">Resultados</div>';
+    if(!users.length){list.innerHTML+='<div class="q-empty">Nenhum usuário encontrado</div>';return;}
+    users.forEach(u=>{
+      const d=document.createElement('div');d.className='friend-row';
+      d.innerHTML=`<div class="friend-av"><img src="${esc(u.avatar_url||'')}" onerror="this.style.display='none'"></div><div class="friend-info"><div class="friend-name">${esc(u.name)}</div></div><div class="friend-actions"><button class="f-btn accept" onclick="addFriend('${esc(u.id)}','${esc(u.name)}')">+ Adicionar</button></div>`;
+      list.appendChild(d);
+    });
+  }catch(e){}
 }
 
-function renderChatMsg(payload) {
-  if (rendered.has(payload.id)) return;
-  rendered.add(payload.id);
-  const isMe = payload.user?.id === myUser?.id || payload.user?.name === myUser?.name;
-  const div = document.createElement('div');
-  div.className = 'msg ' + (isMe ? 'me' : 'them');
-  const ts = new Date(payload.ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  div.innerHTML = `<div class="msg-head"><span class="msg-av">${esc(payload.user?.avatar||'👤')}</span><span class="msg-name">${esc(payload.user?.name||'?')}</span><span class="msg-time">${ts}</span></div><div class="msg-text">${esc(payload.text)}</div>`;
-  const msgs = $('msgs');
-  msgs.appendChild(div);
-  msgs.scrollTop = msgs.scrollHeight;
+async function addFriend(id,name){
+  try{await fetch('/api/friends/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({friendId:id})});toast(`Solicitação enviada para ${name}!`);loadFriends();}catch(e){}
+}
+async function acceptFriend(id){
+  try{await fetch('/api/friends/accept',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({friendId:id})});toast('Amizade aceita! 🎉');loadFriends();}catch(e){}
+}
+async function removeFriend(id){
+  try{await fetch(`/api/friends/${id}`,{method:'DELETE'});loadFriends();}catch(e){}
 }
 
-function sysMsg(text) {
-  const div = document.createElement('div');
-  div.className = 'msg sys';
-  div.textContent = text;
-  const msgs = $('msgs');
-  msgs.appendChild(div);
-  msgs.scrollTop = msgs.scrollHeight;
+// ── QUEUE / HISTORY / MEMBERS ─────────────────────────────
+function renderQueue(queue){
+  localQueue=queue||[];
+  const wrap=$('queue-wrap');
+  if(!localQueue.length){wrap.innerHTML='<div class="q-empty">Fila vazia</div>';return;}
+  wrap.innerHTML='';
+  localQueue.forEach((v,i)=>{
+    const d=document.createElement('div');d.className='qi';
+    const thumb=v.thumb?`<img class="qi-thumb" src="${esc(v.thumb)}" onerror="this.style.display='none'">`:`<div class="qi-thumb">${v.src==='youtube'?'▶️':v.src==='vimeo'?'🎥':'🎬'}</div>`;
+    d.innerHTML=`${thumb}<div class="qi-info"><div class="qi-title">${esc(v.title||v.url)}</div><div class="qi-src">${esc(v.src||'')}</div></div>${amIHost?`<span class="qi-rm" onclick="removeQ(${i})">✕</span>`:''}`;
+    d.onclick=(e)=>{if(!e.target.classList.contains('qi-rm')&&amIHost)loadVideo(v,true);};
+    wrap.appendChild(d);
+  });
 }
+function removeQ(i){localQueue.splice(i,1);send('QUEUE_UPDATE',{queue:localQueue});renderQueue(localQueue);}
 
-// ═══════════════════════════════════════════════════════════
-// REACTIONS
-// ═══════════════════════════════════════════════════════════
-function react(emoji) { send('REACTION', { emoji }); }
-
-function spawnFloat(emoji) {
-  const wrap = $('vwrap');
-  if (!wrap) return;
-  const el = document.createElement('div');
-  el.className = 'float-r';
-  el.textContent = emoji;
-  el.style.left = (10 + Math.random() * 80) + '%';
-  el.style.bottom = '60px';
-  wrap.appendChild(el);
-  setTimeout(() => el.remove(), 2500);
-}
-
-// ═══════════════════════════════════════════════════════════
-// QUEUE / HISTORY / MEMBERS
-// ═══════════════════════════════════════════════════════════
-function renderQueue(queue) {
-  localQueue = queue || [];
-  const wrap = $('queue-wrap');
-  if (!localQueue.length) { wrap.innerHTML = '<div class="q-empty">Fila vazia</div>'; return; }
-  wrap.innerHTML = '';
-  localQueue.forEach((v, i) => {
-    const d = document.createElement('div');
-    d.className = 'qi';
-    const thumb = v.thumb
-      ? `<img class="qi-thumb" src="${esc(v.thumb)}" onerror="this.style.display='none'">`
-      : `<div class="qi-thumb">${v.src==='youtube'?'▶️':v.src==='vimeo'?'🎥':'🎬'}</div>`;
-    d.innerHTML = `${thumb}<div class="qi-info"><div class="qi-title">${esc(v.title||v.url)}</div><div class="qi-src">${esc(v.src||'')}</div></div>${amIHost?`<span class="qi-rm" onclick="removeQ(${i})">✕</span>`:''}`;
-    d.onclick = (e) => { if (!e.target.classList.contains('qi-rm') && amIHost) { loadVideo(v, true); } };
+function renderHistory(history){
+  const wrap=$('history-wrap');
+  if(!history?.length){wrap.innerHTML='<div class="q-empty">Sem histórico</div>';return;}
+  wrap.innerHTML='';
+  history.forEach(v=>{
+    const d=document.createElement('div');d.className='qi';
+    const thumb=v.thumb?`<img class="qi-thumb" src="${esc(v.thumb)}" onerror="this.style.display='none'">`:`<div class="qi-thumb">🎬</div>`;
+    d.innerHTML=`${thumb}<div class="qi-info"><div class="qi-title">${esc(v.title||v.url)}</div><div class="qi-src">${esc(v.addedBy||'')} · ${esc(v.src||'')}</div></div>`;
+    d.onclick=()=>{if(amIHost)loadVideo(v,true);};
     wrap.appendChild(d);
   });
 }
 
-function removeQ(i) {
-  localQueue.splice(i, 1);
-  send('QUEUE_UPDATE', { queue: localQueue });
-  renderQueue(localQueue);
-}
-
-function renderHistory(history) {
-  const wrap = $('history-wrap');
-  if (!history?.length) { wrap.innerHTML = '<div class="q-empty">Sem histórico</div>'; return; }
-  wrap.innerHTML = '';
-  history.forEach(v => {
-    const d = document.createElement('div');
-    d.className = 'qi';
-    const thumb = v.thumb ? `<img class="qi-thumb" src="${esc(v.thumb)}" onerror="this.style.display='none'">` : `<div class="qi-thumb">🎬</div>`;
-    d.innerHTML = `${thumb}<div class="qi-info"><div class="qi-title">${esc(v.title||v.url)}</div><div class="qi-src">${esc(v.addedBy||'')} · ${esc(v.src||'')}</div></div>`;
-    d.onclick = () => { if (amIHost) loadVideo(v, true); };
+function renderMembers(members){
+  const wrap=$('members-panel'),mw=$('members-wrap');
+  wrap.innerHTML='';mw.innerHTML='';
+  (members||[]).forEach(m=>{
+    const avEl=m.avatarUrl?`<img src="${esc(m.avatarUrl)}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='<span style=font-size:1.1rem>${esc(m.avatar||'👤')}</span>'">`:`<span style="font-size:1.1rem">${esc(m.avatar||'👤')}</span>`;
+    const d=document.createElement('div');d.className='member-row';
+    d.innerHTML=`<div class="member-emoji">${avEl}</div><span class="member-name">${esc(m.name)}</span><span class="member-badge${m.isHost?' host':''}">${m.isHost?'👑 host':'membro'}</span>`;
     wrap.appendChild(d);
-  });
-}
-
-function renderMembers(members) {
-  const wrap = $('members-panel');
-  const mw = $('members-wrap');
-  wrap.innerHTML = '';
-  mw.innerHTML = '';
-  (members || []).forEach(m => {
-    const d = document.createElement('div');
-    d.className = 'member-row';
-    d.innerHTML = `<span class="member-emoji">${esc(m.avatar||'👤')}</span><span class="member-name">${esc(m.name)}</span><span class="member-badge${m.isHost?' host':''}">${m.isHost?'👑 host':'membro'}</span>`;
-    wrap.appendChild(d);
-    const av = document.createElement('div');
-    av.className = 'member-av';
-    av.title = m.name;
-    av.textContent = m.avatar || '👤';
+    const av=document.createElement('div');av.className='member-av';av.title=m.name;
+    av.innerHTML=m.avatarUrl?`<img src="${esc(m.avatarUrl)}" style="width:100%;height:100%;object-fit:cover;">`:`<span style="font-size:.85rem">${esc(m.avatar||'👤')}</span>`;
     mw.appendChild(av);
   });
 }
 
-function updateLiveLbl(n) { $('live-lbl').textContent = (n || 1) + ' online'; }
+function updateLiveLbl(n){$('live-lbl').textContent=(n||1)+' online';}
 
-// ═══════════════════════════════════════════════════════════
-// MODAL
-// ═══════════════════════════════════════════════════════════
-function openAddModal() { $('add-modal').classList.add('on'); }
-function closeModal(id) { $(id).classList.remove('on'); }
+// ── MODAL ─────────────────────────────────────────────────
+function openAddModal(){$('add-modal').classList.add('on');}
+function closeModal(id){$(id).classList.remove('on');}
+const SRC_LABELS={vimeo:'URL do Vimeo',twitch:'Canal Twitch',direct:'URL do vídeo',gdrive:'URL do Google Drive'};
+const SRC_PLACEHOLDERS={vimeo:'https://vimeo.com/...',twitch:'nome do canal',direct:'https://exemplo.com/video.mp4',gdrive:'https://drive.google.com/...'};
 
-const SRC_LABELS = { vimeo:'URL do Vimeo', twitch:'Canal Twitch', direct:'URL do vídeo', gdrive:'URL do Google Drive' };
-const SRC_PLACEHOLDERS = { vimeo:'https://vimeo.com/...', twitch:'nome do canal', direct:'https://exemplo.com/video.mp4', gdrive:'https://drive.google.com/...' };
-
-function selSrc(el, src) {
-  document.querySelectorAll('.src-opt').forEach(e=>e.classList.remove('on'));
-  el.classList.add('on');
-  currentSrc = src;
-  $('yt-section').style.display   = src==='youtube' ? 'block' : 'none';
-  $('url-section').style.display  = ['vimeo','twitch','direct','gdrive'].includes(src) ? 'block' : 'none';
-  $('local-section').style.display = src==='local' ? 'block' : 'none';
-  if (src !== 'youtube') {
-    $('url-mlabel').textContent = SRC_LABELS[src] || 'URL';
-    $('vurl').placeholder = SRC_PLACEHOLDERS[src] || 'https://...';
-  }
+function selSrc(el,src){
+  document.querySelectorAll('.src-opt').forEach(e=>e.classList.remove('on'));el.classList.add('on');currentSrc=src;
+  $('yt-section').style.display=src==='youtube'?'block':'none';
+  $('url-section').style.display=['vimeo','twitch','direct','gdrive'].includes(src)?'block':'none';
+  $('local-section').style.display=src==='local'?'block':'none';
+  if(src!=='youtube'){$('url-mlabel').textContent=SRC_LABELS[src]||'URL';$('vurl').placeholder=SRC_PLACEHOLDERS[src]||'https://...';}
 }
 
-async function ytSearch() {
-  const q = $('yt-q').value.trim(); if(!q) return;
+async function ytSearch(){
+  const q=$('yt-q').value.trim();if(!q)return;
   $('yt-results').innerHTML='<div class="yt-loading"><span class="spin">⏳</span> Buscando...</div>';
   $('yt-preview-wrap').style.display='none';
-  try {
-    const vid = extractYT(q);
-    if (vid) { await loadYTPreview(`https://www.youtube.com/watch?v=${vid}`); $('yt-results').innerHTML=''; return; }
-    const res = await fetch(`/api/yt/search?q=${encodeURIComponent(q)}`);
-    const data = await res.json();
-    renderYTSuggestions(data.suggestions || [], q);
-  } catch(e) { $('yt-results').innerHTML='<div class="yt-loading">Erro na busca</div>'; }
+  try{
+    const vid=extractYT(q);
+    if(vid){await loadYTPreview(`https://www.youtube.com/watch?v=${vid}`);$('yt-results').innerHTML='';return;}
+    const res=await fetch(`/api/yt/search?q=${encodeURIComponent(q)}`);
+    const data=await res.json();renderYTSuggestions(data.suggestions||[]);
+  }catch(e){$('yt-results').innerHTML='<div class="yt-loading">Erro na busca</div>';}
 }
-
-function ytSearchKey(e) { if(e.key==='Enter') ytSearch(); }
-
-async function ytUrlPreview(val) {
-  const vid = extractYT(val);
-  if (!vid) { $('yt-preview-wrap').style.display='none'; return; }
-  await loadYTPreview(`https://www.youtube.com/watch?v=${vid}`);
+function ytSearchKey(e){if(e.key==='Enter')ytSearch();}
+async function ytUrlPreview(val){const vid=extractYT(val);if(!vid){$('yt-preview-wrap').style.display='none';return;}await loadYTPreview(`https://www.youtube.com/watch?v=${vid}`);}
+async function loadYTPreview(url){
+  if(ytInfoCache[url]){showYTPreview(url,ytInfoCache[url]);return;}
+  try{const res=await fetch(`/api/yt/info?url=${encodeURIComponent(url)}`);if(!res.ok)return;const info=await res.json();ytInfoCache[url]=info;showYTPreview(url,info);}catch(e){}
 }
-
-async function loadYTPreview(url) {
-  if (ytInfoCache[url]) { showYTPreview(url, ytInfoCache[url]); return; }
-  try {
-    const res = await fetch(`/api/yt/info?url=${encodeURIComponent(url)}`);
-    if (!res.ok) return;
-    const info = await res.json();
-    ytInfoCache[url] = info;
-    showYTPreview(url, info);
-  } catch(e){}
-}
-
-function showYTPreview(url, info) {
-  const wrap = $('yt-preview-wrap');
-  wrap.style.display='block';
+function showYTPreview(url,info){
+  const wrap=$('yt-preview-wrap');wrap.style.display='block';
   wrap.innerHTML=`<div class="yt-preview"><img src="${esc(info.thumb)}" onerror="this.style.display='none'"><div class="yt-preview-info"><div class="yt-preview-title">${esc(info.title)}</div><div class="yt-preview-ch">${esc(info.author)}</div></div></div>`;
-  wrap._url = url; wrap._info = info;
+  wrap._url=url;wrap._info=info;
 }
-
-function renderYTSuggestions(suggestions) {
-  if (!suggestions.length) { $('yt-results').innerHTML='<div class="yt-loading">Nenhum resultado. Tente colar um link do YouTube.</div>'; return; }
+function renderYTSuggestions(suggestions){
+  if(!suggestions.length){$('yt-results').innerHTML='<div class="yt-loading">Nenhum resultado. Tente colar um link do YouTube.</div>';return;}
   $('yt-results').innerHTML='';
-  suggestions.forEach(s => {
-    const d=document.createElement('div');
-    d.className='yt-item';
-    d.innerHTML=`<div style="width:90px;height:56px;border-radius:6px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0">▶️</div><div class="yt-item-info"><div class="yt-item-title">${esc(s)}</div><div class="yt-item-ch">Clique para buscar</div></div>`;
-    d.onclick=()=>{ $('yt-q').value=s; ytSearch(); };
-    $('yt-results').appendChild(d);
-  });
+  suggestions.forEach(s=>{const d=document.createElement('div');d.className='yt-item';d.innerHTML=`<div style="width:90px;height:56px;border-radius:6px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0">▶️</div><div class="yt-item-info"><div class="yt-item-title">${esc(s)}</div><div class="yt-item-ch">Clique para buscar</div></div>`;d.onclick=()=>{$('yt-q').value=s;ytSearch();};$('yt-results').appendChild(d);});
 }
 
 function dzO(e,on){e.preventDefault();$('dz').classList.toggle('drag',on);}
 function dzD(e){e.preventDefault();dzO(e,false);const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('video/'))setFile(f);else merr('Não é um arquivo de vídeo');}
 function filePick(inp){if(inp.files[0])setFile(inp.files[0]);}
-function setFile(f){
-  pickedFile=f;
-  $('dz').innerHTML=`<div class="dz-ico">✅</div><p><strong>${esc(f.name)}</strong><br><span style="font-size:.72rem">${(f.size/1024/1024).toFixed(1)} MB</span></p>`;
-}
-function merr(m) { $('merr').textContent = m; }
+function setFile(f){pickedFile=f;$('dz').innerHTML=`<div class="dz-ico">✅</div><p><strong>${esc(f.name)}</strong><br><span style="font-size:.72rem">${(f.size/1024/1024).toFixed(1)} MB</span></p>`;}
+function merr(m){$('merr').textContent=m;}
 
-async function addVideo() {
-  let video = null;
-  if (currentSrc === 'youtube') {
-    const previewWrap = $('yt-preview-wrap');
-    let url = $('yt-q').value.trim();
-    if (!url) { merr('Cole um link ou busque um vídeo'); return; }
-    const vid = extractYT(url);
-    if (!vid) { merr('URL do YouTube inválida'); return; }
-    url = `https://www.youtube.com/watch?v=${vid}`;
-    const info = ytInfoCache[url] || previewWrap?._info || {};
-    video = { src:'youtube', url, title:info.title||`YouTube: ${vid}`, thumb:info.thumb||`https://i.ytimg.com/vi/${vid}/mqdefault.jpg`, author:info.author||'' };
-  } else if (currentSrc === 'local') {
-    if (!pickedFile) { merr('Selecione um arquivo'); return; }
-    const title = pickedFile.name;
-    const reader = new FileReader();
-    reader.onload = e => {
-      video = { src:'local', url:e.target.result, title, thumb:'' };
-      localQueue.push(video);
-      renderQueue(localQueue);
-      loadVideo(video, false);
-      closeModal('add-modal');
-      sysMsg(`📁 ${myUser.name} adicionou: ${title}`);
-    };
-    reader.readAsDataURL(pickedFile);
-    return;
-  } else {
-    const url = $('vurl').value.trim();
-    if (!url) { merr('Digite a URL'); return; }
-    let title = url.split('/').pop().split('?')[0] || url;
-    const srcLabels = { vimeo:'Vimeo', twitch:'Twitch', direct:'', gdrive:'Drive' };
-    if (srcLabels[currentSrc]) title = srcLabels[currentSrc]+': '+title;
-    video = { src:currentSrc, url, title, thumb:'' };
+async function addVideo(){
+  let video=null;
+  if(currentSrc==='youtube'){
+    const previewWrap=$('yt-preview-wrap');let url=$('yt-q').value.trim();
+    if(!url){merr('Cole um link ou busque um vídeo');return;}
+    const vid=extractYT(url);if(!vid){merr('URL do YouTube inválida');return;}
+    url=`https://www.youtube.com/watch?v=${vid}`;
+    const info=ytInfoCache[url]||previewWrap?._info||{};
+    video={src:'youtube',url,title:info.title||`YouTube: ${vid}`,thumb:info.thumb||`https://i.ytimg.com/vi/${vid}/mqdefault.jpg`,author:info.author||''};
+  }else if(currentSrc==='local'){
+    if(!pickedFile){merr('Selecione um arquivo');return;}
+    const title=pickedFile.name;
+    const reader=new FileReader();
+    reader.onload=e=>{video={src:'local',url:e.target.result,title,thumb:''};localQueue.push(video);renderQueue(localQueue);loadVideo(video,false);closeModal('add-modal');sysMsg(`📁 ${myUser.name} adicionou: ${title}`);};
+    reader.readAsDataURL(pickedFile);return;
+  }else{
+    const url=$('vurl').value.trim();if(!url){merr('Digite a URL');return;}
+    let title=url.split('/').pop().split('?')[0]||url;
+    const srcLabels={vimeo:'Vimeo',twitch:'Twitch',direct:'',gdrive:'Drive'};
+    if(srcLabels[currentSrc])title=srcLabels[currentSrc]+': '+title;
+    video={src:currentSrc,url,title,thumb:''};
   }
-  localQueue.push(video);
-  send('QUEUE_UPDATE', { queue: localQueue.filter(q=>q.src!=='local') });
-  renderQueue(localQueue);
-  loadVideo(video, true);
-  closeModal('add-modal');
+  localQueue.push(video);send('QUEUE_UPDATE',{queue:localQueue.filter(q=>q.src!=='local')});
+  renderQueue(localQueue);loadVideo(video,true);closeModal('add-modal');
 }
 
-// ═══════════════════════════════════════════════════════════
-// UI HELPERS
-// ═══════════════════════════════════════════════════════════
-function sTab(t, el) {
-  document.querySelectorAll('.stab').forEach(s=>s.classList.remove('on')); el.classList.add('on');
-  ['chat','queue','history','members'].forEach(p=>$('p-'+p).classList.toggle('on',p===t));
-}
+function sTab(t,el){document.querySelectorAll('.stab').forEach(s=>s.classList.remove('on'));el.classList.add('on');['chat','queue','history','members','friends'].forEach(p=>{const panel=$('p-'+p);if(panel)panel.classList.toggle('on',p===t);});}
+function copyCode(){navigator.clipboard.writeText(roomId).then(()=>toast('Código copiado: '+roomId));}
+function leaveRoom(){if(ws)ws.close();$('app').style.display='none';$('lobby').style.display='flex';roomId='';rendered=new Set();}
 
-function copyCode() { navigator.clipboard.writeText(roomId).then(()=>toast('Código copiado: '+roomId)); }
-
-function leaveRoom() {
-  if(ws) ws.close();
-  $('app').style.display='none';
-  $('lobby').style.display='flex';
-  roomId=''; rendered=new Set();
-}
+// ── INIT ──────────────────────────────────────────────────
+loadAuthState();
 </script>
 </body>
 </html>
