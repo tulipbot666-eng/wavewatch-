@@ -62,6 +62,8 @@ initDB().catch(console.error);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.set('trust proxy', 1); // necessário para cookies seguros atrás do proxy do Render
+
 app.use(session({
   store: new pgSession({ pool, tableName: 'session' }),
   secret: process.env.SESSION_SECRET || 'wavewatch-secret-change-in-prod',
