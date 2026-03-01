@@ -485,6 +485,7 @@ let syncInterval = null;
 let lastKnownServerTime = 0;
 let lastKnownServerTS = 0;
 let lastKnownPlaying = false;
+let ytCurrentTime = 0; // tracks YouTube current time via postMessage
 
 // ═══════════════════════════════════════
 // UTILS
@@ -607,6 +608,7 @@ function handle(msg) {
   if (type === 'HOST_CHANGED') {
     amIHost = payload.hostId === myUser.id;
     updateHostUI();
+    updateYTOverlay();
     if (amIHost) sysMsg('👑 Você agora é o host da sala');
   }
 
@@ -712,8 +714,25 @@ function loadVideo(video, broadcast) {
     iframe.allowFullscreen = true;
     wrap.appendChild(iframe);
     ytIframe = iframe;
+
+    // Overlay to block member interaction with YT player
+    const overlay = document.createElement('div');
+    overlay.id = 'yt-overlay';
+    overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;cursor:not-allowed;display:none;';
+    overlay.title = 'Apenas o host pode controlar o vídeo';
+    overlay.onclick = () => toast('Apenas o host pode controlar o vídeo ▶');
+    wrap.appendChild(overlay);
+    updateYTOverlay();
+
     window.removeEventListener('message', onYTMsg);
     window.addEventListener('message', onYTMsg);
+    // Poll YT for currentTime every second via postMessage
+    clearInterval(window._ytPoll);
+    window._ytPoll = setInterval(() => {
+      if (ytIframe?.contentWindow) {
+        try { ytIframe.contentWindow.postMessage(JSON.stringify({event:'listening'}),'*'); } catch(e){}
+      }
+    }, 1000);
   } else if (src === 'vimeo') {
     $('src-badge').textContent = 'VM';
     const m = url.match(/vimeo\.com\/(\d+)/);
@@ -756,13 +775,42 @@ function onYTMsg(e) {
   try {
     const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
     if (!d || !d.info) return;
-    if (d.info.playerState === 1 && !isSyncing) {
-      isPlaying = true; $('pbtn').textContent = '⏸';
-      if (amIHost) send('STATE', { playing: true, currentTime: d.info.currentTime||0, ts: Date.now() });
+
+    // Always track current time from YT
+    if (d.info.currentTime !== undefined) {
+      ytCurrentTime = d.info.currentTime;
     }
+
+    if (d.info.playerState === 1 && !isSyncing) {
+      // Video playing
+      isPlaying = true; $('pbtn').textContent = '⏸';
+      if (amIHost) {
+        send('STATE', { playing: true, currentTime: ytCurrentTime, ts: Date.now() });
+      } else {
+        // Member started playing on their own — force back to server state
+        isSyncing = true;
+        if (!lastKnownPlaying) ytCmd('pauseVideo');
+        isSyncing = false;
+      }
+    }
+
     if (d.info.playerState === 2 && !isSyncing) {
+      // Video paused
       isPlaying = false; $('pbtn').textContent = '▶';
-      if (amIHost) send('STATE', { playing: false, currentTime: d.info.currentTime||0, ts: Date.now() });
+      if (amIHost) {
+        send('STATE', { playing: false, currentTime: ytCurrentTime, ts: Date.now() });
+      } else {
+        // Member paused on their own — force back to playing if server says so
+        isSyncing = true;
+        if (lastKnownPlaying) ytCmd('playVideo');
+        isSyncing = false;
+      }
+    }
+
+    // Request time update every tick (YT sends this ~4x/sec with enablejsapi)
+    if (d.info.playerState === 1) {
+      lastKnownServerTime = ytCurrentTime;
+      lastKnownServerTS = Date.now();
     }
   } catch(e){}
 }
@@ -777,7 +825,6 @@ function ytCmd(cmd, args) {
 // ═══════════════════════════════════════
 function updateHostUI() {
   const ctrl = $('ctrl');
-  // Show a host badge in topbar
   let badge = $('host-badge');
   if (!badge) {
     badge = document.createElement('span');
@@ -787,7 +834,6 @@ function updateHostUI() {
   }
   badge.textContent = amIHost ? '👑 host' : '👤 membro';
 
-  // Dim controls for non-hosts
   const btns = ctrl.querySelectorAll('.c-btn, #vol');
   btns.forEach(b => {
     if (!amIHost) {
@@ -800,9 +846,15 @@ function updateHostUI() {
       b.title = '';
     }
   });
-  // Also dim prog bar click for non-hosts
   $('prog').style.pointerEvents = amIHost ? 'auto' : 'none';
   $('prog').style.cursor = amIHost ? 'pointer' : 'default';
+  updateYTOverlay();
+}
+
+function updateYTOverlay() {
+  const overlay = $('yt-overlay');
+  if (!overlay) return;
+  overlay.style.display = amIHost ? 'none' : 'block';
 }
 
 // ═══════════════════════════════════════
@@ -831,7 +883,13 @@ function curDur()  { if (nativeVid) return nativeVid.duration||0; return 0; }
 
 function togglePlay() {
   if (!amIHost) { toast('Apenas o host pode pausar/dar play ▶'); return; }
-  if (ytIframe) { ytCmd(isPlaying?'pauseVideo':'playVideo'); isPlaying=!isPlaying; $('pbtn').textContent=isPlaying?'⏸':'▶'; send('STATE',{playing:isPlaying,currentTime:0,ts:Date.now()}); return; }
+  if (ytIframe) {
+    ytCmd(isPlaying ? 'pauseVideo' : 'playVideo');
+    isPlaying = !isPlaying;
+    $('pbtn').textContent = isPlaying ? '⏸' : '▶';
+    send('STATE', { playing: isPlaying, currentTime: ytCurrentTime, ts: Date.now() });
+    return;
+  }
   if (nativeVid) { if (isPlaying) nativeVid.pause(); else nativeVid.play().catch(()=>{}); }
   send('STATE', { playing: !isPlaying, currentTime: curTime(), ts: Date.now() });
 }
