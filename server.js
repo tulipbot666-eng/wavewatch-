@@ -288,14 +288,19 @@ function getOrCreateRoom(roomId) {
   if (!rooms.has(roomId)) {
     rooms.set(roomId, {
       id: roomId,
+      name: null,
+      isPublic: false,
+      category: null,
       host: null,
+      hostName: null,
       members: new Map(),
       video: null,
       queue: [],
       playing: false,
       currentTime: 0,
       wallClock: Date.now(),
-      history: []
+      history: [],
+      createdAt: Date.now()
     });
   }
   return rooms.get(roomId);
@@ -309,7 +314,11 @@ function getProjectedTime(room) {
 function roomInfo(room) {
   return {
     id: room.id,
+    name: room.name,
+    isPublic: room.isPublic,
+    category: room.category,
     host: room.host,
+    hostName: room.hostName,
     members: [...room.members.values()].map(m => m.user),
     memberCount: room.members.size,
     video: room.video,
@@ -356,10 +365,18 @@ wss.on('connection', (ws) => {
     const { type, payload } = msg;
 
     if (type === 'JOIN') {
-      const { roomId, user } = payload;
+      const { roomId, user, roomName, isPublic, category } = payload;
       currentUser = { ...user, id: wsId, joinedAt: Date.now() };
       currentRoom = getOrCreateRoom(roomId);
-      if (currentRoom.members.size === 0) { currentRoom.host = wsId; currentUser.isHost = true; }
+      if (currentRoom.members.size === 0) {
+        currentRoom.host = wsId;
+        currentRoom.hostName = user.name;
+        currentUser.isHost = true;
+        // Set room metadata on creation
+        if (roomName) currentRoom.name = roomName;
+        if (isPublic !== undefined) currentRoom.isPublic = !!isPublic;
+        if (category) currentRoom.category = category;
+      }
       currentRoom.members.set(wsId, { ws, user: currentUser, rtt: 80 });
       ws.send(JSON.stringify({ type: 'ROOM_STATE', payload: roomInfo(currentRoom) }));
       broadcast(currentRoom, { type: 'USER_JOINED', payload: { user: currentUser, memberCount: currentRoom.members.size } }, wsId);
@@ -447,7 +464,7 @@ wss.on('connection', (ws) => {
 // ─────────────────────────────────────────
 // REST API
 // ─────────────────────────────────────────
-app.get('/api/room/new', (req, res) => {
+app.get('/api/room/new', requireAuth, (req, res) => {
   res.json({ roomId: generateRoomCode() });
 });
 
@@ -455,6 +472,29 @@ app.get('/api/room/:id', (req, res) => {
   const room = rooms.get(req.params.id);
   if (!room) return res.status(404).json({ error: 'Room not found' });
   res.json({ exists: true, memberCount: room.members.size });
+});
+
+// Public rooms listing
+app.get('/api/rooms/public', (req, res) => {
+  const category = req.query.category;
+  const list = [];
+  rooms.forEach(room => {
+    if (!room.isPublic || room.members.size === 0) return;
+    if (category && category !== 'all' && room.category !== category) return;
+    list.push({
+      id: room.id,
+      name: room.name || room.id,
+      category: room.category || 'geral',
+      hostName: room.hostName,
+      memberCount: room.members.size,
+      video: room.video ? { title: room.video.title, thumb: room.video.thumb, src: room.video.src } : null,
+      playing: room.playing,
+      createdAt: room.createdAt
+    });
+  });
+  // Sort by member count desc
+  list.sort((a, b) => b.memberCount - a.memberCount);
+  res.json({ rooms: list });
 });
 
 app.get('/api/yt/search', async (req, res) => {
