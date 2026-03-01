@@ -709,20 +709,18 @@ function loadVideo(video, broadcast) {
     if (!vid) { toast('URL inválida'); return; }
     const iframe = document.createElement('iframe');
     iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
-    iframe.src = `https://www.youtube-nocookie.com/embed/${vid}?autoplay=0&controls=1&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
+    iframe.src = `https://www.youtube-nocookie.com/embed/${vid}?autoplay=0&controls=0&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
     iframe.allow = 'autoplay; fullscreen; accelerometer; encrypted-media; gyroscope; picture-in-picture';
     iframe.allowFullscreen = true;
     wrap.appendChild(iframe);
     ytIframe = iframe;
 
-    // Overlay to block member interaction with YT player
+    // Overlay always covers YT iframe — controls are ONLY via WaveWatch buttons
     const overlay = document.createElement('div');
     overlay.id = 'yt-overlay';
-    overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;cursor:not-allowed;display:none;';
-    overlay.title = 'Apenas o host pode controlar o vídeo';
-    overlay.onclick = () => toast('Apenas o host pode controlar o vídeo ▶');
+    overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;';
+    overlay.onclick = () => { if (!amIHost) toast('Apenas o host pode controlar o vídeo ▶'); };
     wrap.appendChild(overlay);
-    updateYTOverlay();
 
     window.removeEventListener('message', onYTMsg);
     window.addEventListener('message', onYTMsg);
@@ -854,7 +852,7 @@ function updateHostUI() {
 function updateYTOverlay() {
   const overlay = $('yt-overlay');
   if (!overlay) return;
-  overlay.style.display = amIHost ? 'none' : 'block';
+  overlay.style.cursor = amIHost ? 'default' : 'not-allowed';
 }
 
 // ═══════════════════════════════════════
@@ -878,7 +876,7 @@ function startSyncWatcher() {
 // ═══════════════════════════════════════
 // CONTROLS
 // ═══════════════════════════════════════
-function curTime() { if (nativeVid) return nativeVid.currentTime||0; return 0; }
+function curTime() { if (nativeVid) return nativeVid.currentTime||0; if (ytIframe) return ytCurrentTime||0; return 0; }
 function curDur()  { if (nativeVid) return nativeVid.duration||0; return 0; }
 
 function togglePlay() {
@@ -911,10 +909,16 @@ function setVol(v) { if(nativeVid)nativeVid.volume=v; ytCmd('setVolume',[v*100])
 function goFS() { const w=$('vwrap'); if(!document.fullscreenElement)w.requestFullscreen&&w.requestFullscreen(); else document.exitFullscreen&&document.exitFullscreen(); }
 
 setInterval(()=>{
-  if(!nativeVid||!nativeVid.duration)return;
-  $('prog-fill').style.width=((nativeVid.currentTime/nativeVid.duration)*100)+'%';
-  $('tlbl-cur').textContent=ft(nativeVid.currentTime);
-  $('tlbl-dur').textContent=ft(nativeVid.duration);
+  if (nativeVid && nativeVid.duration) {
+    $('prog-fill').style.width=((nativeVid.currentTime/nativeVid.duration)*100)+'%';
+    $('tlbl-cur').textContent=ft(nativeVid.currentTime);
+    $('tlbl-dur').textContent=ft(nativeVid.duration);
+  } else if (ytIframe && isPlaying) {
+    // Update YT time display using tracked ytCurrentTime
+    const elapsed = (Date.now() - lastKnownServerTS) / 1000;
+    const projected = lastKnownPlaying ? ytCurrentTime : ytCurrentTime;
+    $('tlbl-cur').textContent = ft(projected);
+  }
 }, 400);
 
 // ═══════════════════════════════════════
