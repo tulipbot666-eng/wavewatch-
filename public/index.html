@@ -669,9 +669,7 @@ function handle(msg) {
 
   if (type === 'SYNC_PING') {
     if (!amIHost) {
-      // Compensate for network latency: add half RTT to account for travel time
-      const latencyCompensation = (rtt / 2) / 1000;
-      const expected = payload.currentTime + (payload.playing ? latencyCompensation : 0);
+      const expected = payload.currentTime;
       lastKnownServerTime = expected;
       lastKnownServerTS = Date.now();
       lastKnownPlaying = payload.playing;
