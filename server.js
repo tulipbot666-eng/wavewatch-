@@ -3,13 +3,231 @@ const { WebSocketServer } = require('ws');
 const { createServer } = require('http');
 const { v4: uuid } = require('uuid');
 const path = require('path');
+const session = require('express-session');
+const passport = require('passport');
+const { Strategy: GoogleStrategy } = require('passport-google-oauth20');
+const { Pool } = require('pg');
+const pgSession = require('connect-pg-simple')(session);
 
 const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
+// ─────────────────────────────────────────
+// DATABASE
+// ─────────────────────────────────────────
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
+
+async function initDB() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      google_id TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      email TEXT,
+      avatar_url TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      last_seen TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS friendships (
+      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      friend_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'pending', -- pending | accepted
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(user_id, friend_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS session (
+      sid TEXT NOT NULL COLLATE "default",
+      sess JSON NOT NULL,
+      expire TIMESTAMP(6) NOT NULL,
+      CONSTRAINT session_pkey PRIMARY KEY (sid)
+    );
+
+    CREATE INDEX IF NOT EXISTS IDX_session_expire ON session (expire);
+  `);
+  console.log('✅ Database ready');
+}
+
+initDB().catch(console.error);
+
+// ─────────────────────────────────────────
+// SESSION + PASSPORT
+// ─────────────────────────────────────────
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.use(session({
+  store: new pgSession({ pool, tableName: 'session' }),
+  secret: process.env.SESSION_SECRET || 'wavewatch-secret-change-in-prod',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  }
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+passport.serializeUser((user, done) => done(null, user.id));
+passport.deserializeUser(async (id, done) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    done(null, rows[0] || null);
+  } catch(e) { done(e); }
+});
+
+passport.use(new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: process.env.GOOGLE_CALLBACK_URL || '/auth/google/callback'
+}, async (accessToken, refreshToken, profile, done) => {
+  try {
+    const googleId = profile.id;
+    const name = profile.displayName;
+    const email = profile.emails?.[0]?.value || null;
+    const avatarUrl = profile.photos?.[0]?.value || null;
+
+    // Upsert user
+    const { rows } = await pool.query(`
+      INSERT INTO users (id, google_id, name, email, avatar_url)
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (google_id) DO UPDATE SET
+        name = EXCLUDED.name,
+        email = EXCLUDED.email,
+        avatar_url = EXCLUDED.avatar_url,
+        last_seen = NOW()
+      RETURNING *
+    `, [uuid(), googleId, name, email, avatarUrl]);
+
+    done(null, rows[0]);
+  } catch(e) { done(e); }
+}));
+
+// ─────────────────────────────────────────
+// AUTH ROUTES
+// ─────────────────────────────────────────
+app.get('/auth/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
+
+app.get('/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/?error=auth' }),
+  (req, res) => res.redirect('/')
+);
+
+app.get('/auth/logout', (req, res) => {
+  req.logout(() => res.redirect('/'));
+});
+
+app.get('/auth/me', (req, res) => {
+  if (!req.user) return res.json({ user: null });
+  res.json({ user: {
+    id: req.user.id,
+    name: req.user.name,
+    email: req.user.email,
+    avatarUrl: req.user.avatar_url
+  }});
+});
+
+// ─────────────────────────────────────────
+// FRIENDS API
+// ─────────────────────────────────────────
+function requireAuth(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
+  next();
+}
+
+// Search users by name
+app.get('/api/users/search', requireAuth, async (req, res) => {
+  const q = req.query.q?.trim();
+  if (!q) return res.json({ users: [] });
+  try {
+    const { rows } = await pool.query(`
+      SELECT id, name, avatar_url FROM users
+      WHERE name ILIKE $1 AND id != $2
+      LIMIT 10
+    `, [`%${q}%`, req.user.id]);
+    res.json({ users: rows });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Send friend request
+app.post('/api/friends/request', requireAuth, async (req, res) => {
+  const { friendId } = req.body;
+  if (!friendId || friendId === req.user.id) return res.status(400).json({ error: 'Invalid' });
+  try {
+    await pool.query(`
+      INSERT INTO friendships (user_id, friend_id, status)
+      VALUES ($1, $2, 'pending')
+      ON CONFLICT DO NOTHING
+    `, [req.user.id, friendId]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Accept friend request
+app.post('/api/friends/accept', requireAuth, async (req, res) => {
+  const { friendId } = req.body;
+  try {
+    // Accept the incoming request
+    await pool.query(`
+      UPDATE friendships SET status = 'accepted'
+      WHERE user_id = $1 AND friend_id = $2
+    `, [friendId, req.user.id]);
+    // Create reverse entry
+    await pool.query(`
+      INSERT INTO friendships (user_id, friend_id, status)
+      VALUES ($1, $2, 'accepted')
+      ON CONFLICT (user_id, friend_id) DO UPDATE SET status = 'accepted'
+    `, [req.user.id, friendId]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Remove / reject friend
+app.delete('/api/friends/:friendId', requireAuth, async (req, res) => {
+  const { friendId } = req.params;
+  try {
+    await pool.query(`DELETE FROM friendships WHERE (user_id=$1 AND friend_id=$2) OR (user_id=$2 AND friend_id=$1)`, [req.user.id, friendId]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// List friends (accepted)
+app.get('/api/friends', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT u.id, u.name, u.avatar_url, f.status
+      FROM friendships f
+      JOIN users u ON u.id = f.friend_id
+      WHERE f.user_id = $1
+      ORDER BY f.status, u.name
+    `, [req.user.id]);
+    res.json({ friends: rows });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Pending requests received
+app.get('/api/friends/pending', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT u.id, u.name, u.avatar_url
+      FROM friendships f
+      JOIN users u ON u.id = f.user_id
+      WHERE f.friend_id = $1 AND f.status = 'pending'
+    `, [req.user.id]);
+    res.json({ pending: rows });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 
 // ─────────────────────────────────────────
 // ROOM STATE
@@ -25,21 +243,17 @@ function getOrCreateRoom(roomId) {
       video: null,
       queue: [],
       playing: false,
-      currentTime: 0,        // video time at moment of last state change
-      wallClock: Date.now(), // real-world timestamp of last state change — THE master clock
+      currentTime: 0,
+      wallClock: Date.now(),
       history: []
     });
   }
   return rooms.get(roomId);
 }
 
-// Core of Rave-style sync:
-// We store (currentTime, wallClock) and calculate projected position on demand.
-// This means the server always knows where the video "is" right now.
 function getProjectedTime(room) {
   if (!room.playing) return room.currentTime;
-  const elapsed = (Date.now() - room.wallClock) / 1000;
-  return room.currentTime + elapsed;
+  return room.currentTime + (Date.now() - room.wallClock) / 1000;
 }
 
 function roomInfo(room) {
@@ -51,7 +265,7 @@ function roomInfo(room) {
     video: room.video,
     queue: room.queue,
     playing: room.playing,
-    currentTime: getProjectedTime(room), // always the live projected time
+    currentTime: getProjectedTime(room),
     wallClock: room.wallClock,
     serverNow: Date.now(),
     history: room.history.slice(-20)
@@ -61,37 +275,25 @@ function roomInfo(room) {
 function broadcast(room, msg, excludeId = null) {
   const data = JSON.stringify(msg);
   room.members.forEach((member, id) => {
-    if (id !== excludeId && member.ws.readyState === 1) {
-      member.ws.send(data);
-    }
+    if (id !== excludeId && member.ws.readyState === 1) member.ws.send(data);
   });
 }
 
-function broadcastAll(room, msg) {
-  broadcast(room, msg, null);
-}
+function broadcastAll(room, msg) { broadcast(room, msg, null); }
 
-// Send a sync message to a specific member with their individual RTT compensation.
-// By the time the message arrives, rtt/2 ms will have passed,
-// so we pre-compensate so the client lands on the right frame.
 function sendStateToMember(room, member, msgType) {
   if (member.ws.readyState !== 1) return;
   const rtt = member.rtt || 80;
   const projected = getProjectedTime(room);
-  const compensated = projected + (room.playing ? (rtt / 2000) : 0);
+  const compensated = projected + (room.playing ? rtt / 2000 : 0);
   member.ws.send(JSON.stringify({
     type: msgType || 'SYNC_TICK',
-    payload: {
-      playing: room.playing,
-      currentTime: compensated,
-      wallClock: room.wallClock,
-      serverNow: Date.now()
-    }
+    payload: { playing: room.playing, currentTime: compensated, wallClock: room.wallClock, serverNow: Date.now() }
   }));
 }
 
 // ─────────────────────────────────────────
-// WEBSOCKET HANDLER
+// WEBSOCKET
 // ─────────────────────────────────────────
 wss.on('connection', (ws) => {
   const wsId = uuid();
@@ -103,65 +305,34 @@ wss.on('connection', (ws) => {
     try { msg = JSON.parse(raw); } catch { return; }
     const { type, payload } = msg;
 
-    // ── JOIN ──────────────────────────────────────────────
     if (type === 'JOIN') {
       const { roomId, user } = payload;
       currentUser = { ...user, id: wsId, joinedAt: Date.now() };
       currentRoom = getOrCreateRoom(roomId);
-
-      if (currentRoom.members.size === 0) {
-        currentRoom.host = wsId;
-        currentUser.isHost = true;
-      }
-
+      if (currentRoom.members.size === 0) { currentRoom.host = wsId; currentUser.isHost = true; }
       currentRoom.members.set(wsId, { ws, user: currentUser, rtt: 80 });
-
-      // Send full room state with live projected time to the new member
-      ws.send(JSON.stringify({
-        type: 'ROOM_STATE',
-        payload: roomInfo(currentRoom)
-      }));
-
-      broadcast(currentRoom, {
-        type: 'USER_JOINED',
-        payload: { user: currentUser, memberCount: currentRoom.members.size }
-      }, wsId);
+      ws.send(JSON.stringify({ type: 'ROOM_STATE', payload: roomInfo(currentRoom) }));
+      broadcast(currentRoom, { type: 'USER_JOINED', payload: { user: currentUser, memberCount: currentRoom.members.size } }, wsId);
     }
 
-    // ── PING — measure per-client RTT with exponential moving average ──
     if (type === 'PING') {
       const now = Date.now();
-      ws.send(JSON.stringify({
-        type: 'PONG',
-        payload: { ts: payload.ts, serverNow: now }
-      }));
+      ws.send(JSON.stringify({ type: 'PONG', payload: { ts: payload.ts, serverNow: now } }));
       const member = currentRoom?.members.get(wsId);
       if (member) {
         const measured = now - payload.ts;
-        // EMA smoothing: reduces impact of network spikes
-        member.rtt = member.rtt
-          ? Math.round(member.rtt * 0.7 + measured * 0.3)
-          : measured;
+        member.rtt = member.rtt ? Math.round(member.rtt * 0.7 + measured * 0.3) : measured;
       }
     }
 
-    // ── CHAT ──────────────────────────────────────────────
     if (type === 'CHAT' && currentRoom) {
-      broadcastAll(currentRoom, {
-        type: 'CHAT',
-        payload: { id: uuid(), user: currentUser, text: payload.text, ts: Date.now() }
-      });
+      broadcastAll(currentRoom, { type: 'CHAT', payload: { id: uuid(), user: currentUser, text: payload.text, ts: Date.now() } });
     }
 
-    // ── REACTION ──────────────────────────────────────────
     if (type === 'REACTION' && currentRoom) {
-      broadcastAll(currentRoom, {
-        type: 'REACTION',
-        payload: { emoji: payload.emoji, user: currentUser, ts: Date.now() }
-      });
+      broadcastAll(currentRoom, { type: 'REACTION', payload: { emoji: payload.emoji, user: currentUser, ts: Date.now() } });
     }
 
-    // ── VIDEO — new video set ──────────────────────────────
     if (type === 'VIDEO' && currentRoom) {
       currentRoom.video = payload.video;
       currentRoom.playing = false;
@@ -171,59 +342,35 @@ wss.on('connection', (ws) => {
         currentRoom.history.unshift({ ...payload.video, addedAt: Date.now(), addedBy: currentUser.name });
         if (currentRoom.history.length > 50) currentRoom.history.pop();
       }
-      broadcastAll(currentRoom, {
-        type: 'VIDEO',
-        payload: { video: payload.video, by: currentUser }
-      });
+      broadcastAll(currentRoom, { type: 'VIDEO', payload: { video: payload.video, by: currentUser } });
     }
 
-    // ── QUEUE ──────────────────────────────────────────────
     if (type === 'QUEUE_UPDATE' && currentRoom) {
       currentRoom.queue = payload.queue;
-      broadcastAll(currentRoom, {
-        type: 'QUEUE_UPDATE',
-        payload: { queue: currentRoom.queue, by: currentUser }
-      });
+      broadcastAll(currentRoom, { type: 'QUEUE_UPDATE', payload: { queue: currentRoom.queue, by: currentUser } });
     }
 
-    // ── PLAY / PAUSE ───────────────────────────────────────
-    // Host sends currentTime. We correct for host's own RTT (the event happened
-    // rtt/2 ms ago), then broadcast to each guest with their individual RTT offset.
     if (type === 'STATE' && currentRoom) {
-      const hostMember = currentRoom.members.get(wsId);
-      const hostRtt = hostMember?.rtt || 80;
-
-      // The host sent this message rtt/2 ms ago, so the true "now" is slightly ahead
+      const hostRtt = currentRoom.members.get(wsId)?.rtt || 80;
       const trueTime = payload.currentTime + (payload.playing ? hostRtt / 2000 : 0);
-
       currentRoom.playing = payload.playing;
       currentRoom.currentTime = trueTime;
       currentRoom.wallClock = Date.now();
-
-      // Broadcast to each guest individually with their RTT compensation
       currentRoom.members.forEach((member, id) => {
         if (id === wsId || member.ws.readyState !== 1) return;
         sendStateToMember(currentRoom, member, 'STATE');
       });
     }
 
-    // ── SEEK ───────────────────────────────────────────────
     if (type === 'SEEK' && currentRoom) {
-      const hostMember = currentRoom.members.get(wsId);
-      const hostRtt = hostMember?.rtt || 80;
+      const hostRtt = currentRoom.members.get(wsId)?.rtt || 80;
       const trueTime = payload.t + (currentRoom.playing ? hostRtt / 2000 : 0);
-
       currentRoom.currentTime = trueTime;
       currentRoom.wallClock = Date.now();
-
       currentRoom.members.forEach((member, id) => {
         if (id === wsId || member.ws.readyState !== 1) return;
-        const guestRtt = member.rtt || 80;
-        const compensated = trueTime + (currentRoom.playing ? guestRtt / 2000 : 0);
-        member.ws.send(JSON.stringify({
-          type: 'SEEK',
-          payload: { t: compensated }
-        }));
+        const compensated = trueTime + (currentRoom.playing ? (member.rtt || 80) / 2000 : 0);
+        member.ws.send(JSON.stringify({ type: 'SEEK', payload: { t: compensated } }));
       });
     }
   });
@@ -241,14 +388,9 @@ wss.on('connection', (ws) => {
       }
     }
     if (currentRoom.members.size === 0) {
-      setTimeout(() => {
-        if (rooms.get(currentRoom.id)?.members.size === 0) rooms.delete(currentRoom.id);
-      }, 60000);
+      setTimeout(() => { if (rooms.get(currentRoom.id)?.members.size === 0) rooms.delete(currentRoom.id); }, 60000);
     }
-    broadcast(currentRoom, {
-      type: 'USER_LEFT',
-      payload: { user: currentUser, memberCount: currentRoom.members.size }
-    });
+    broadcast(currentRoom, { type: 'USER_LEFT', payload: { user: currentUser, memberCount: currentRoom.members.size } });
   });
 });
 
@@ -273,25 +415,19 @@ app.get('/api/yt/search', async (req, res) => {
     const r = await fetch(url);
     const text = await r.text();
     const json = JSON.parse(text.slice(2, -1));
-    const suggestions = (json[1] || []).slice(0, 8).map(s => s[0]);
-    res.json({ suggestions });
-  } catch (e) {
-    res.json({ suggestions: [] });
-  }
+    res.json({ suggestions: (json[1] || []).slice(0, 8).map(s => s[0]) });
+  } catch (e) { res.json({ suggestions: [] }); }
 });
 
 app.get('/api/yt/info', async (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).json({ error: 'No URL' });
   try {
-    const oembed = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
-    const r = await fetch(oembed);
+    const r = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
     if (!r.ok) throw new Error('Not found');
     const data = await r.json();
     res.json({ title: data.title, thumb: data.thumbnail_url, author: data.author_name });
-  } catch (e) {
-    res.status(404).json({ error: 'Video not found or unavailable' });
-  }
+  } catch (e) { res.status(404).json({ error: 'Video not found' }); }
 });
 
 function generateRoomCode() {
@@ -300,17 +436,12 @@ function generateRoomCode() {
 }
 
 // ─────────────────────────────────────────
-// HEARTBEAT — SYNC_TICK every 1.5s to ALL members
-// Each client uses this to do soft drift correction.
-// Sending to everyone (not just guests) keeps all
-// clients honest and detects any de-sync.
+// SYNC HEARTBEAT
 // ─────────────────────────────────────────
 setInterval(() => {
   rooms.forEach(room => {
     if (!room.video || room.members.size < 2) return;
-    room.members.forEach(member => {
-      sendStateToMember(room, member, 'SYNC_TICK');
-    });
+    room.members.forEach(member => sendStateToMember(room, member, 'SYNC_TICK'));
   });
 }, 1500);
 
