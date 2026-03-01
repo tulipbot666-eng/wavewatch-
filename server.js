@@ -159,33 +159,17 @@ wss.on('connection', (ws) => {
       currentRoom.playing = payload.playing;
       currentRoom.currentTime = payload.currentTime;
       currentRoom.lastUpdate = Date.now();
-      // Broadcast with per-member RTT compensation
-      currentRoom.members.forEach((member, id) => {
-        if (id !== wsId && member.ws.readyState === 1) {
-          const memberRtt = member.rtt || 0;
-          const compensated = payload.currentTime + (payload.playing ? (memberRtt / 2 / 1000) : 0);
-          member.ws.send(JSON.stringify({
-            type: 'STATE',
-            payload: { playing: payload.playing, currentTime: compensated, ts: Date.now() }
-          }));
-        }
-      });
+      broadcast(currentRoom, {
+        type: 'STATE',
+        payload: { playing: payload.playing, currentTime: payload.currentTime }
+      }, wsId);
     }
 
     // SEEK
     if (type === 'SEEK' && currentRoom) {
       currentRoom.currentTime = payload.t;
       currentRoom.lastUpdate = Date.now();
-      currentRoom.members.forEach((member, id) => {
-        if (id !== wsId && member.ws.readyState === 1) {
-          const memberRtt = member.rtt || 0;
-          const compensated = payload.t + (memberRtt / 2 / 1000);
-          member.ws.send(JSON.stringify({
-            type: 'SEEK',
-            payload: { t: compensated }
-          }));
-        }
-      });
+      broadcast(currentRoom, { type: 'SEEK', payload: { t: payload.t } }, wsId);
     }
   });
 
@@ -281,18 +265,16 @@ function generateRoomCode() {
 setInterval(() => {
   rooms.forEach(room => {
     if (room.members.size < 2 || !room.video) return;
-    // Send projected time per-member, compensating for their individual RTT
+    // Send clean projected time to all non-host members
     const elapsed = (Date.now() - room.lastUpdate) / 1000;
-    const baseTime = room.currentTime + (room.playing ? elapsed : 0);
+    const projected = room.currentTime + (room.playing ? elapsed : 0);
+    const data = JSON.stringify({
+      type: 'SYNC_PING',
+      payload: { playing: room.playing, currentTime: projected }
+    });
     room.members.forEach((member, id) => {
       if (id !== room.host && member.ws.readyState === 1) {
-        // Add half RTT so video arrives "in sync" accounting for network delay
-        const memberRtt = member.rtt || 0;
-        const compensated = baseTime + (room.playing ? (memberRtt / 2 / 1000) : 0);
-        member.ws.send(JSON.stringify({
-          type: 'SYNC_PING',
-          payload: { playing: room.playing, currentTime: compensated, ts: Date.now() }
-        }));
+        member.ws.send(data);
       }
     });
   });
