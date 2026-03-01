@@ -556,6 +556,27 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
       <span class="mlabel" id="url-mlabel">URL do vídeo</span>
       <input class="minp" id="vurl" placeholder="https://...">
     </div>
+    <div id="gdrive-section" style="display:none">
+      <div id="gdrive-picker-btn" onclick="openDrivePicker()" style="display:flex;align-items:center;justify-content:center;gap:.75rem;padding:1.2rem;background:var(--bg);border:2px dashed var(--border);border-radius:12px;cursor:pointer;transition:all .2s;margin-bottom:.8rem;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:1.8rem">📁</span>
+        <div>
+          <div style="font-weight:600;font-size:.9rem">Abrir Google Drive</div>
+          <div style="font-size:.72rem;color:var(--sub);font-family:'DM Mono',monospace;margin-top:.2rem">Escolha um vídeo dos seus arquivos</div>
+        </div>
+      </div>
+      <div id="gdrive-selected" style="display:none;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:.75rem;display:flex;align-items:center;gap:.6rem;margin-bottom:.8rem;">
+        <span style="font-size:1.4rem">🎬</span>
+        <div style="flex:1;min-width:0">
+          <div id="gdrive-filename" style="font-size:.85rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+          <div style="font-size:.7rem;color:var(--sub);font-family:'DM Mono',monospace;margin-top:.1rem">Google Drive</div>
+        </div>
+        <button onclick="clearDriveSelection()" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:1rem;">✕</button>
+      </div>
+      <div style="font-size:.72rem;color:var(--sub);font-family:'DM Mono',monospace;text-align:center;">
+        Ou cole um link do Drive manualmente:
+      </div>
+      <input class="minp" id="gdrive-url" placeholder="https://drive.google.com/file/d/..." style="margin-top:.5rem;">
+    </div>
     <div id="local-section" style="display:none">
       <div class="dz" id="dz" onclick="document.getElementById('ff').click()" ondragover="dzO(event,true)" ondragleave="dzO(event,false)" ondrop="dzD(event)">
         <div class="dz-ico">📂</div>
@@ -688,6 +709,8 @@ async function loadAuthState() {
       // Auto-refresh every 15s
       if(window._roomRefresh) clearInterval(window._roomRefresh);
       window._roomRefresh = setInterval(loadPublicRooms, 15000);
+      // Pre-load Google Picker if logged in with Google
+      if(user.googleAccessToken) loadPickerAPI();
     } else {
       // Not logged in — show auth screen, hide room screen
       $('auth-screen').style.display = 'block';
@@ -1009,6 +1032,21 @@ function loadVideo(video,doBroadcast){
     iframe.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
     iframe.src=`https://player.twitch.tv/?channel=${ch}&parent=${location.hostname}`;
     iframe.allow='autoplay; fullscreen'; iframe.allowFullscreen=true; wrap.appendChild(iframe);
+  } else if(src==='gdrive'){
+    $('src-badge').textContent='GD';
+    // Convert any Drive URL format to embed URL
+    const fileIdMatch = url.match(/\/d\/([a-zA-Z0-9_-]{10,})/)||url.match(/id=([a-zA-Z0-9_-]{10,})/);
+    if(!fileIdMatch){ toast('URL do Google Drive inválida'); return; }
+    const fileId = fileIdMatch[1];
+    const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+    const iframe=document.createElement('iframe');
+    iframe.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
+    iframe.src=embedUrl;
+    iframe.allow='autoplay; fullscreen';
+    iframe.allowFullscreen=true;
+    wrap.appendChild(iframe);
+    // Drive doesn't support external JS control — show info toast
+    setTimeout(()=>toast('Google Drive: use os controles dentro do player 📁'),1500);
   } else {
     const ext=src==='local'?'LOCAL':(url.split('.').pop().split('?')[0].toUpperCase().substring(0,4)||'VID');
     $('src-badge').textContent=ext;
@@ -1225,15 +1263,69 @@ function updateLiveLbl(n){$('live-lbl').textContent=(n||1)+' online';}
 // ── MODAL ─────────────────────────────────────────────────
 function openAddModal(){$('add-modal').classList.add('on');}
 function closeModal(id){$(id).classList.remove('on');}
-const SRC_LABELS={vimeo:'URL do Vimeo',twitch:'Canal Twitch',direct:'URL do vídeo',gdrive:'URL do Google Drive'};
-const SRC_PLACEHOLDERS={vimeo:'https://vimeo.com/...',twitch:'nome do canal',direct:'https://exemplo.com/video.mp4',gdrive:'https://drive.google.com/...'};
+const SRC_LABELS={vimeo:'URL do Vimeo',twitch:'Canal Twitch',direct:'URL do vídeo'};
+const SRC_PLACEHOLDERS={vimeo:'https://vimeo.com/...',twitch:'nome do canal',direct:'https://exemplo.com/video.mp4'};
 
 function selSrc(el,src){
   document.querySelectorAll('.src-opt').forEach(e=>e.classList.remove('on'));el.classList.add('on');currentSrc=src;
   $('yt-section').style.display=src==='youtube'?'block':'none';
-  $('url-section').style.display=['vimeo','twitch','direct','gdrive'].includes(src)?'block':'none';
+  $('url-section').style.display=['vimeo','twitch','direct'].includes(src)?'block':'none';
+  $('gdrive-section').style.display=src==='gdrive'?'block':'none';
   $('local-section').style.display=src==='local'?'block':'none';
-  if(src!=='youtube'){$('url-mlabel').textContent=SRC_LABELS[src]||'URL';$('vurl').placeholder=SRC_PLACEHOLDERS[src]||'https://...';}
+  if(['vimeo','twitch','direct'].includes(src)){$('url-mlabel').textContent=SRC_LABELS[src]||'URL';$('vurl').placeholder=SRC_PLACEHOLDERS[src]||'https://';}
+}
+
+// ── GOOGLE DRIVE PICKER ───────────────────────────────────
+let drivePickerLoaded = false;
+let driveSelectedFile = null;
+
+function loadPickerAPI() {
+  if(drivePickerLoaded) return;
+  const s = document.createElement('script');
+  s.src = 'https://apis.google.com/js/api.js';
+  s.onload = () => { gapi.load('picker', () => { drivePickerLoaded = true; }); };
+  document.head.appendChild(s);
+}
+
+function openDrivePicker() {
+  if (!loggedInUser?.googleAccessToken) {
+    // No Google token — fallback to manual URL input
+    toast('Entre com Google para usar o picker. Cole o link manualmente abaixo 👇');
+    $('gdrive-url').focus();
+    return;
+  }
+  if (!drivePickerLoaded) {
+    toast('Carregando picker... tente novamente em 1 segundo');
+    loadPickerAPI();
+    return;
+  }
+  const view = new google.picker.DocsView(google.picker.ViewId.DOCS_VIDEOS)
+    .setIncludeFolders(true)
+    .setSelectFolderEnabled(false);
+
+  const picker = new google.picker.PickerBuilder()
+    .addView(view)
+    .setOAuthToken(loggedInUser.googleAccessToken)
+    .setDeveloperKey(window.GOOGLE_API_KEY || '')
+    .setCallback(drivePickerCallback)
+    .build();
+  picker.setVisible(true);
+}
+
+function drivePickerCallback(data) {
+  if (data.action !== google.picker.Action.PICKED) return;
+  const file = data.docs[0];
+  driveSelectedFile = { id: file.id, name: file.name };
+  $('gdrive-filename').textContent = file.name;
+  $('gdrive-selected').style.display = 'flex';
+  $('gdrive-picker-btn').style.display = 'none';
+}
+
+function clearDriveSelection() {
+  driveSelectedFile = null;
+  $('gdrive-selected').style.display = 'none';
+  $('gdrive-picker-btn').style.display = 'flex';
+  $('gdrive-url').value = '';
 }
 
 async function ytSearch(){
@@ -1279,6 +1371,22 @@ async function addVideo(){
     url=`https://www.youtube.com/watch?v=${vid}`;
     const info=ytInfoCache[url]||previewWrap?._info||{};
     video={src:'youtube',url,title:info.title||`YouTube: ${vid}`,thumb:info.thumb||`https://i.ytimg.com/vi/${vid}/mqdefault.jpg`,author:info.author||''};
+  }else if(currentSrc==='gdrive'){
+    // Priority: picker selection > manual URL
+    let fileId=null, title='Vídeo do Drive';
+    if(driveSelectedFile){
+      fileId=driveSelectedFile.id;
+      title=driveSelectedFile.name;
+    }else{
+      const manualUrl=$('gdrive-url').value.trim();
+      if(!manualUrl){merr('Selecione um arquivo ou cole um link do Drive');return;}
+      const m=manualUrl.match(/\/d\/([a-zA-Z0-9_-]{10,})/)||manualUrl.match(/id=([a-zA-Z0-9_-]{10,})/);
+      if(!m){merr('URL do Google Drive inválida');return;}
+      fileId=m[1];
+    }
+    const url=`https://drive.google.com/file/d/${fileId}/view`;
+    const thumb=`https://drive.google.com/thumbnail?id=${fileId}&sz=w320`;
+    video={src:'gdrive',url,title,thumb};
   }else if(currentSrc==='local'){
     if(!pickedFile){merr('Selecione um arquivo');return;}
     const title=pickedFile.name;
@@ -1288,12 +1396,14 @@ async function addVideo(){
   }else{
     const url=$('vurl').value.trim();if(!url){merr('Digite a URL');return;}
     let title=url.split('/').pop().split('?')[0]||url;
-    const srcLabels={vimeo:'Vimeo',twitch:'Twitch',direct:'',gdrive:'Drive'};
+    const srcLabels={vimeo:'Vimeo',twitch:'Twitch',direct:''};
     if(srcLabels[currentSrc])title=srcLabels[currentSrc]+': '+title;
     video={src:currentSrc,url,title,thumb:''};
   }
   localQueue.push(video);send('QUEUE_UPDATE',{queue:localQueue.filter(q=>q.src!=='local')});
   renderQueue(localQueue);loadVideo(video,true);closeModal('add-modal');
+  // Reset drive selection
+  driveSelectedFile=null;
 }
 
 function sTab(t,el){document.querySelectorAll('.stab').forEach(s=>s.classList.remove('on'));el.classList.add('on');['chat','queue','history','members','friends'].forEach(p=>{const panel=$('p-'+p);if(panel)panel.classList.toggle('on',p===t);});}
@@ -1301,7 +1411,15 @@ function copyCode(){navigator.clipboard.writeText(roomId).then(()=>toast('Códig
 function leaveRoom(){if(ws)ws.close();$('app').style.display='none';$('lobby').style.display='flex';roomId='';rendered=new Set();loadPublicRooms();}
 
 // ── INIT ──────────────────────────────────────────────────
-loadAuthState();
+async function init() {
+  try {
+    const res = await fetch('/api/config');
+    const cfg = await res.json();
+    window.GOOGLE_API_KEY = cfg.googleApiKey || '';
+  } catch(e) {}
+  loadAuthState();
+}
+init();
 </script>
 </body>
 </html>
