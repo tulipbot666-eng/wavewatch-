@@ -276,6 +276,31 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spin{animation:spin 1s linear infinite;display:inline-block;}
 
+/* room cards & public rooms */
+.cat-filter{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.9rem;}
+.cat-btn{background:var(--s2);border:1px solid var(--border);border-radius:20px;padding:.3rem .7rem;color:var(--sub);font-size:.72rem;font-family:'DM Mono',monospace;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.cat-btn.on,.cat-btn:hover{background:rgba(232,67,147,.12);border-color:var(--accent);color:var(--accent);}
+.rooms-empty{color:var(--sub);font-size:.8rem;text-align:center;padding:2rem 0;font-family:'DM Mono',monospace;}
+.room-card{background:var(--s2);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s;margin-bottom:.6rem;display:flex;gap:0;animation:msgIn .2s ease;}
+.room-card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 4px 20px rgba(232,67,147,.15);}
+.room-card-thumb{width:90px;min-height:64px;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.8rem;position:relative;overflow:hidden;}
+.room-card-thumb img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;}
+.room-card-body{flex:1;padding:.65rem .8rem;min-width:0;}
+.room-card-name{font-weight:700;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.2rem;}
+.room-card-video{font-size:.72rem;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'DM Mono',monospace;margin-bottom:.35rem;}
+.room-card-meta{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+.room-card-cat{font-size:.6rem;font-family:'DM Mono',monospace;padding:.15rem .4rem;border-radius:5px;background:rgba(124,92,252,.15);color:var(--a2);border:1px solid rgba(124,92,252,.2);}
+.room-card-live{display:flex;align-items:center;gap:.3rem;font-size:.65rem;color:var(--ok);font-family:'DM Mono',monospace;}
+.room-card-live::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite;}
+.room-card-playing{font-size:.6rem;font-family:'DM Mono',monospace;color:var(--accent);padding:.15rem .4rem;border-radius:5px;background:rgba(232,67,147,.1);border:1px solid rgba(232,67,147,.2);}
+
+/* create room modal extras */
+.cat-select{display:flex;gap:.35rem;flex-wrap:wrap;}
+.cat-sel-btn{background:var(--s2);border:1px solid var(--border);border-radius:20px;padding:.3rem .7rem;color:var(--sub);font-size:.72rem;font-family:'DM Mono',monospace;cursor:pointer;transition:all .2s;}
+.cat-sel-btn.on{background:rgba(232,67,147,.12);border-color:var(--accent);color:var(--accent);}
+.vis-btn{flex:1;padding:.55rem;border:1px solid var(--border);border-radius:10px;background:var(--s2);color:var(--sub);font-family:'DM Sans',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .2s;}
+.vis-btn.on{border-color:var(--accent);color:var(--text);background:rgba(232,67,147,.1);}
+
 @media(max-width:700px){
   .sidebar{display:none;}
   .sidebar.mob-on{display:flex;position:fixed;inset:0;z-index:100;width:100%;}
@@ -334,35 +359,82 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
     <!-- ROOM SCREEN (shown after login) -->
     <div class="glass" id="room-screen" style="display:none;margin-top:1rem;">
       <div id="auth-user-card2"></div>
-      <div class="ltabs">
-        <button class="ltab on" onclick="lTab('create')">Criar Sala</button>
-        <button class="ltab" onclick="lTab('join')">Entrar em Sala</button>
+
+      <!-- Main actions -->
+      <div style="display:flex;gap:.6rem;margin-bottom:1.2rem;">
+        <button class="pill-btn primary" style="flex:1" onclick="openCreateModal()">🎬 Criar Sala</button>
+        <button class="pill-btn ghost" style="flex:1" onclick="showJoinPanel()">🔑 Entrar</button>
       </div>
-      <div id="l-create">
-        <div class="field"><label>Seu nome</label><input type="text" id="l-name" placeholder="Como quer ser chamado?" maxlength="20"></div>
-        <span class="av-label">Escolha um avatar</span>
-        <div class="avatar-pick" id="av-pick">
-          <div class="av-opt on" data-av="🎬">🎬</div><div class="av-opt" data-av="🎵">🎵</div>
-          <div class="av-opt" data-av="🦊">🦊</div><div class="av-opt" data-av="🐼">🐼</div>
-          <div class="av-opt" data-av="🌙">🌙</div><div class="av-opt" data-av="⚡">⚡</div>
-          <div class="av-opt" data-av="🍕">🍕</div><div class="av-opt" data-av="👾">👾</div>
-        </div>
-        <button class="pill-btn primary" onclick="createRoom()">🎬 Criar Sala</button>
+
+      <!-- Join by code panel -->
+      <div id="join-panel" style="display:none;margin-bottom:1.2rem;">
+        <div class="field"><label>Código da Sala</label><input type="text" id="j-code" placeholder="WAVE-XXXX" maxlength="9" style="text-transform:uppercase;letter-spacing:2px" onkeydown="if(event.key==='Enter')joinRoom()"></div>
+        <button class="pill-btn primary" onclick="joinRoom()">🚀 Entrar na Sala</button>
       </div>
-      <div id="l-join" style="display:none">
-        <div class="field"><label>Seu nome</label><input type="text" id="j-name" placeholder="Como quer ser chamado?" maxlength="20"></div>
-        <div class="field"><label>Código da Sala</label><input type="text" id="j-code" placeholder="WAVE-XXXX" maxlength="9" style="text-transform:uppercase;letter-spacing:2px"></div>
-        <span class="av-label">Escolha um avatar</span>
-        <div class="avatar-pick" id="av-pick-j">
-          <div class="av-opt on" data-av="🎬">🎬</div><div class="av-opt" data-av="🎵">🎵</div>
-          <div class="av-opt" data-av="🦊">🦊</div><div class="av-opt" data-av="🐼">🐼</div>
-          <div class="av-opt" data-av="🌙">🌙</div><div class="av-opt" data-av="⚡">⚡</div>
-          <div class="av-opt" data-av="🍕">🍕</div><div class="av-opt" data-av="👾">👾</div>
-        </div>
-        <button class="pill-btn primary" onclick="joinRoom()">🚀 Entrar</button>
-      </div>
+
       <div class="lerr" id="lerr"></div>
+
+      <!-- Public rooms -->
+      <div style="margin-top:1.4rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;">
+          <span style="font-size:.72rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px;color:var(--sub)">Salas públicas</span>
+          <button onclick="loadPublicRooms()" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:.75rem;font-family:'DM Mono',monospace;transition:color .2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--sub)'">↻ atualizar</button>
+        </div>
+
+        <!-- Category filter -->
+        <div class="cat-filter" id="cat-filter">
+          <button class="cat-btn on" onclick="filterCat('all',this)">Todos</button>
+          <button class="cat-btn" onclick="filterCat('filmes',this)">🎬 Filmes</button>
+          <button class="cat-btn" onclick="filterCat('series',this)">📺 Séries</button>
+          <button class="cat-btn" onclick="filterCat('anime',this)">⛩️ Anime</button>
+          <button class="cat-btn" onclick="filterCat('musica',this)">🎵 Música</button>
+          <button class="cat-btn" onclick="filterCat('games',this)">🎮 Games</button>
+          <button class="cat-btn" onclick="filterCat('geral',this)">💬 Geral</button>
+        </div>
+
+        <div id="public-rooms-list"><div class="rooms-empty">Carregando salas...</div></div>
+      </div>
     </div>
+  </div>
+</div>
+
+<!-- CREATE ROOM MODAL -->
+<div class="overlay" id="create-modal">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-title">
+      🎬 Nova Sala
+      <button class="modal-close" onclick="closeModal('create-modal')">✕</button>
+    </div>
+    <div class="field"><label>Nome da sala</label><input type="text" id="room-name-inp" placeholder="Ex: Noite de Filmes 🍕" maxlength="40"></div>
+    <div class="field">
+      <label>Categoria</label>
+      <div class="cat-select" id="cat-select">
+        <button class="cat-sel-btn on" data-cat="geral" onclick="selectCat(this)">💬 Geral</button>
+        <button class="cat-sel-btn" data-cat="filmes" onclick="selectCat(this)">🎬 Filmes</button>
+        <button class="cat-sel-btn" data-cat="series" onclick="selectCat(this)">📺 Séries</button>
+        <button class="cat-sel-btn" data-cat="anime" onclick="selectCat(this)">⛩️ Anime</button>
+        <button class="cat-sel-btn" data-cat="musica" onclick="selectCat(this)">🎵 Música</button>
+        <button class="cat-sel-btn" data-cat="games" onclick="selectCat(this)">🎮 Games</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Visibilidade</label>
+      <div style="display:flex;gap:.5rem;">
+        <button class="vis-btn on" id="vis-public" onclick="setVis('public')">🌍 Pública</button>
+        <button class="vis-btn" id="vis-private" onclick="setVis('private')">🔒 Privada</button>
+      </div>
+      <div style="font-size:.7rem;color:var(--sub);margin-top:.4rem;font-family:'DM Mono',monospace;" id="vis-desc">Aparece na lista de salas públicas</div>
+    </div>
+    <div class="field"><label>Seu nome na sala</label><input type="text" id="l-name" placeholder="Como quer ser chamado?" maxlength="20"></div>
+    <span class="av-label">Escolha um avatar</span>
+    <div class="avatar-pick" id="av-pick">
+      <div class="av-opt on" data-av="🎬">🎬</div><div class="av-opt" data-av="🎵">🎵</div>
+      <div class="av-opt" data-av="🦊">🦊</div><div class="av-opt" data-av="🐼">🐼</div>
+      <div class="av-opt" data-av="🌙">🌙</div><div class="av-opt" data-av="⚡">⚡</div>
+      <div class="av-opt" data-av="🍕">🍕</div><div class="av-opt" data-av="👾">👾</div>
+    </div>
+    <button class="pill-btn primary" onclick="createRoom()">🚀 Criar e Entrar</button>
+    <div class="lerr" id="create-err" style="margin-top:.5rem;"></div>
   </div>
 </div>
 
@@ -609,7 +681,13 @@ async function loadAuthState() {
 
       // Pre-fill name
       $('l-name').value = user.name;
-      $('j-name').value = user.name;
+      if($('j-name')) $('j-name').value = user.name;
+
+      // Load public rooms
+      loadPublicRooms();
+      // Auto-refresh every 15s
+      if(window._roomRefresh) clearInterval(window._roomRefresh);
+      window._roomRefresh = setInterval(loadPublicRooms, 15000);
     } else {
       // Not logged in — show auth screen, hide room screen
       $('auth-screen').style.display = 'block';
@@ -618,7 +696,87 @@ async function loadAuthState() {
   } catch(e) {}
 }
 
-// ── LOBBY ─────────────────────────────────────────────────
+// ── LOBBY JS ──────────────────────────────────────────────
+let selectedVis = 'public';
+let selectedCat = 'geral';
+let currentCatFilter = 'all';
+
+function openCreateModal() {
+  if (!loggedInUser) { showLErr('Faça login primeiro'); return; }
+  $('room-name-inp').value = '';
+  $('l-name').value = loggedInUser.name;
+  $('create-modal').classList.add('on');
+}
+
+function selectCat(el) {
+  document.querySelectorAll('.cat-sel-btn').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  selectedCat = el.dataset.cat;
+}
+
+function setVis(v) {
+  selectedVis = v;
+  $('vis-public').classList.toggle('on', v === 'public');
+  $('vis-private').classList.toggle('on', v === 'private');
+  $('vis-desc').textContent = v === 'public' ? 'Aparece na lista de salas públicas' : 'Só quem tem o código pode entrar';
+}
+
+function showJoinPanel() {
+  const p = $('join-panel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
+function filterCat(cat, el) {
+  currentCatFilter = cat;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  loadPublicRooms();
+}
+
+async function loadPublicRooms() {
+  const list = $('public-rooms-list');
+  list.innerHTML = '<div class="rooms-empty">Carregando...</div>';
+  try {
+    const res = await fetch(`/api/rooms/public?category=${currentCatFilter}`);
+    const { rooms } = await res.json();
+    if (!rooms.length) { list.innerHTML = '<div class="rooms-empty">Nenhuma sala pública no momento</div>'; return; }
+    list.innerHTML = '';
+    rooms.forEach(room => {
+      const card = document.createElement('div');
+      card.className = 'room-card';
+      const thumbContent = room.video?.thumb
+        ? `<img src="${esc(room.video.thumb)}" onerror="this.style.display='none'">${getCatEmoji(room.category)}`
+        : getCatEmoji(room.category);
+      const videoTitle = room.video ? esc(room.video.title || 'Vídeo') : 'Nenhum vídeo ainda';
+      const playingBadge = room.video && room.playing ? '<span class="room-card-playing">▶ ao vivo</span>' : '';
+      card.innerHTML = `
+        <div class="room-card-thumb">${thumbContent}</div>
+        <div class="room-card-body">
+          <div class="room-card-name">${esc(room.name || room.id)}</div>
+          <div class="room-card-video">${videoTitle}</div>
+          <div class="room-card-meta">
+            <span class="room-card-cat">${esc(room.category || 'geral')}</span>
+            <span class="room-card-live">${room.memberCount} assistindo</span>
+            ${playingBadge}
+          </div>
+        </div>`;
+      card.onclick = () => quickJoinRoom(room.id);
+      list.appendChild(card);
+    });
+  } catch(e) { list.innerHTML = '<div class="rooms-empty">Erro ao carregar salas</div>'; }
+}
+
+function getCatEmoji(cat) {
+  const map = { filmes:'🎬', series:'📺', anime:'⛩️', musica:'🎵', games:'🎮', geral:'💬' };
+  return `<span style="position:relative;z-index:1;font-size:1.8rem">${map[cat]||'🎬'}</span>`;
+}
+
+async function quickJoinRoom(roomId) {
+  if (!loggedInUser) return;
+  const name = loggedInUser.name;
+  enterApp(roomId, name, null, false, null);
+}
+
 document.querySelectorAll('.av-opt').forEach(el => {
   el.onclick = () => {
     el.closest('.avatar-pick').querySelectorAll('.av-opt').forEach(e=>e.classList.remove('on'));
@@ -626,46 +784,44 @@ document.querySelectorAll('.av-opt').forEach(el => {
   };
 });
 
-function lTab(t) {
-  $('l-create').style.display = t==='create'?'block':'none';
-  $('l-join').style.display   = t==='join'  ?'block':'none';
-  document.querySelectorAll('.ltab').forEach((el,i)=>el.classList.toggle('on',(i===0&&t==='create')||(i===1&&t==='join')));
-}
-
 async function createRoom() {
   if (!loggedInUser) { showLErr('Faça login para criar uma sala'); return; }
   const name = $('l-name').value.trim();
-  if (!name) { showLErr('Digite seu nome'); return; }
+  const roomName = $('room-name-inp').value.trim();
+  if (!name) { $('create-err').textContent = 'Digite seu nome'; $('create-err').classList.add('on'); return; }
   try {
     const res = await fetch('/api/room/new');
     const { roomId: id } = await res.json();
-    enterApp(id, name);
-  } catch(e) { showLErr('Erro ao conectar — servidor offline?'); }
+    closeModal('create-modal');
+    enterApp(id, name, roomName || `Sala de ${name}`, selectedVis === 'public', selectedCat);
+  } catch(e) { $('create-err').textContent = 'Erro ao criar sala'; $('create-err').classList.add('on'); }
 }
 
 async function joinRoom() {
   if (!loggedInUser) { showLErr('Faça login para entrar em uma sala'); return; }
-  const name = $('j-name').value.trim();
   const code = $('j-code').value.trim().toUpperCase();
-  if (!name) { showLErr('Digite seu nome'); return; }
+  const name = loggedInUser.name;
   if (!code) { showLErr('Digite o código da sala'); return; }
   try {
     const res = await fetch(`/api/room/${code}`);
     if (!res.ok) { showLErr('Sala não encontrada'); return; }
-    enterApp(code, name);
+    enterApp(code, name, null, false, null);
   } catch(e) { showLErr('Erro ao conectar — servidor offline?'); }
 }
 
-function showLErr(m){$('lerr').textContent=m;setTimeout(()=>$('lerr').textContent='',3500);}
+function showLErr(m) { $('lerr').textContent = m; $('lerr').classList.add('on'); setTimeout(()=>$('lerr').classList.remove('on'), 3500); }
 
 // ── APP ───────────────────────────────────────────────────
-function enterApp(id, name) {
+function enterApp(id, name, roomName, isPublic, category) {
   roomId = id;
   myUser = {
     id: null, name,
     avatar: selectedAvatar,
     avatarUrl: loggedInUser?.avatarUrl || null,
-    googleId: loggedInUser?.id || null
+    googleId: loggedInUser?.id || null,
+    _roomName: roomName,
+    _isPublic: isPublic,
+    _category: category
   };
   $('lobby').style.display = 'none';
   $('app').style.display = 'flex';
@@ -686,7 +842,16 @@ function enterApp(id, name) {
 // ── WEBSOCKET ─────────────────────────────────────────────
 function connectWS() {
   ws = new WebSocket(WS_URL);
-  ws.onopen = () => { send('JOIN',{roomId,user:myUser}); startPing(); };
+  ws.onopen = () => {
+    send('JOIN', {
+      roomId,
+      user: myUser,
+      roomName: myUser._roomName,
+      isPublic: myUser._isPublic,
+      category: myUser._category
+    });
+    startPing();
+  };
   ws.onmessage = (e) => { try{handle(JSON.parse(e.data));}catch(err){console.error(err);} };
   ws.onclose = () => { clearInterval(pingInterval); setTimeout(connectWS,2000); };
 }
@@ -1111,7 +1276,7 @@ async function addVideo(){
 
 function sTab(t,el){document.querySelectorAll('.stab').forEach(s=>s.classList.remove('on'));el.classList.add('on');['chat','queue','history','members','friends'].forEach(p=>{const panel=$('p-'+p);if(panel)panel.classList.toggle('on',p===t);});}
 function copyCode(){navigator.clipboard.writeText(roomId).then(()=>toast('Código copiado: '+roomId));}
-function leaveRoom(){if(ws)ws.close();$('app').style.display='none';$('lobby').style.display='flex';roomId='';rendered=new Set();}
+function leaveRoom(){if(ws)ws.close();$('app').style.display='none';$('lobby').style.display='flex';roomId='';rendered=new Set();loadPublicRooms();}
 
 // ── INIT ──────────────────────────────────────────────────
 loadAuthState();
