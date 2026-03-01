@@ -25,57 +25,41 @@
 html,body{height:100%;overflow:hidden;}
 body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;}
 
-/* scrollbars */
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
 
-/* ── NOISE OVERLAY ── */
 body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:9999;opacity:.4;}
 
-/* ══════════════════════════════════════
-   LOBBY
-══════════════════════════════════════ */
+/* LOBBY */
 #lobby{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;background:var(--bg);}
 #lobby::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(232,67,147,.12) 0%,transparent 70%),radial-gradient(ellipse 60% 40% at 80% 100%,rgba(124,92,252,.1) 0%,transparent 60%);pointer-events:none;}
-
 .lobby-inner{width:100%;max-width:420px;position:relative;z-index:1;}
-
 .brand{text-align:center;margin-bottom:2.5rem;}
 .brand-logo{font-size:2.8rem;font-weight:700;letter-spacing:-1.5px;line-height:1;}
 .brand-logo span{background:linear-gradient(135deg,var(--accent),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
 .brand-sub{color:var(--sub);font-size:.85rem;margin-top:.4rem;font-family:'DM Mono',monospace;}
-
 .glass{background:rgba(15,16,24,.8);border:1px solid var(--border);border-radius:18px;padding:2rem;backdrop-filter:blur(20px);}
-
 .ltabs{display:flex;gap:3px;background:var(--bg);border-radius:10px;padding:3px;margin-bottom:1.8rem;}
 .ltab{flex:1;padding:.55rem;border:none;background:transparent;color:var(--sub);font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:600;border-radius:8px;cursor:pointer;transition:all .2s;}
 .ltab.on{background:var(--s3);color:var(--text);}
-
 .field{margin-bottom:1.1rem;}
 .field label{display:block;font-size:.72rem;color:var(--sub);margin-bottom:.4rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.8px;}
 .field input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:.72rem 1rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.95rem;outline:none;transition:border-color .2s;}
 .field input:focus{border-color:var(--accent);}
-
 .avatar-pick{display:flex;gap:.5rem;margin-bottom:1.5rem;flex-wrap:wrap;}
 .av-opt{width:40px;height:40px;border-radius:50%;border:2px solid var(--border);cursor:pointer;transition:all .2s;font-size:1.3rem;display:flex;align-items:center;justify-content:center;background:var(--s2);}
 .av-opt.on{border-color:var(--accent);transform:scale(1.1);}
 .av-label{font-size:.72rem;color:var(--sub);margin-bottom:.4rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.8px;display:block;}
-
 .pill-btn{width:100%;padding:.8rem;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:1rem;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:.2px;}
 .pill-btn.primary{background:linear-gradient(135deg,var(--accent),var(--a2));color:#fff;box-shadow:0 4px 24px rgba(232,67,147,.3);}
 .pill-btn.primary:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(232,67,147,.4);}
 .pill-btn.ghost{background:var(--s3);color:var(--text);border:1px solid var(--border);}
 .pill-btn.ghost:hover{border-color:var(--accent);color:var(--accent);}
-
 .lerr{color:var(--danger);font-size:.8rem;margin-top:.6rem;font-family:'DM Mono',monospace;text-align:center;}
 
-/* ══════════════════════════════════════
-   APP SHELL
-══════════════════════════════════════ */
+/* APP SHELL */
 #app{display:none;height:100vh;flex-direction:column;}
-
-/* TOPBAR */
 .topbar{height:52px;background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 1rem;gap:.8rem;flex-shrink:0;z-index:50;}
 .tb-logo{font-size:1.1rem;font-weight:700;letter-spacing:-.5px;}
 .tb-logo span{background:linear-gradient(135deg,var(--accent),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
@@ -95,8 +79,6 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 
 /* MAIN LAYOUT */
 .main{display:flex;flex:1;overflow:hidden;min-height:0;}
-
-/* ── VIDEO AREA ── */
 .varea{flex:1;display:flex;flex-direction:column;min-width:0;background:#000;}
 
 #vph{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;background:var(--bg);position:relative;overflow:hidden;}
@@ -114,14 +96,12 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 #vwrap{flex:1;position:relative;background:#000;display:none;min-height:0;}
 #vwrap iframe,#vwrap video{position:absolute;top:0;left:0;width:100%;height:100%;border:none;}
 
-/* reactions overlay */
 .reacts-wrap{position:absolute;right:.8rem;top:.8rem;display:flex;flex-direction:column;gap:.3rem;z-index:20;}
 .r-btn{width:36px;height:36px;border-radius:50%;background:rgba(8,9,15,.75);border:1px solid rgba(255,255,255,.08);font-size:.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s;backdrop-filter:blur(8px);}
 .r-btn:hover{transform:scale(1.25);}
 .float-r{position:absolute;font-size:2.2rem;pointer-events:none;z-index:30;animation:floatUp 2.2s ease forwards;}
 @keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-120px) scale(1.6)}}
 
-/* video info bar */
 .vinfo{background:linear-gradient(180deg,transparent 0%,rgba(8,9,15,.95) 100%);position:absolute;bottom:52px;left:0;right:0;padding:.75rem 1rem;display:none;z-index:10;}
 .vi-title{font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .vi-sub{font-size:.75rem;color:var(--sub);margin-top:.15rem;font-family:'DM Mono',monospace;}
@@ -141,13 +121,11 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 .src-badge{font-family:'DM Mono',monospace;font-size:.6rem;padding:.14rem .38rem;border-radius:5px;background:var(--accent);color:#fff;text-transform:uppercase;flex-shrink:0;}
 
-/* ── SIDEBAR ── */
+/* SIDEBAR */
 .sidebar{width:320px;background:var(--s1);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
-
 .stabs{display:flex;border-bottom:1px solid var(--border);}
 .stab{flex:1;padding:.7rem .5rem;background:none;border:none;color:var(--sub);font-family:'DM Sans',sans-serif;font-weight:600;font-size:.78rem;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;}
 .stab.on{color:var(--text);border-bottom-color:var(--accent);}
-
 .panel{display:none;flex-direction:column;flex:1;overflow:hidden;}
 .panel.on{display:flex;}
 
@@ -163,7 +141,6 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 .msg-name{font-size:.7rem;font-weight:600;color:var(--accent);font-family:'DM Mono',monospace;}
 .msg-time{font-size:.62rem;color:var(--sub);margin-left:auto;font-family:'DM Mono',monospace;}
 .msg-text{color:var(--text);}
-
 .chat-form{padding:.65rem;border-top:1px solid var(--border);display:flex;gap:.4rem;align-items:flex-end;}
 .chat-inp{flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:.52rem .75rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none;transition:border-color .2s;resize:none;min-height:36px;max-height:90px;line-height:1.4;}
 .chat-inp:focus{border-color:var(--accent);}
@@ -194,7 +171,7 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 .member-badge{font-size:.62rem;font-family:'DM Mono',monospace;padding:.12rem .38rem;border-radius:5px;background:var(--s3);color:var(--sub);margin-left:auto;}
 .member-badge.host{background:rgba(232,67,147,.15);color:var(--accent);}
 
-/* ── MODAL ── */
+/* MODAL */
 .overlay{display:none;position:fixed;inset:0;background:rgba(8,9,15,.85);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(8px);}
 .overlay.on{display:flex;}
 .modal{background:var(--s1);border:1px solid var(--border);border-radius:20px;padding:1.8rem;width:92%;max-width:520px;max-height:90vh;overflow-y:auto;animation:modalIn .25s ease;}
@@ -202,14 +179,11 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 .modal-title{font-size:1.1rem;font-weight:700;margin-bottom:1.4rem;display:flex;align-items:center;gap:.5rem;}
 .modal-close{margin-left:auto;background:none;border:none;color:var(--sub);font-size:1.2rem;cursor:pointer;padding:.2rem;border-radius:5px;transition:color .15s;}
 .modal-close:hover{color:var(--text);}
-
-/* source grid */
 .src-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin-bottom:1.2rem;}
 .src-opt{background:var(--bg);border:2px solid var(--border);border-radius:10px;padding:.7rem .4rem;text-align:center;cursor:pointer;transition:all .2s;font-size:.78rem;font-weight:600;}
 .src-opt:hover,.src-opt.on{border-color:var(--accent);color:var(--accent);background:rgba(232,67,147,.06);}
 .src-opt .ico{font-size:1.3rem;display:block;margin-bottom:.2rem;}
 
-/* youtube search */
 .yt-search-wrap{position:relative;margin-bottom:.8rem;}
 .yt-search-inp{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:.7rem 2.5rem .7rem 1rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.92rem;outline:none;transition:border-color .2s;}
 .yt-search-inp:focus{border-color:var(--accent);}
@@ -224,13 +198,11 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 .yt-item-ch{font-size:.72rem;color:var(--sub);margin-top:.2rem;font-family:'DM Mono',monospace;}
 .yt-loading{text-align:center;padding:1.5rem;color:var(--sub);font-size:.82rem;font-family:'DM Mono',monospace;}
 
-/* drop zone */
 .dz{border:2px dashed var(--border);border-radius:12px;padding:1.8rem 1rem;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:.8rem;}
 .dz:hover,.dz.drag{border-color:var(--accent);background:rgba(232,67,147,.04);}
 .dz-ico{font-size:2.2rem;margin-bottom:.4rem;}
 .dz p{color:var(--sub);font-size:.82rem;line-height:1.6;}
 .dz strong{color:var(--text);}
-
 .minp{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:.7rem 1rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.9rem;outline:none;transition:border-color .2s;margin-bottom:.8rem;}
 .minp:focus{border-color:var(--accent);}
 .mlabel{font-size:.72rem;color:var(--sub);margin-bottom:.4rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.8px;display:block;}
@@ -238,18 +210,15 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 .mbtns{display:flex;gap:.5rem;margin-top:.8rem;}
 .mbtns .pill-btn{flex:1;padding:.7rem;}
 
-/* YT info preview */
 .yt-preview{display:flex;gap:.8rem;padding:.75rem;background:var(--bg);border-radius:10px;margin-bottom:.8rem;border:1px solid var(--border);}
 .yt-preview img{width:80px;height:50px;border-radius:6px;object-fit:cover;flex-shrink:0;}
 .yt-preview-info{flex:1;min-width:0;}
 .yt-preview-title{font-size:.84rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .yt-preview-ch{font-size:.72rem;color:var(--sub);margin-top:.15rem;font-family:'DM Mono',monospace;}
 
-/* TOAST */
 .toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--s2);border:1px solid var(--border);border-radius:50px;padding:.5rem 1.4rem;font-size:.78rem;font-family:'DM Mono',monospace;z-index:300;transition:transform .3s ease;white-space:nowrap;pointer-events:none;}
 .toast.on{transform:translateX(-50%) translateY(0);}
 
-/* ANIMATIONS */
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spin{animation:spin 1s linear infinite;display:inline-block;}
@@ -262,9 +231,7 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 </head>
 <body>
 
-<!-- ════════════════════════════════════
-     LOBBY
-════════════════════════════════════ -->
+<!-- LOBBY -->
 <div id="lobby">
   <div class="lobby-inner">
     <div class="brand">
@@ -276,7 +243,6 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
         <button class="ltab on" onclick="lTab('create')">Criar Sala</button>
         <button class="ltab" onclick="lTab('join')">Entrar</button>
       </div>
-
       <div id="l-create">
         <div class="field"><label>Seu nome</label><input type="text" id="l-name" placeholder="Como quer ser chamado?" maxlength="20"></div>
         <span class="av-label">Escolha um avatar</span>
@@ -292,7 +258,6 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
         </div>
         <button class="pill-btn primary" onclick="createRoom()">🎬 Criar Sala</button>
       </div>
-
       <div id="l-join" style="display:none">
         <div class="field"><label>Seu nome</label><input type="text" id="j-name" placeholder="Como quer ser chamado?" maxlength="20"></div>
         <div class="field"><label>Código da Sala</label><input type="text" id="j-code" placeholder="WAVE-XXXX" maxlength="9" style="text-transform:uppercase;letter-spacing:2px"></div>
@@ -314,9 +279,7 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
   </div>
 </div>
 
-<!-- ════════════════════════════════════
-     APP
-════════════════════════════════════ -->
+<!-- APP -->
 <div id="app" style="display:none;flex-direction:column;height:100vh;">
   <div class="topbar">
     <div class="tb-logo">Wave<span>Watch</span></div>
@@ -329,14 +292,17 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
       <button class="tb-btn" onclick="leaveRoom()">Sair</button>
     </div>
   </div>
-
   <div class="main">
-    <!-- VIDEO -->
     <div class="varea">
       <div id="vph">
         <div class="ph-ring">🎬</div>
         <div class="ph-title">Nenhum vídeo</div>
-        <div class="ph-sub">Adicione um vídeo para assistir junto<div class="ph-fmts" style="margin-top:.6rem"><span class="fmt-chip">YouTube</span><span class="fmt-chip">Vimeo</span><span class="fmt-chip">MP4</span><span class="fmt-chip">Local</span></div></div>
+        <div class="ph-sub">Adicione um vídeo para assistir junto
+          <div class="ph-fmts" style="margin-top:.6rem">
+            <span class="fmt-chip">YouTube</span><span class="fmt-chip">Vimeo</span>
+            <span class="fmt-chip">MP4</span><span class="fmt-chip">Local</span>
+          </div>
+        </div>
         <button class="add-video-btn" onclick="openAddModal()">+ Adicionar Vídeo</button>
       </div>
       <div id="vwrap">
@@ -373,7 +339,6 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
       </div>
     </div>
 
-    <!-- SIDEBAR -->
     <div class="sidebar" id="sidebar">
       <div class="stabs">
         <button class="stab on" onclick="sTab('chat',this)">💬 Chat</button>
@@ -404,16 +369,13 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
   </div>
 </div>
 
-<!-- ════════════════════════════════════
-     ADD VIDEO MODAL
-════════════════════════════════════ -->
+<!-- ADD VIDEO MODAL -->
 <div class="overlay" id="add-modal">
   <div class="modal">
     <div class="modal-title">
       🎬 Adicionar Vídeo
       <button class="modal-close" onclick="closeModal('add-modal')">✕</button>
     </div>
-
     <div class="src-grid">
       <div class="src-opt on" data-s="youtube" onclick="selSrc(this,'youtube')"><span class="ico">▶️</span>YouTube</div>
       <div class="src-opt" data-s="vimeo"   onclick="selSrc(this,'vimeo')"  ><span class="ico">🎥</span>Vimeo</div>
@@ -422,8 +384,6 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
       <div class="src-opt" data-s="gdrive"  onclick="selSrc(this,'gdrive')" ><span class="ico">📁</span>Google Drive</div>
       <div class="src-opt" data-s="local"   onclick="selSrc(this,'local')"  ><span class="ico">💾</span>Arquivo</div>
     </div>
-
-    <!-- YouTube search -->
     <div id="yt-section">
       <div class="yt-search-wrap">
         <input class="yt-search-inp" id="yt-q" placeholder="Buscar no YouTube ou colar link..." onkeydown="ytSearchKey(event)" oninput="ytUrlPreview(this.value)">
@@ -432,14 +392,10 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
       <div id="yt-preview-wrap" style="display:none"></div>
       <div id="yt-results"></div>
     </div>
-
-    <!-- URL input -->
     <div id="url-section" style="display:none">
       <span class="mlabel" id="url-mlabel">URL do vídeo</span>
       <input class="minp" id="vurl" placeholder="https://...">
     </div>
-
-    <!-- Local file -->
     <div id="local-section" style="display:none">
       <div class="dz" id="dz" onclick="document.getElementById('ff').click()"
            ondragover="dzO(event,true)" ondragleave="dzO(event,false)" ondrop="dzD(event)">
@@ -448,7 +404,6 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
       </div>
       <input type="file" id="ff" accept="video/*" style="display:none" onchange="filePick(this)">
     </div>
-
     <div class="merr" id="merr"></div>
     <div class="mbtns">
       <button class="pill-btn ghost" onclick="closeModal('add-modal')">Cancelar</button>
@@ -458,54 +413,91 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 </div>
 
 <div class="toast" id="toast"></div>
-<audio id="notif-sound" src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA..." preload="none"></audio>
 
 <script>
-// ═══════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // CONFIG
-// ═══════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 const WS_URL = location.protocol === 'https:'
   ? `wss://${location.host}`
   : `ws://${location.host}`;
 
-// ═══════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // STATE
-// ═══════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 let ws = null;
 let myUser = null;
 let roomId = '';
 let roomState = null;
 let ytIframe = null, nativeVid = null;
-let isPlaying = false, isSyncing = false;
+let isPlaying = false;
+let isSyncing = false;          // true when WE are applying a sync — prevents feedback loops
 let currentSrc = 'youtube', pickedFile = null;
 let ytInfoCache = {};
 let selectedAvatar = '🎬';
 let amIHost = false;
-let rtt = 0; // round-trip time in ms, measured via PING/PONG
-let pingInterval = null;
-let pingTs = 0;
-let syncInterval = null;
-let lastKnownServerTime = 0;
-let lastKnownServerTS = 0;
-let lastKnownPlaying = false;
-let ytReady = false; // true only after YouTube player fires 'onReady'
-let ytCurrentTime = 0; // tracks YouTube current time via postMessage
-let ytPendingSeek = null; // seek to apply once player is ready
+let localQueue = [];
+let rendered = new Set();
 
-// ═══════════════════════════════════════
+// ── RTT tracking ──────────────────────────────────────────
+let rtt = 80;          // smoothed RTT in ms (EMA)
+let pingTs = 0;
+let pingInterval = null;
+
+// ── The master sync clock ─────────────────────────────────
+// Instead of storing just "what time is it?", we store:
+//   syncTime    = video position at moment of last event
+//   syncWall    = real-world Date.now() at moment of last event
+//   syncPlaying = whether video was playing at that moment
+// Then we can always compute: position = syncTime + (now - syncWall)
+let syncTime = 0;
+let syncWall = 0;
+let syncPlaying = false;
+
+// ── YouTube player state ──────────────────────────────────
+let ytReady = false;
+let ytCurrentTime = 0;
+let ytPendingSeek = null;
+let ytLastInfoTs = 0;       // when we last got a currentTime update from YT
+
+// ── Soft sync state ───────────────────────────────────────
+// Instead of hard-seeking for small drifts, we adjust playbackRate smoothly
+let softSyncInterval = null;
+const SOFT_SYNC_THRESHOLD = 0.3;  // drifts smaller than this: use rate adjustment
+const HARD_SEEK_THRESHOLD = 2.5;  // drifts larger than this: hard seek
+const RATE_FAST = 1.08;           // slightly faster to catch up
+const RATE_SLOW = 0.92;           // slightly slower to fall back
+const RATE_NORMAL = 1.0;
+
+// ═══════════════════════════════════════════════════════════
 // UTILS
-// ═══════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 function $(id) { return document.getElementById(id); }
 function ft(s) { if (!s || isNaN(s)) return '0:00'; return `${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2,'0')}`; }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function toast(msg, d=2500) { const el=$('toast'); el.textContent=msg; el.classList.add('on'); setTimeout(()=>el.classList.remove('on'),d); }
-function genCode() { const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; return 'WAVE-'+Array.from({length:4},()=>c[Math.floor(Math.random()*c.length)]).join(''); }
 function extractYT(url) { const m=url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/); return m?m[1]:null; }
 
-// ═══════════════════════════════════════
+// Compute where the video should be RIGHT NOW based on the sync clock
+function expectedNow() {
+  if (!syncPlaying || syncWall === 0) return syncTime;
+  return syncTime + (Date.now() - syncWall) / 1000;
+}
+
+// Get current player position
+function curTime() {
+  if (nativeVid) return nativeVid.currentTime || 0;
+  if (ytIframe) return ytCurrentTime || 0;
+  return 0;
+}
+function curDur() {
+  if (nativeVid) return nativeVid.duration || 0;
+  return 0;
+}
+
+// ═══════════════════════════════════════════════════════════
 // LOBBY
-// ═══════════════════════════════════════
-// Avatar picker
+// ═══════════════════════════════════════════════════════════
 document.querySelectorAll('.av-opt').forEach(el => {
   el.onclick = () => {
     el.closest('.avatar-pick').querySelectorAll('.av-opt').forEach(e=>e.classList.remove('on'));
@@ -527,7 +519,7 @@ async function createRoom() {
     const res = await fetch('/api/room/new');
     const { roomId: id } = await res.json();
     enterApp(id, name);
-  } catch(e) { showLErr('Erro ao criar sala — servidor offline?'); }
+  } catch(e) { showLErr('Erro ao conectar — servidor offline?'); }
 }
 
 async function joinRoom() {
@@ -544,9 +536,9 @@ async function joinRoom() {
 
 function showLErr(m) { $('lerr').textContent=m; setTimeout(()=>$('lerr').textContent='',3500); }
 
-// ═══════════════════════════════════════
-// ENTER APP + WEBSOCKET
-// ═══════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+// APP + WEBSOCKET
+// ═══════════════════════════════════════════════════════════
 function enterApp(id, name) {
   roomId = id;
   myUser = { id: null, name, avatar: selectedAvatar };
@@ -556,14 +548,6 @@ function enterApp(id, name) {
   connectWS();
 }
 
-function startPing() {
-  if (pingInterval) clearInterval(pingInterval);
-  pingInterval = setInterval(() => {
-    pingTs = Date.now();
-    send('PING', { ts: pingTs });
-  }, 3000);
-}
-
 function connectWS() {
   ws = new WebSocket(WS_URL);
   ws.onopen = () => {
@@ -571,10 +555,11 @@ function connectWS() {
     startPing();
   };
   ws.onmessage = (e) => {
-    try { handle(JSON.parse(e.data)); } catch(err){}
+    try { handle(JSON.parse(e.data)); } catch(err) { console.error(err); }
   };
   ws.onclose = () => {
-    setTimeout(connectWS, 2000); // auto-reconnect
+    clearInterval(pingInterval);
+    setTimeout(connectWS, 2000);
   };
 }
 
@@ -582,9 +567,18 @@ function send(type, payload) {
   if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type, payload }));
 }
 
-// ═══════════════════════════════════════
+// ── PING — sends every 2s, measures RTT with EMA smoothing ──
+function startPing() {
+  if (pingInterval) clearInterval(pingInterval);
+  pingInterval = setInterval(() => {
+    pingTs = Date.now();
+    send('PING', { ts: pingTs });
+  }, 2000);
+}
+
+// ═══════════════════════════════════════════════════════════
 // WS MESSAGE HANDLER
-// ═══════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 function handle(msg) {
   const { type, payload } = msg;
 
@@ -596,22 +590,16 @@ function handle(msg) {
     renderMembers(payload.members);
     renderQueue(payload.queue);
     renderHistory(payload.history);
-    // Set server reference BEFORE loadVideo so iframe start= param is correct
-    lastKnownServerTime = payload.currentTime;
-    lastKnownServerTS = payload.lastUpdate;
-    lastKnownPlaying = payload.playing;
-    if (payload.video) loadVideo(payload.video, false);
-    // doPlay/doPause will be called by onYTMsg once player is ready
     updateLiveLbl(payload.memberCount || payload.members.length);
-    startSyncWatcher();
+    // Apply the server clock — this is the reference point
+    applySyncClock(payload.playing, payload.currentTime, payload.serverNow || Date.now());
+    if (payload.video) loadVideo(payload.video, false);
+    startSoftSync();
   }
 
   if (type === 'USER_JOINED') {
     sysMsg(`${payload.user.avatar} ${payload.user.name} entrou na sala`);
     updateLiveLbl(payload.memberCount);
-    if (payload.user.name !== myUser.name) {
-      send('ROOM_STATE_REQUEST', {});
-    }
   }
 
   if (type === 'HOST_CHANGED') {
@@ -627,8 +615,9 @@ function handle(msg) {
   }
 
   if (type === 'PONG') {
-    rtt = Date.now() - pingTs;
-    console.log('[PING] RTT=', rtt, 'ms');
+    // EMA smoothing: weight new sample 30%, historical 70%
+    const measured = Date.now() - payload.ts;
+    rtt = Math.round(rtt * 0.7 + measured * 0.3);
   }
 
   if (type === 'CHAT') {
@@ -641,10 +630,7 @@ function handle(msg) {
 
   if (type === 'VIDEO') {
     if (payload.video) {
-      // New video always starts from 0
-      lastKnownServerTime = 0;
-      lastKnownServerTS = Date.now();
-      lastKnownPlaying = false;
+      applySyncClock(false, 0, Date.now());
       loadVideo(payload.video, false);
       sysMsg(`${payload.by?.avatar||''} ${payload.by?.name||'Alguém'} adicionou: ${payload.video.title}`);
     }
@@ -654,58 +640,124 @@ function handle(msg) {
     renderQueue(payload.queue);
   }
 
+  // STATE is a definitive play/pause event from the host (with RTT compensation already applied)
   if (type === 'STATE') {
-    // payload.currentTime is the exact time at moment of action — use directly
-    lastKnownServerTime = payload.currentTime;
-    lastKnownServerTS = Date.now();
-    lastKnownPlaying = payload.playing;
-    if (ytIframe && !ytReady) return; // onYTMsg will apply when ready
-    isSyncing = true;
-    const current = ytIframe ? ytCurrentTime : (nativeVid ? nativeVid.currentTime : 0);
-    if (Math.abs(current - payload.currentTime) > 2.0) seekTo(Math.max(0, payload.currentTime));
-    if (payload.playing !== isPlaying) { if (payload.playing) doPlay(); else doPause(); }
-    isSyncing = false;
+    applySyncClock(payload.playing, payload.currentTime, payload.serverNow || Date.now());
+    if (!ytReady && ytIframe) return;
+    applyPlayState(payload.playing, payload.currentTime);
   }
 
-  if (type === 'SYNC_PING') {
-    if (!amIHost) {
-      const expected = payload.currentTime;
-      lastKnownServerTime = expected;
-      lastKnownServerTS = Date.now();
-      lastKnownPlaying = payload.playing;
-      console.log('[SYNC_PING] expected=', expected, 'rtt=', rtt, 'ytCurrentTime=', ytCurrentTime);
-      if (!ytReady && ytIframe) return;
-      isSyncing = true;
-      const current = ytIframe ? ytCurrentTime : (nativeVid ? nativeVid.currentTime : 0);
-      const drift = current - expected; // signed: positive = client ahead, negative = client behind
-      console.log('[SYNC_PING] current=', current, 'drift=', drift);
-      // Only hard-seek if very out of sync (>3s)
-      if (current > 0 && Math.abs(drift) > 3.0) {
-        seekTo(Math.max(0, expected));
-      }
-      if (payload.playing !== isPlaying) { if (payload.playing) doPlay(); else doPause(); }
-      isSyncing = false;
-    }
-  }
-
+  // SEEK is a position jump (with RTT compensation already applied by server)
   if (type === 'SEEK') {
+    applySyncClock(syncPlaying, payload.t, Date.now());
+    if (!ytReady && ytIframe) return;
     isSyncing = true;
-    lastKnownServerTime = payload.t;
-    lastKnownServerTS = Date.now();
     seekTo(payload.t);
     isSyncing = false;
   }
+
+  // SYNC_TICK is the periodic heartbeat — used for soft drift correction
+  if (type === 'SYNC_TICK') {
+    // Update our reference clock
+    applySyncClock(payload.playing, payload.currentTime, payload.serverNow || Date.now());
+    if (!ytReady && ytIframe) return;
+
+    // Correct play/pause state immediately if wrong
+    if (payload.playing !== isPlaying) {
+      applyPlayState(payload.playing, payload.currentTime);
+      return;
+    }
+
+    // For drift: let the soft sync loop handle it (runs every 500ms)
+    // Only hard-seek here if massively out of sync
+    if (syncPlaying) {
+      const drift = curTime() - expectedNow();
+      if (Math.abs(drift) > HARD_SEEK_THRESHOLD) {
+        isSyncing = true;
+        seekTo(Math.max(0, expectedNow()));
+        isSyncing = false;
+      }
+    }
+  }
 }
 
-function updateLiveLbl(n) { $('live-lbl').textContent = (n||1)+' online'; }
+// ─────────────────────────────────────────────────────────
+// applySyncClock — stores the reference clock.
+// serverNow is the server's Date.now() at time of sending,
+// so we can account for server→client one-way latency too.
+// ─────────────────────────────────────────────────────────
+function applySyncClock(playing, videoTime, serverNow) {
+  const oneWay = rtt / 2;                    // estimated one-way latency
+  const networkDelay = (Date.now() - serverNow) + oneWay; // total transit ms
+  // If playing, the video has advanced by networkDelay ms since server sent this
+  syncTime = videoTime + (playing ? networkDelay / 1000 : 0);
+  syncWall = Date.now();
+  syncPlaying = playing;
+}
 
-// ═══════════════════════════════════════
+// ─────────────────────────────────────────────────────────
+// applyPlayState — immediately sets play/pause and corrects position
+// ─────────────────────────────────────────────────────────
+function applyPlayState(playing, t) {
+  isSyncing = true;
+  const target = Math.max(0, t);
+  const current = curTime();
+  // Only seek if significantly off — avoids unnecessary jumps
+  if (Math.abs(current - target) > 0.5) seekTo(target);
+  if (playing) doPlay(); else doPause();
+  isSyncing = false;
+}
+
+// ═══════════════════════════════════════════════════════════
+// SOFT SYNC LOOP — runs every 500ms
+// This is the Rave magic: instead of hard seeks for small drifts,
+// we adjust playbackRate so the correction is completely invisible.
+// ═══════════════════════════════════════════════════════════
+function startSoftSync() {
+  if (softSyncInterval) clearInterval(softSyncInterval);
+  softSyncInterval = setInterval(() => {
+    if (!syncPlaying || syncWall === 0) return;
+    if (ytIframe && !ytReady) return;
+
+    const expected = expectedNow();
+    const current = curTime();
+    if (current === 0 && expected > 2) return; // player not ready yet
+
+    const drift = current - expected; // positive = we're ahead, negative = behind
+
+    if (Math.abs(drift) > HARD_SEEK_THRESHOLD) {
+      // Too far out of sync — hard seek
+      isSyncing = true;
+      seekTo(Math.max(0, expected));
+      setRate(RATE_NORMAL);
+      isSyncing = false;
+    } else if (drift > SOFT_SYNC_THRESHOLD) {
+      // We're running ahead — slow down a bit
+      setRate(RATE_SLOW);
+    } else if (drift < -SOFT_SYNC_THRESHOLD) {
+      // We're running behind — speed up a bit
+      setRate(RATE_FAST);
+    } else {
+      // Within acceptable range — normal speed
+      setRate(RATE_NORMAL);
+    }
+  }, 500);
+}
+
+function setRate(rate) {
+  if (nativeVid && nativeVid.playbackRate !== rate) nativeVid.playbackRate = rate;
+  if (ytIframe && ytReady) {
+    // YouTube iframe API supports setPlaybackRate
+    ytCmd('setPlaybackRate', [rate]);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 // VIDEO LOADING
-// ═══════════════════════════════════════
-function loadVideo(video, broadcast) {
-  const { src, url, title, thumb, author } = video;
+// ═══════════════════════════════════════════════════════════
+function loadVideo(video, doBroadcast) {
+  const { src, url, title, author } = video;
 
-  // Cleanup
   if (ytIframe) { ytIframe = null; }
   ytReady = false;
   ytCurrentTime = 0;
@@ -736,9 +788,8 @@ function loadVideo(video, broadcast) {
     const vid = extractYT(url);
     if (!vid) { toast('URL inválida'); return; }
 
-    // Start iframe at the correct server time directly via URL ?start= param
-    const _elapsed = lastKnownServerTS > 0 ? (Date.now() - lastKnownServerTS) / 1000 : 0;
-    const startAt = Math.floor(Math.max(0, lastKnownServerTime + (lastKnownPlaying ? _elapsed : 0)));
+    // Start iframe at the expected position to minimize initial seek
+    const startAt = Math.floor(Math.max(0, expectedNow()));
 
     const iframe = document.createElement('iframe');
     iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
@@ -748,7 +799,7 @@ function loadVideo(video, broadcast) {
     wrap.appendChild(iframe);
     ytIframe = iframe;
 
-    // Overlay always covers YT iframe — controls are ONLY via WaveWatch buttons
+    // Overlay — guests can't click through to native YT controls
     const overlay = document.createElement('div');
     overlay.id = 'yt-overlay';
     overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;';
@@ -757,13 +808,11 @@ function loadVideo(video, broadcast) {
 
     window.removeEventListener('message', onYTMsg);
     window.addEventListener('message', onYTMsg);
-    clearInterval(window._ytPoll);
-    // Send 'listening' once iframe loads so YT starts sending postMessage events
+
     iframe.addEventListener('load', () => {
-      try {
-        iframe.contentWindow.postMessage(JSON.stringify({ event: 'listening' }), '*');
-      } catch(e) {}
+      try { iframe.contentWindow.postMessage(JSON.stringify({ event: 'listening' }), '*'); } catch(e) {}
     });
+
   } else if (src === 'vimeo') {
     $('src-badge').textContent = 'VM';
     const m = url.match(/vimeo\.com\/(\d+)/);
@@ -773,6 +822,7 @@ function loadVideo(video, broadcast) {
     iframe.src = `https://player.vimeo.com/video/${m[1]}?autoplay=0`;
     iframe.allow = 'autoplay; fullscreen'; iframe.allowFullscreen = true;
     wrap.appendChild(iframe);
+
   } else if (src === 'twitch') {
     $('src-badge').textContent = 'TW';
     const ch = url.replace(/https?:\/\/(www\.)?twitch\.tv\//,'').split('/')[0];
@@ -781,7 +831,9 @@ function loadVideo(video, broadcast) {
     iframe.src = `https://player.twitch.tv/?channel=${ch}&parent=${location.hostname}`;
     iframe.allow = 'autoplay; fullscreen'; iframe.allowFullscreen = true;
     wrap.appendChild(iframe);
+
   } else {
+    // Native video (MP4, WebM, local file, etc.)
     const ext = src==='local'?'LOCAL':(url.split('.').pop().split('?')[0].toUpperCase().substring(0,4)||'VID');
     $('src-badge').textContent = ext;
     const v = document.createElement('video');
@@ -790,84 +842,112 @@ function loadVideo(video, broadcast) {
     v.volume = parseFloat($('vol').value);
     wrap.appendChild(v);
     nativeVid = v;
-    v.addEventListener('play',  ()=>{ if(!isSyncing && amIHost){ isPlaying=true;  $('pbtn').textContent='⏸'; send('STATE',{playing:true, currentTime:v.currentTime, ts:Date.now()}); } else if(!isSyncing){ isPlaying=true; $('pbtn').textContent='⏸'; }});
-    v.addEventListener('pause', ()=>{ if(!isSyncing && amIHost){ isPlaying=false; $('pbtn').textContent='▶'; send('STATE',{playing:false,currentTime:v.currentTime, ts:Date.now()}); } else if(!isSyncing){ isPlaying=false; $('pbtn').textContent='▶'; }});
-    v.addEventListener('seeked',()=>{ if(!isSyncing && amIHost) send('SEEK',{t:v.currentTime}); });
-    v.addEventListener('error', ()=> toast('Erro ao carregar vídeo'));
+
+    v.addEventListener('play', () => {
+      if (isSyncing) return;
+      isPlaying = true; $('pbtn').textContent = '⏸';
+      if (amIHost) send('STATE', { playing: true, currentTime: v.currentTime });
+    });
+    v.addEventListener('pause', () => {
+      if (isSyncing) return;
+      isPlaying = false; $('pbtn').textContent = '▶';
+      if (amIHost) send('STATE', { playing: false, currentTime: v.currentTime });
+    });
+    v.addEventListener('seeked', () => {
+      if (isSyncing) return;
+      if (amIHost) send('SEEK', { t: v.currentTime });
+    });
+    v.addEventListener('error', () => toast('Erro ao carregar vídeo'));
+
+    // Seek to correct position once metadata loads
+    v.addEventListener('loadedmetadata', () => {
+      const target = expectedNow();
+      if (target > 0) v.currentTime = target;
+      if (syncPlaying) v.play().catch(()=>{});
+    });
   }
 
-  if (broadcast) {
+  if (doBroadcast) {
     send('VIDEO', { video });
   }
 }
 
-// YouTube postMessage API
+// ═══════════════════════════════════════════════════════════
+// YOUTUBE POSTMESSAGE API
+// ═══════════════════════════════════════════════════════════
 function onYTMsg(e) {
   try {
     const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
     if (!d) return;
 
-    console.log('[YT MSG]', JSON.stringify(d).substring(0, 200));
-
-    // YT fires {event:"onReady"} when player is ready to accept commands
+    // Player ready
     if (!ytReady && d.event === 'onReady') {
-      console.log('[YT] onReady fired, lastKnownPlaying=', lastKnownPlaying, 'lastKnownServerTime=', lastKnownServerTime);
       ytReady = true;
-      if (lastKnownPlaying) doPlay(); else doPause();
+      // Apply pending sync state
+      const target = expectedNow();
+      if (target > 1) seekTo(target);
+      if (syncPlaying) doPlay(); else doPause();
       return;
     }
 
-    // YT also sends state via d.info — use as fallback ready signal
     if (!d.info) return;
 
-    // Track current time locally
+    // Track current time — YT sends this frequently
     if (d.info.currentTime !== undefined) {
       ytCurrentTime = d.info.currentTime;
+      ytLastInfoTs = Date.now();
     }
 
-    console.log('[YT INFO] playerState=', d.info.playerState, 'currentTime=', d.info.currentTime, 'ytReady=', ytReady);
-
-    // Fallback: if we got info but ytReady still false, set it now
+    // Fallback ready detection
     if (!ytReady && d.info.playerState !== undefined && d.info.playerState !== -1) {
-      console.log('[YT] Ready via fallback, playerState=', d.info.playerState);
       ytReady = true;
-      if (lastKnownPlaying) doPlay(); else doPause();
+      const target = expectedNow();
+      if (target > 1) seekTo(target);
+      if (syncPlaying) doPlay(); else doPause();
     }
 
+    // Player state changes — only host can trigger remote changes
     if (d.info.playerState === 1 && !isSyncing) {
+      // Video started playing
       isPlaying = true; $('pbtn').textContent = '⏸';
       if (amIHost) {
-        send('STATE', { playing: true, currentTime: ytCurrentTime, ts: Date.now() });
+        send('STATE', { playing: true, currentTime: ytCurrentTime });
       } else {
+        // Guest tried to play on their own — revert to correct state
         isSyncing = true;
-        if (!lastKnownPlaying) ytCmd('pauseVideo');
+        if (!syncPlaying) ytCmd('pauseVideo');
         isSyncing = false;
       }
     }
 
     if (d.info.playerState === 2 && !isSyncing) {
+      // Video paused
       isPlaying = false; $('pbtn').textContent = '▶';
       if (amIHost) {
-        send('STATE', { playing: false, currentTime: ytCurrentTime, ts: Date.now() });
+        send('STATE', { playing: false, currentTime: ytCurrentTime });
       } else {
         isSyncing = true;
-        if (lastKnownPlaying) ytCmd('playVideo');
+        if (syncPlaying) ytCmd('playVideo');
         isSyncing = false;
       }
     }
-  } catch(err){}
+  } catch(err) {}
 }
+
 function ytCmd(cmd, args) {
   if (ytIframe?.contentWindow) {
-    try { ytIframe.contentWindow.postMessage(JSON.stringify({event:'command',func:cmd,args:args||[]}),'*'); } catch(e){}
+    try {
+      ytIframe.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: cmd, args: args || [] }), '*'
+      );
+    } catch(e) {}
   }
 }
 
-// ═══════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // HOST UI
-// ═══════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 function updateHostUI() {
-  const ctrl = $('ctrl');
   let badge = $('host-badge');
   if (!badge) {
     badge = document.createElement('span');
@@ -876,18 +956,11 @@ function updateHostUI() {
     $('tb-right').prepend(badge);
   }
   badge.textContent = amIHost ? '👑 host' : '👤 membro';
-
-  const btns = ctrl.querySelectorAll('.c-btn, #vol');
-  btns.forEach(b => {
-    if (!amIHost) {
-      b.style.opacity = '0.35';
-      b.style.pointerEvents = 'none';
-      b.title = 'Apenas o host pode controlar';
-    } else {
-      b.style.opacity = '';
-      b.style.pointerEvents = '';
-      b.title = '';
-    }
+  const ctrl = $('ctrl');
+  ctrl.querySelectorAll('.c-btn, #vol').forEach(b => {
+    b.style.opacity = amIHost ? '' : '0.35';
+    b.style.pointerEvents = amIHost ? '' : 'none';
+    b.title = amIHost ? '' : 'Apenas o host pode controlar';
   });
   $('prog').style.pointerEvents = amIHost ? 'auto' : 'none';
   $('prog').style.cursor = amIHost ? 'pointer' : 'default';
@@ -900,256 +973,234 @@ function updateYTOverlay() {
   overlay.style.cursor = amIHost ? 'default' : 'not-allowed';
 }
 
-// ═══════════════════════════════════════
-// SYNC WATCHER — re-syncs guests if drift > 2s
-// ═══════════════════════════════════════
-function startSyncWatcher() {
-  if (syncInterval) clearInterval(syncInterval);
-  syncInterval = setInterval(() => {
-    if (amIHost || !lastKnownPlaying) return;
-    if (lastKnownServerTS === 0) return;
-    if (ytIframe && !ytReady) return; // don't sync until YT player is ready
-    const elapsed = (Date.now() - lastKnownServerTS) / 1000;
-    const expected = lastKnownServerTime + elapsed;
-    const current = ytIframe ? ytCurrentTime : (nativeVid ? nativeVid.currentTime : 0);
-    if (current === 0 && expected > 2) return;
-    const drift = Math.abs(current - expected);
-    if (drift > 3.0) {
-      isSyncing = true;
-      seekTo(Math.max(0, expected));
-      isSyncing = false;
-    }
-  }, 4000);
-}
-
-// ═══════════════════════════════════════
-// CONTROLS
-// ═══════════════════════════════════════
-function curTime() { if (nativeVid) return nativeVid.currentTime||0; if (ytIframe) return ytCurrentTime||0; return 0; }
-function curDur()  { if (nativeVid) return nativeVid.duration||0; return 0; }
-
+// ═══════════════════════════════════════════════════════════
+// PLAYER CONTROLS
+// ═══════════════════════════════════════════════════════════
 function togglePlay() {
   if (!amIHost) { toast('Apenas o host pode pausar/dar play ▶'); return; }
-  if (ytIframe) {
-    const newPlaying = !isPlaying;
-    // Use doPlay/doPause so ytReady check is respected
-    if (newPlaying) doPlay(); else doPause();
-    send('STATE', { playing: newPlaying, currentTime: ytCurrentTime, ts: Date.now() });
-    return;
-  }
-  if (nativeVid) { if (isPlaying) nativeVid.pause(); else nativeVid.play().catch(()=>{}); }
-  send('STATE', { playing: !isPlaying, currentTime: curTime(), ts: Date.now() });
+  const newPlaying = !isPlaying;
+  if (newPlaying) doPlay(); else doPause();
+  send('STATE', { playing: newPlaying, currentTime: curTime() });
 }
+
 function skip(s) {
   if (!amIHost) { toast('Apenas o host pode avançar/voltar ⏩'); return; }
-  const t=Math.max(0,curTime()+s); seekTo(t); send('SEEK',{t});
+  const t = Math.max(0, curTime() + s);
+  seekTo(t);
+  send('SEEK', { t });
 }
+
 function seekClick(e) {
   if (!amIHost) return;
-  const dur=curDur(); if(!dur&&!ytIframe)return;
-  const r=$('prog').getBoundingClientRect();
-  const t=Math.max(0,Math.min(dur||600,((e.clientX-r.left)/r.width)*(dur||600)));
-  seekTo(t); send('SEEK',{t});
+  const dur = curDur();
+  if (!dur && !ytIframe) return;
+  const r = $('prog').getBoundingClientRect();
+  const t = Math.max(0, Math.min(dur || 600, ((e.clientX - r.left) / r.width) * (dur || 600)));
+  seekTo(t);
+  send('SEEK', { t });
 }
+
 function doPlay() {
-  console.log('[doPlay] ytReady=', ytReady, 'ytIframe=', !!ytIframe);
   isPlaying = true; $('pbtn').textContent = '⏸';
-  if (ytIframe) {
-    if (ytReady) ytCmd('playVideo');
-  }
+  if (ytIframe && ytReady) ytCmd('playVideo');
   if (nativeVid) nativeVid.play().catch(()=>{});
 }
+
 function doPause() {
   isPlaying = false; $('pbtn').textContent = '▶';
-  if (ytIframe) {
-    if (ytReady) ytCmd('pauseVideo');
-  }
+  if (ytIframe && ytReady) ytCmd('pauseVideo');
   if (nativeVid) nativeVid.pause();
+  setRate(RATE_NORMAL); // always reset rate on pause
 }
+
 function seekTo(t) {
-  console.log('[seekTo] t=', t, 'ytReady=', ytReady, 'ytIframe=', !!ytIframe);
-  console.trace();
   if (ytIframe) {
-    if (ytReady) {
-      ytCmd('seekTo', [t, true]);
-    } else {
-      ytPendingSeek = t;
-    }
+    if (ytReady) ytCmd('seekTo', [t, true]);
+    else ytPendingSeek = t;
   }
   if (nativeVid) nativeVid.currentTime = t;
 }
-function setVol(v) { if(nativeVid)nativeVid.volume=v; ytCmd('setVolume',[v*100]); }
-function goFS() { const w=$('vwrap'); if(!document.fullscreenElement)w.requestFullscreen&&w.requestFullscreen(); else document.exitFullscreen&&document.exitFullscreen(); }
 
-setInterval(()=>{
-  if (nativeVid && nativeVid.duration) {
-    $('prog-fill').style.width=((nativeVid.currentTime/nativeVid.duration)*100)+'%';
-    $('tlbl-cur').textContent=ft(nativeVid.currentTime);
-    $('tlbl-dur').textContent=ft(nativeVid.duration);
+function setVol(v) {
+  if (nativeVid) nativeVid.volume = v;
+  ytCmd('setVolume', [v * 100]);
+}
+
+function goFS() {
+  const w = $('vwrap');
+  if (!document.fullscreenElement) w.requestFullscreen && w.requestFullscreen();
+  else document.exitFullscreen && document.exitFullscreen();
+}
+
+// ── Progress bar update loop ────────────────────────────
+setInterval(() => {
+  const cur = curTime();
+  const dur = curDur();
+
+  if (dur) {
+    $('prog-fill').style.width = ((cur / dur) * 100) + '%';
+    $('tlbl-dur').textContent = ft(dur);
   } else if (ytIframe && isPlaying) {
-    // Update YT time display using tracked ytCurrentTime
-    const elapsed = (Date.now() - lastKnownServerTS) / 1000;
-    const projected = lastKnownPlaying ? ytCurrentTime : ytCurrentTime;
-    $('tlbl-cur').textContent = ft(projected);
+    // For YT, interpolate between postMessage updates
+    const msAgo = Date.now() - ytLastInfoTs;
+    const interpolated = ytCurrentTime + (isPlaying ? msAgo / 1000 : 0);
+    $('tlbl-cur').textContent = ft(interpolated);
+    return;
   }
+  $('tlbl-cur').textContent = ft(cur);
 }, 400);
 
-// ═══════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // CHAT
-// ═══════════════════════════════════════
-let rendered = new Set();
+// ═══════════════════════════════════════════════════════════
 function sendChat() {
-  const el=$('chat-inp'); const t=el.value.trim(); if(!t)return; el.value='';
-  send('CHAT', { text: t });
-}
-function chatKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();} }
-function renderChatMsg(m) {
-  if(rendered.has(m.id))return; rendered.add(m.id);
-  const isMe = m.user?.name === myUser?.name;
-  const d = document.createElement('div');
-  d.className = 'msg '+(isMe?'me':'them');
-  d.innerHTML = `<div class="msg-head"><span class="msg-av">${esc(m.user?.avatar||'👤')}</span><span class="msg-name">${esc(m.user?.name||'?')}</span><span class="msg-time">${new Date(m.ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span></div><div class="msg-text">${esc(m.text)}</div>`;
-  const el=$('msgs'); el.appendChild(d); el.scrollTop=el.scrollHeight;
-}
-function sysMsg(t) {
-  const d=document.createElement('div'); d.className='msg sys'; d.textContent=t;
-  const el=$('msgs'); el.appendChild(d); el.scrollTop=el.scrollHeight;
+  const inp = $('chat-inp');
+  const text = inp.value.trim();
+  if (!text) return;
+  send('CHAT', { text });
+  inp.value = '';
+  inp.style.height = '';
 }
 
-// ═══════════════════════════════════════
+function chatKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+}
+
+function renderChatMsg(payload) {
+  if (rendered.has(payload.id)) return;
+  rendered.add(payload.id);
+  const isMe = payload.user?.id === myUser?.id || payload.user?.name === myUser?.name;
+  const div = document.createElement('div');
+  div.className = 'msg ' + (isMe ? 'me' : 'them');
+  const ts = new Date(payload.ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  div.innerHTML = `<div class="msg-head"><span class="msg-av">${esc(payload.user?.avatar||'👤')}</span><span class="msg-name">${esc(payload.user?.name||'?')}</span><span class="msg-time">${ts}</span></div><div class="msg-text">${esc(payload.text)}</div>`;
+  const msgs = $('msgs');
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function sysMsg(text) {
+  const div = document.createElement('div');
+  div.className = 'msg sys';
+  div.textContent = text;
+  const msgs = $('msgs');
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ═══════════════════════════════════════════════════════════
 // REACTIONS
-// ═══════════════════════════════════════
-function react(e) { send('REACTION',{emoji:e}); spawnFloat(e, myUser); }
-function spawnFloat(emoji, user) {
-  const el=document.createElement('div'); el.className='float-r'; el.textContent=emoji;
-  el.style.left=(10+Math.random()*75)+'%'; el.style.bottom='70px';
-  const w=$('vwrap'); w.appendChild(el); setTimeout(()=>el.remove(),2200);
+// ═══════════════════════════════════════════════════════════
+function react(emoji) { send('REACTION', { emoji }); }
+
+function spawnFloat(emoji) {
+  const wrap = $('vwrap');
+  if (!wrap) return;
+  const el = document.createElement('div');
+  el.className = 'float-r';
+  el.textContent = emoji;
+  el.style.left = (10 + Math.random() * 80) + '%';
+  el.style.bottom = '60px';
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 2500);
 }
 
-// ═══════════════════════════════════════
-// MEMBERS
-// ═══════════════════════════════════════
-function renderMembers(members) {
-  const wrap = $('members-wrap');
-  wrap.innerHTML = '';
-  members.slice(0,5).forEach(m => {
-    const el = document.createElement('div');
-    el.className='member-av'; el.title=m.name; el.textContent=m.avatar||'👤';
-    wrap.appendChild(el);
-  });
-  // Members panel
-  const panel = $('members-panel');
-  panel.innerHTML = '';
-  members.forEach(m => {
-    const el = document.createElement('div');
-    el.className = 'member-row';
-    el.innerHTML = `<span class="member-emoji">${esc(m.avatar||'👤')}</span><span class="member-name">${esc(m.name)}</span><span class="member-badge${m.isHost?' host':''}">${m.isHost?'host':'membro'}</span>`;
-    panel.appendChild(el);
-  });
-}
-
-// ═══════════════════════════════════════
-// QUEUE
-// ═══════════════════════════════════════
-let localQueue = [];
+// ═══════════════════════════════════════════════════════════
+// QUEUE / HISTORY / MEMBERS
+// ═══════════════════════════════════════════════════════════
 function renderQueue(queue) {
   localQueue = queue || [];
-  const el = $('queue-wrap');
-  if (!localQueue.length) { el.innerHTML='<div class="q-empty">Fila vazia</div>'; return; }
-  el.innerHTML = '';
-  localQueue.forEach((item, i) => {
+  const wrap = $('queue-wrap');
+  if (!localQueue.length) { wrap.innerHTML = '<div class="q-empty">Fila vazia</div>'; return; }
+  wrap.innerHTML = '';
+  localQueue.forEach((v, i) => {
     const d = document.createElement('div');
     d.className = 'qi';
-    const thumbHtml = item.thumb
-      ? `<img class="qi-thumb" src="${esc(item.thumb)}" onerror="this.style.display='none'">`
-      : `<div class="qi-thumb">${item.src==='youtube'?'▶️':item.src==='vimeo'?'🎥':'🎬'}</div>`;
-    d.innerHTML = `${thumbHtml}<div class="qi-info"><div class="qi-title" title="${esc(item.title)}">${esc(item.title)}</div><div class="qi-src">${item.src.toUpperCase()}</div></div><span class="qi-rm" onclick="rmQ(${i},event)">✕</span>`;
-    d.onclick = () => playQ(i);
-    el.appendChild(d);
+    const thumb = v.thumb
+      ? `<img class="qi-thumb" src="${esc(v.thumb)}" onerror="this.style.display='none'">`
+      : `<div class="qi-thumb">${v.src==='youtube'?'▶️':v.src==='vimeo'?'🎥':'🎬'}</div>`;
+    d.innerHTML = `${thumb}<div class="qi-info"><div class="qi-title">${esc(v.title||v.url)}</div><div class="qi-src">${esc(v.src||'')}</div></div>${amIHost?`<span class="qi-rm" onclick="removeQ(${i})">✕</span>`:''}`;
+    d.onclick = (e) => { if (!e.target.classList.contains('qi-rm') && amIHost) { loadVideo(v, true); } };
+    wrap.appendChild(d);
   });
 }
-function playQ(i) {
-  const item = localQueue[i]; if(!item)return;
-  loadVideo(item, true);
-  sysMsg(`▶ Tocando: ${item.title}`);
-}
-function rmQ(i, e) {
-  e.stopPropagation();
-  localQueue.splice(i,1);
+
+function removeQ(i) {
+  localQueue.splice(i, 1);
   send('QUEUE_UPDATE', { queue: localQueue });
   renderQueue(localQueue);
 }
 
-// ═══════════════════════════════════════
-// HISTORY
-// ═══════════════════════════════════════
 function renderHistory(history) {
-  const el = $('history-wrap');
-  if (!history?.length) { el.innerHTML='<div class="q-empty">Sem histórico ainda</div>'; return; }
-  el.innerHTML = '';
-  history.forEach(item => {
+  const wrap = $('history-wrap');
+  if (!history?.length) { wrap.innerHTML = '<div class="q-empty">Sem histórico</div>'; return; }
+  wrap.innerHTML = '';
+  history.forEach(v => {
     const d = document.createElement('div');
     d.className = 'qi';
-    const thumbHtml = item.thumb
-      ? `<img class="qi-thumb" src="${esc(item.thumb)}">`
-      : `<div class="qi-thumb">🎬</div>`;
-    d.innerHTML = `${thumbHtml}<div class="qi-info"><div class="qi-title">${esc(item.title)}</div><div class="qi-src">Adicionado por ${esc(item.addedBy||'?')}</div></div>`;
-    d.onclick = () => { loadVideo(item, true); sysMsg('▶ Tocando do histórico: '+item.title); };
-    el.appendChild(d);
+    const thumb = v.thumb ? `<img class="qi-thumb" src="${esc(v.thumb)}" onerror="this.style.display='none'">` : `<div class="qi-thumb">🎬</div>`;
+    d.innerHTML = `${thumb}<div class="qi-info"><div class="qi-title">${esc(v.title||v.url)}</div><div class="qi-src">${esc(v.addedBy||'')} · ${esc(v.src||'')}</div></div>`;
+    d.onclick = () => { if (amIHost) loadVideo(v, true); };
+    wrap.appendChild(d);
   });
 }
 
-// ═══════════════════════════════════════
-// ADD VIDEO MODAL
-// ═══════════════════════════════════════
-const SRC_LABELS = { youtube:'URL do YouTube', vimeo:'URL do Vimeo', twitch:'URL ou nome do canal', direct:'URL direta (.mp4, .webm...)', gdrive:'URL do Google Drive' };
-const SRC_PLACEHOLDERS = { youtube:'https://www.youtube.com/watch?v=...', vimeo:'https://vimeo.com/123456789', twitch:'https://www.twitch.tv/canal', direct:'https://exemplo.com/video.mp4', gdrive:'https://drive.google.com/file/d/.../view' };
-
-function openAddModal() {
-  $('add-modal').classList.add('on');
-  selSrc(document.querySelector('.src-opt[data-s="youtube"]'), 'youtube');
-  $('merr').textContent=''; $('vurl').value=''; pickedFile=null;
-  $('yt-results').innerHTML=''; $('yt-preview-wrap').style.display='none';
-  resetDZ();
+function renderMembers(members) {
+  const wrap = $('members-panel');
+  const mw = $('members-wrap');
+  wrap.innerHTML = '';
+  mw.innerHTML = '';
+  (members || []).forEach(m => {
+    const d = document.createElement('div');
+    d.className = 'member-row';
+    d.innerHTML = `<span class="member-emoji">${esc(m.avatar||'👤')}</span><span class="member-name">${esc(m.name)}</span><span class="member-badge${m.isHost?' host':''}">${m.isHost?'👑 host':'membro'}</span>`;
+    wrap.appendChild(d);
+    const av = document.createElement('div');
+    av.className = 'member-av';
+    av.title = m.name;
+    av.textContent = m.avatar || '👤';
+    mw.appendChild(av);
+  });
 }
+
+function updateLiveLbl(n) { $('live-lbl').textContent = (n || 1) + ' online'; }
+
+// ═══════════════════════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════════════════════
+function openAddModal() { $('add-modal').classList.add('on'); }
 function closeModal(id) { $(id).classList.remove('on'); }
-function merr(m) { $('merr').textContent=m; }
+
+const SRC_LABELS = { vimeo:'URL do Vimeo', twitch:'Canal Twitch', direct:'URL do vídeo', gdrive:'URL do Google Drive' };
+const SRC_PLACEHOLDERS = { vimeo:'https://vimeo.com/...', twitch:'nome do canal', direct:'https://exemplo.com/video.mp4', gdrive:'https://drive.google.com/...' };
 
 function selSrc(el, src) {
-  currentSrc = src;
   document.querySelectorAll('.src-opt').forEach(e=>e.classList.remove('on'));
   el.classList.add('on');
-  $('yt-section').style.display   = src==='youtube'?'block':'none';
-  $('url-section').style.display  = ['vimeo','twitch','direct','gdrive'].includes(src)?'block':'none';
-  $('local-section').style.display= src==='local'?'block':'none';
+  currentSrc = src;
+  $('yt-section').style.display   = src==='youtube' ? 'block' : 'none';
+  $('url-section').style.display  = ['vimeo','twitch','direct','gdrive'].includes(src) ? 'block' : 'none';
+  $('local-section').style.display = src==='local' ? 'block' : 'none';
   if (src !== 'youtube') {
-    $('url-mlabel').textContent = SRC_LABELS[src]||'URL';
-    $('vurl').placeholder = SRC_PLACEHOLDERS[src]||'https://...';
+    $('url-mlabel').textContent = SRC_LABELS[src] || 'URL';
+    $('vurl').placeholder = SRC_PLACEHOLDERS[src] || 'https://...';
   }
 }
 
-// YouTube search
 async function ytSearch() {
-  const q = $('yt-q').value.trim(); if(!q)return;
+  const q = $('yt-q').value.trim(); if(!q) return;
   $('yt-results').innerHTML='<div class="yt-loading"><span class="spin">⏳</span> Buscando...</div>';
   $('yt-preview-wrap').style.display='none';
   try {
-    // Use YouTube search via oEmbed for URL, or suggestions for text
     const vid = extractYT(q);
-    if (vid) {
-      await loadYTPreview(`https://www.youtube.com/watch?v=${vid}`);
-      $('yt-results').innerHTML='';
-      return;
-    }
-    // Text search — use suggestions
+    if (vid) { await loadYTPreview(`https://www.youtube.com/watch?v=${vid}`); $('yt-results').innerHTML=''; return; }
     const res = await fetch(`/api/yt/search?q=${encodeURIComponent(q)}`);
     const data = await res.json();
     renderYTSuggestions(data.suggestions || [], q);
-  } catch(e) {
-    $('yt-results').innerHTML='<div class="yt-loading">Erro na busca</div>';
-  }
+  } catch(e) { $('yt-results').innerHTML='<div class="yt-loading">Erro na busca</div>'; }
 }
-function ytSearchKey(e) { if(e.key==='Enter')ytSearch(); }
+
+function ytSearchKey(e) { if(e.key==='Enter') ytSearch(); }
 
 async function ytUrlPreview(val) {
   const vid = extractYT(val);
@@ -1175,7 +1226,7 @@ function showYTPreview(url, info) {
   wrap._url = url; wrap._info = info;
 }
 
-function renderYTSuggestions(suggestions, query) {
+function renderYTSuggestions(suggestions) {
   if (!suggestions.length) { $('yt-results').innerHTML='<div class="yt-loading">Nenhum resultado. Tente colar um link do YouTube.</div>'; return; }
   $('yt-results').innerHTML='';
   suggestions.forEach(s => {
@@ -1187,20 +1238,17 @@ function renderYTSuggestions(suggestions, query) {
   });
 }
 
-// Drop zone
 function dzO(e,on){e.preventDefault();$('dz').classList.toggle('drag',on);}
 function dzD(e){e.preventDefault();dzO(e,false);const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('video/'))setFile(f);else merr('Não é um arquivo de vídeo');}
 function filePick(inp){if(inp.files[0])setFile(inp.files[0]);}
 function setFile(f){
   pickedFile=f;
   $('dz').innerHTML=`<div class="dz-ico">✅</div><p><strong>${esc(f.name)}</strong><br><span style="font-size:.72rem">${(f.size/1024/1024).toFixed(1)} MB</span></p>`;
-  merr('');
 }
-function resetDZ(){$('dz').innerHTML=`<div class="dz-ico">📂</div><p><strong>Clique ou arraste</strong> um arquivo de vídeo<br><span style="font-size:.72rem">MP4 · WebM · MKV · MOV · AVI</span></p>`;}
+function merr(m) { $('merr').textContent = m; }
 
 async function addVideo() {
   let video = null;
-
   if (currentSrc === 'youtube') {
     const previewWrap = $('yt-preview-wrap');
     let url = $('yt-q').value.trim();
@@ -1209,12 +1257,7 @@ async function addVideo() {
     if (!vid) { merr('URL do YouTube inválida'); return; }
     url = `https://www.youtube.com/watch?v=${vid}`;
     const info = ytInfoCache[url] || previewWrap?._info || {};
-    video = {
-      src: 'youtube', url,
-      title: info.title || `YouTube: ${vid}`,
-      thumb: info.thumb || `https://i.ytimg.com/vi/${vid}/mqdefault.jpg`,
-      author: info.author || ''
-    };
+    video = { src:'youtube', url, title:info.title||`YouTube: ${vid}`, thumb:info.thumb||`https://i.ytimg.com/vi/${vid}/mqdefault.jpg`, author:info.author||'' };
   } else if (currentSrc === 'local') {
     if (!pickedFile) { merr('Selecione um arquivo'); return; }
     const title = pickedFile.name;
@@ -1223,7 +1266,7 @@ async function addVideo() {
       video = { src:'local', url:e.target.result, title, thumb:'' };
       localQueue.push(video);
       renderQueue(localQueue);
-      loadVideo(video, false); // local files don't broadcast
+      loadVideo(video, false);
       closeModal('add-modal');
       sysMsg(`📁 ${myUser.name} adicionou: ${title}`);
     };
@@ -1237,7 +1280,6 @@ async function addVideo() {
     if (srcLabels[currentSrc]) title = srcLabels[currentSrc]+': '+title;
     video = { src:currentSrc, url, title, thumb:'' };
   }
-
   localQueue.push(video);
   send('QUEUE_UPDATE', { queue: localQueue.filter(q=>q.src!=='local') });
   renderQueue(localQueue);
@@ -1245,16 +1287,18 @@ async function addVideo() {
   closeModal('add-modal');
 }
 
-// ═══════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // UI HELPERS
-// ═══════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 function sTab(t, el) {
   document.querySelectorAll('.stab').forEach(s=>s.classList.remove('on')); el.classList.add('on');
-  ['chat','queue','history','members'].forEach(p=>$(('p-'+p)).classList.toggle('on',p===t));
+  ['chat','queue','history','members'].forEach(p=>$('p-'+p).classList.toggle('on',p===t));
 }
+
 function copyCode() { navigator.clipboard.writeText(roomId).then(()=>toast('Código copiado: '+roomId)); }
+
 function leaveRoom() {
-  if(ws)ws.close();
+  if(ws) ws.close();
   $('app').style.display='none';
   $('lobby').style.display='flex';
   roomId=''; rendered=new Set();
