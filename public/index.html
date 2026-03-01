@@ -658,6 +658,7 @@ function handle(msg) {
       lastKnownServerTime = payload.currentTime;
       lastKnownServerTS = payload.ts;
       lastKnownPlaying = payload.playing;
+      console.log('[SYNC_PING] serverTime=', payload.currentTime, 'ts=', payload.ts, 'playing=', payload.playing, 'ytCurrentTime=', ytCurrentTime, 'ytReady=', ytReady);
       if (!ytReady && ytIframe) return; // YT not ready yet, just stored reference above
       isSyncing = true;
       const elapsed = (Date.now() - payload.ts) / 1000;
@@ -794,8 +795,11 @@ function onYTMsg(e) {
     const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
     if (!d) return;
 
+    console.log('[YT MSG]', JSON.stringify(d).substring(0, 200));
+
     // YT fires {event:"onReady"} when player is ready to accept commands
     if (!ytReady && d.event === 'onReady') {
+      console.log('[YT] onReady fired, lastKnownPlaying=', lastKnownPlaying, 'lastKnownServerTime=', lastKnownServerTime);
       ytReady = true;
       if (lastKnownPlaying) doPlay(); else doPause();
       return;
@@ -809,8 +813,11 @@ function onYTMsg(e) {
       ytCurrentTime = d.info.currentTime;
     }
 
+    console.log('[YT INFO] playerState=', d.info.playerState, 'currentTime=', d.info.currentTime, 'ytReady=', ytReady);
+
     // Fallback: if we got info but ytReady still false, set it now
     if (!ytReady && d.info.playerState !== undefined && d.info.playerState !== -1) {
+      console.log('[YT] Ready via fallback, playerState=', d.info.playerState);
       ytReady = true;
       if (lastKnownPlaying) doPlay(); else doPause();
     }
@@ -933,10 +940,10 @@ function seekClick(e) {
   seekTo(t); send('SEEK',{t});
 }
 function doPlay() {
+  console.log('[doPlay] ytReady=', ytReady, 'ytIframe=', !!ytIframe);
   isPlaying = true; $('pbtn').textContent = '⏸';
   if (ytIframe) {
     if (ytReady) ytCmd('playVideo');
-    // if not ready yet, onYTMsg will call doPlay() once ready
   }
   if (nativeVid) nativeVid.play().catch(()=>{});
 }
@@ -948,11 +955,13 @@ function doPause() {
   if (nativeVid) nativeVid.pause();
 }
 function seekTo(t) {
+  console.log('[seekTo] t=', t, 'ytReady=', ytReady, 'ytIframe=', !!ytIframe);
+  console.trace();
   if (ytIframe) {
     if (ytReady) {
       ytCmd('seekTo', [t, true]);
     } else {
-      ytPendingSeek = t; // apply once player is ready
+      ytPendingSeek = t;
     }
   }
   if (nativeVid) nativeVid.currentTime = t;
