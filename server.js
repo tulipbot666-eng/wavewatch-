@@ -107,6 +107,14 @@ wss.on('connection', (ws) => {
       }, wsId);
     }
 
+    // PING — measure latency
+    if (type === 'PING') {
+      ws.send(JSON.stringify({ type: 'PONG', payload: { ts: payload.ts } }));
+      // Store RTT estimate for this member (will be updated by client)
+      const member = currentRoom?.members.get(wsId);
+      if (member) member.rtt = Date.now() - payload.ts;
+    }
+
     // CHAT
     if (type === 'CHAT' && currentRoom) {
       const chatMsg = {
@@ -151,17 +159,33 @@ wss.on('connection', (ws) => {
       currentRoom.playing = payload.playing;
       currentRoom.currentTime = payload.currentTime;
       currentRoom.lastUpdate = Date.now();
-      broadcast(currentRoom, {
-        type: 'STATE',
-        payload: { playing: payload.playing, currentTime: payload.currentTime, ts: currentRoom.lastUpdate }
-      }, wsId);
+      // Broadcast with per-member RTT compensation
+      currentRoom.members.forEach((member, id) => {
+        if (id !== wsId && member.ws.readyState === 1) {
+          const memberRtt = member.rtt || 0;
+          const compensated = payload.currentTime + (payload.playing ? (memberRtt / 2 / 1000) : 0);
+          member.ws.send(JSON.stringify({
+            type: 'STATE',
+            payload: { playing: payload.playing, currentTime: compensated, ts: Date.now() }
+          }));
+        }
+      });
     }
 
     // SEEK
     if (type === 'SEEK' && currentRoom) {
       currentRoom.currentTime = payload.t;
       currentRoom.lastUpdate = Date.now();
-      broadcast(currentRoom, { type: 'SEEK', payload: { t: payload.t } }, wsId);
+      currentRoom.members.forEach((member, id) => {
+        if (id !== wsId && member.ws.readyState === 1) {
+          const memberRtt = member.rtt || 0;
+          const compensated = payload.t + (memberRtt / 2 / 1000);
+          member.ws.send(JSON.stringify({
+            type: 'SEEK',
+            payload: { t: compensated }
+          }));
+        }
+      });
     }
   });
 
@@ -257,20 +281,22 @@ function generateRoomCode() {
 setInterval(() => {
   rooms.forEach(room => {
     if (room.members.size < 2 || !room.video) return;
-    // Send projected currentTime so client doesn't need to calculate elapsed
+    // Send projected time per-member, compensating for their individual RTT
     const elapsed = (Date.now() - room.lastUpdate) / 1000;
-    const projected = room.currentTime + (room.playing ? elapsed : 0);
-    const data = JSON.stringify({
-      type: 'SYNC_PING',
-      payload: { playing: room.playing, currentTime: projected, ts: Date.now() }
-    });
+    const baseTime = room.currentTime + (room.playing ? elapsed : 0);
     room.members.forEach((member, id) => {
       if (id !== room.host && member.ws.readyState === 1) {
-        member.ws.send(data);
+        // Add half RTT so video arrives "in sync" accounting for network delay
+        const memberRtt = member.rtt || 0;
+        const compensated = baseTime + (room.playing ? (memberRtt / 2 / 1000) : 0);
+        member.ws.send(JSON.stringify({
+          type: 'SYNC_PING',
+          payload: { playing: room.playing, currentTime: compensated, ts: Date.now() }
+        }));
       }
     });
   });
-}, 5000);
+}, 2000);
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`WaveWatch running on port ${PORT}`));
