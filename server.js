@@ -199,9 +199,52 @@ app.get('/auth/me', (req, res) => {
   }});
 });
 
-// Expose public config to frontend (API key is restricted to this domain so safe to expose)
+// ── GOOGLE DRIVE PROXY STREAM ──
 app.get('/api/config', (req, res) => {
   res.json({ googleApiKey: process.env.GOOGLE_API_KEY || '' });
+});
+app.get('/api/drive/stream/:fileId', async (req, res) => {
+  const { fileId } = req.params;
+  const token = req.session.googleAccessToken;
+
+  // Build the Drive download URL
+  const driveUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+
+  try {
+    const headers = { 'User-Agent': 'WaveWatch/1.0' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    // Forward range header for seeking support
+    if (req.headers.range) headers['Range'] = req.headers.range;
+
+    const driveRes = await fetch(driveUrl, { headers });
+
+    if (!driveRes.ok) {
+      // Try public URL as fallback
+      const publicUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
+      const pubRes = await fetch(publicUrl, { headers: { 'User-Agent': 'WaveWatch/1.0', ...(req.headers.range ? { 'Range': req.headers.range } : {}) } });
+      if (!pubRes.ok) return res.status(404).json({ error: 'File not found or not accessible' });
+      res.status(pubRes.status);
+      res.setHeader('Content-Type', pubRes.headers.get('content-type') || 'video/mp4');
+      res.setHeader('Accept-Ranges', 'bytes');
+      if (pubRes.headers.get('content-range')) res.setHeader('Content-Range', pubRes.headers.get('content-range'));
+      if (pubRes.headers.get('content-length')) res.setHeader('Content-Length', pubRes.headers.get('content-length'));
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      pubRes.body.pipe(res);
+      return;
+    }
+
+    res.status(driveRes.status);
+    res.setHeader('Content-Type', driveRes.headers.get('content-type') || 'video/mp4');
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    if (driveRes.headers.get('content-range')) res.setHeader('Content-Range', driveRes.headers.get('content-range'));
+    if (driveRes.headers.get('content-length')) res.setHeader('Content-Length', driveRes.headers.get('content-length'));
+    driveRes.body.pipe(res);
+  } catch(e) {
+    console.error('Drive proxy error:', e);
+    res.status(500).json({ error: 'Proxy error' });
+  }
 });
 
 // ─────────────────────────────────────────
