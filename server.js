@@ -142,7 +142,14 @@ app.get('/auth/google',
 
 app.get('/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/?error=auth' }),
-  (req, res) => res.redirect('/')
+  (req, res) => {
+    // Token is stored on req.user._googleAccessToken during strategy
+    // Save it to session so it persists
+    if (req.user._googleAccessToken) {
+      req.session.googleAccessToken = req.user._googleAccessToken;
+    }
+    res.redirect('/');
+  }
 );
 
 app.get('/auth/logout', (req, res) => {
@@ -188,7 +195,7 @@ app.get('/auth/me', (req, res) => {
     name: req.user.name,
     email: req.user.email,
     avatarUrl: req.user.avatar_url,
-    googleAccessToken: req.user._googleAccessToken || null
+    googleAccessToken: req.session.googleAccessToken || null
   }});
 });
 
