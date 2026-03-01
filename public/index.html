@@ -29,41 +29,68 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:9999;opacity:.4;}
 
 /* ── LOBBY ── */
-#lobby{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;background:var(--bg);}
-#lobby::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(232,67,147,.12) 0%,transparent 70%),radial-gradient(ellipse 60% 40% at 80% 100%,rgba(124,92,252,.1) 0%,transparent 60%);pointer-events:none;}
-.lobby-inner{width:100%;max-width:420px;position:relative;z-index:1;}
-.brand{text-align:center;margin-bottom:2.5rem;}
-.brand-logo{font-size:2.8rem;font-weight:700;letter-spacing:-1.5px;line-height:1;}
+#lobby{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;background:var(--bg);overflow-y:auto;}
+#lobby::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(232,67,147,.15) 0%,transparent 70%),radial-gradient(ellipse 60% 40% at 80% 100%,rgba(124,92,252,.12) 0%,transparent 60%);pointer-events:none;}
+#lobby::after{content:'';position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23e84393' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");pointer-events:none;opacity:.4;}
+.lobby-inner{width:100%;max-width:400px;position:relative;z-index:1;padding:1rem 0;}
+.brand{text-align:center;margin-bottom:2rem;}
+.brand-logo{font-size:3rem;font-weight:800;letter-spacing:-2px;line-height:1;}
 .brand-logo span{background:linear-gradient(135deg,var(--accent),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-.brand-sub{color:var(--sub);font-size:.85rem;margin-top:.4rem;font-family:'DM Mono',monospace;}
-.glass{background:rgba(15,16,24,.8);border:1px solid var(--border);border-radius:18px;padding:2rem;backdrop-filter:blur(20px);}
+.brand-sub{color:var(--sub);font-size:.8rem;margin-top:.4rem;font-family:'DM Mono',monospace;letter-spacing:1px;}
+.glass{background:rgba(15,16,24,.85);border:1px solid var(--border);border-radius:20px;padding:2rem;backdrop-filter:blur(24px);box-shadow:0 24px 64px rgba(0,0,0,.5);}
 
-/* login view */
-.google-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:.75rem;padding:.85rem 1.5rem;background:#fff;color:#1f1f1f;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:1rem;font-weight:600;cursor:pointer;transition:all .2s;box-shadow:0 2px 12px rgba(0,0,0,.3);}
-.google-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.4);}
-.google-btn svg{width:22px;height:22px;flex-shrink:0;}
-.lobby-or{text-align:center;color:var(--sub);font-size:.8rem;margin:1.2rem 0;font-family:'DM Mono',monospace;position:relative;}
-.lobby-or::before,.lobby-or::after{content:'';position:absolute;top:50%;width:40%;height:1px;background:var(--border);}
-.lobby-or::before{left:0;} .lobby-or::after{right:0;}
+/* Auth tabs */
+.auth-tabs{display:flex;gap:2px;background:var(--bg);border-radius:12px;padding:3px;margin-bottom:1.8rem;}
+.auth-tab{flex:1;padding:.6rem;border:none;background:transparent;color:var(--sub);font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:600;border-radius:10px;cursor:pointer;transition:all .2s;}
+.auth-tab.on{background:var(--s3);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.3);}
 
-/* guest mode */
-.ltabs{display:flex;gap:3px;background:var(--bg);border-radius:10px;padding:3px;margin-bottom:1.8rem;}
-.ltab{flex:1;padding:.55rem;border:none;background:transparent;color:var(--sub);font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:600;border-radius:8px;cursor:pointer;transition:all .2s;}
-.ltab.on{background:var(--s3);color:var(--text);}
-.field{margin-bottom:1.1rem;}
-.field label{display:block;font-size:.72rem;color:var(--sub);margin-bottom:.4rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.8px;}
-.field input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:.72rem 1rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.95rem;outline:none;transition:border-color .2s;}
-.field input:focus{border-color:var(--accent);}
-.avatar-pick{display:flex;gap:.5rem;margin-bottom:1.5rem;flex-wrap:wrap;}
-.av-opt{width:40px;height:40px;border-radius:50%;border:2px solid var(--border);cursor:pointer;transition:all .2s;font-size:1.3rem;display:flex;align-items:center;justify-content:center;background:var(--s2);}
-.av-opt.on{border-color:var(--accent);transform:scale(1.1);}
-.av-label{font-size:.72rem;color:var(--sub);margin-bottom:.4rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.8px;display:block;}
-.pill-btn{width:100%;padding:.8rem;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:1rem;font-weight:600;cursor:pointer;transition:all .2s;}
-.pill-btn.primary{background:linear-gradient(135deg,var(--accent),var(--a2));color:#fff;box-shadow:0 4px 24px rgba(232,67,147,.3);}
-.pill-btn.primary:hover{transform:translateY(-2px);}
+/* form fields */
+.field{margin-bottom:1rem;}
+.field label{display:block;font-size:.7rem;color:var(--sub);margin-bottom:.4rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px;}
+.field input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:11px;padding:.75rem 1rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.95rem;outline:none;transition:border-color .2s,box-shadow .2s;}
+.field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(232,67,147,.1);}
+.field input::placeholder{color:rgba(139,142,168,.4);}
+
+/* buttons */
+.pill-btn{width:100%;padding:.85rem;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.95rem;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.3px;}
+.pill-btn.primary{background:linear-gradient(135deg,var(--accent),var(--a2));color:#fff;box-shadow:0 4px 24px rgba(232,67,147,.35);}
+.pill-btn.primary:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(232,67,147,.45);}
+.pill-btn.primary:active{transform:translateY(0);}
 .pill-btn.ghost{background:var(--s3);color:var(--text);border:1px solid var(--border);}
 .pill-btn.ghost:hover{border-color:var(--accent);color:var(--accent);}
-.lerr{color:var(--danger);font-size:.8rem;margin-top:.6rem;font-family:'DM Mono',monospace;text-align:center;}
+
+/* Google button */
+.google-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:.75rem;padding:.8rem 1.5rem;background:#fff;color:#1f1f1f;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.95rem;font-weight:600;cursor:pointer;transition:all .2s;box-shadow:0 2px 12px rgba(0,0,0,.3);text-decoration:none;}
+.google-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.4);}
+.google-btn svg{width:20px;height:20px;flex-shrink:0;}
+
+/* divider */
+.auth-divider{display:flex;align-items:center;gap:.75rem;margin:1.2rem 0;}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+.auth-divider span{color:var(--sub);font-size:.72rem;font-family:'DM Mono',monospace;white-space:nowrap;}
+
+/* error */
+.lerr{color:var(--danger);font-size:.78rem;margin-top:.75rem;font-family:'DM Mono',monospace;text-align:center;min-height:1rem;padding:.4rem;background:rgba(255,69,103,.08);border-radius:8px;display:none;}
+.lerr.on{display:block;}
+
+/* logged-in user card in lobby */
+.user-card{display:flex;align-items:center;gap:.75rem;padding:.85rem 1rem;background:var(--s2);border-radius:12px;margin-bottom:1.2rem;border:1px solid var(--border);}
+.user-card-av{width:42px;height:42px;border-radius:50%;overflow:hidden;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.3rem;}
+.user-card-av img{width:100%;height:100%;object-fit:cover;}
+.user-card-info{flex:1;min-width:0;}
+.user-card-name{font-weight:700;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-card-email{font-size:.7rem;color:var(--sub);font-family:'DM Mono',monospace;margin-top:.1rem;}
+.user-card-out{font-size:.72rem;color:var(--sub);font-family:'DM Mono',monospace;text-decoration:none;padding:.3rem .6rem;border-radius:7px;border:1px solid var(--border);transition:all .2s;white-space:nowrap;}
+.user-card-out:hover{color:var(--danger);border-color:var(--danger);}
+
+/* room tabs (create/join) */
+.ltabs{display:flex;gap:2px;background:var(--bg);border-radius:12px;padding:3px;margin-bottom:1.5rem;}
+.ltab{flex:1;padding:.55rem;border:none;background:transparent;color:var(--sub);font-family:'DM Sans',sans-serif;font-size:.85rem;font-weight:600;border-radius:10px;cursor:pointer;transition:all .2s;}
+.ltab.on{background:var(--s3);color:var(--text);}
+.av-opt{width:40px;height:40px;border-radius:50%;border:2px solid var(--border);cursor:pointer;transition:all .2s;font-size:1.3rem;display:flex;align-items:center;justify-content:center;background:var(--s2);}
+.av-opt.on{border-color:var(--accent);transform:scale(1.1);}
+.av-label{font-size:.7rem;color:var(--sub);margin-bottom:.5rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.8px;display:block;}
+.avatar-pick{display:flex;gap:.5rem;margin-bottom:1.5rem;flex-wrap:wrap;}
 
 /* ── APP ── */
 #app{display:none;height:100vh;flex-direction:column;}
@@ -264,22 +291,52 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
       <div class="brand-logo">Wave<span>Watch</span></div>
       <div class="brand-sub">// watch together, anywhere</div>
     </div>
-    <div class="glass">
-      <!-- Google login -->
-      <div id="l-google">
-        <a href="/auth/google" style="text-decoration:none">
-          <button class="google-btn">
-            <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
-            Entrar com Google
-          </button>
-        </a>
-        <div class="lobby-or">ou entre como visitante</div>
+
+    <!-- AUTH SCREEN (login/cadastro) -->
+    <div class="glass" id="auth-screen">
+      <!-- Logged-in user card (shown when already authenticated) -->
+      <div id="auth-user-card" style="display:none"></div>
+
+      <!-- Auth tabs: Login / Cadastrar -->
+      <div class="auth-tabs" id="auth-tabs">
+        <button class="auth-tab on" onclick="authTab('login')">Entrar</button>
+        <button class="auth-tab" onclick="authTab('register')">Cadastrar</button>
       </div>
 
-      <!-- Guest mode -->
+      <!-- LOGIN FORM -->
+      <div id="auth-login">
+        <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="seu@email.com" autocomplete="email"></div>
+        <div class="field"><label>Senha</label><input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+        <button class="pill-btn primary" onclick="doLogin()" id="login-btn">Entrar →</button>
+        <div class="auth-divider"><span>ou continue com</span></div>
+        <a href="/auth/google" class="google-btn">
+          <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          Entrar com Google
+        </a>
+        <div class="lerr" id="login-err"></div>
+      </div>
+
+      <!-- REGISTER FORM -->
+      <div id="auth-register" style="display:none">
+        <div class="field"><label>Nome de exibição</label><input type="text" id="reg-name" placeholder="Como quer ser chamado?" maxlength="30" autocomplete="name"></div>
+        <div class="field"><label>Email</label><input type="email" id="reg-email" placeholder="seu@email.com" autocomplete="email"></div>
+        <div class="field"><label>Senha</label><input type="password" id="reg-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password" onkeydown="if(event.key==='Enter')doRegister()"></div>
+        <button class="pill-btn primary" onclick="doRegister()" id="reg-btn">Criar conta →</button>
+        <div class="auth-divider"><span>ou continue com</span></div>
+        <a href="/auth/google" class="google-btn">
+          <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          Cadastrar com Google
+        </a>
+        <div class="lerr" id="reg-err"></div>
+      </div>
+    </div>
+
+    <!-- ROOM SCREEN (shown after login) -->
+    <div class="glass" id="room-screen" style="display:none;margin-top:1rem;">
+      <div id="auth-user-card2"></div>
       <div class="ltabs">
         <button class="ltab on" onclick="lTab('create')">Criar Sala</button>
-        <button class="ltab" onclick="lTab('join')">Entrar</button>
+        <button class="ltab" onclick="lTab('join')">Entrar em Sala</button>
       </div>
       <div id="l-create">
         <div class="field"><label>Seu nome</label><input type="text" id="l-name" placeholder="Como quer ser chamado?" maxlength="20"></div>
@@ -487,24 +544,76 @@ function avatarHTML(user, size=28) {
   return `<span style="font-size:${Math.round(size*0.6)}px">${esc(user?.avatar||'👤')}</span>`;
 }
 
-// ── GOOGLE AUTH ───────────────────────────────────────────
+// ── AUTH TABS ─────────────────────────────────────────────
+function authTab(t) {
+  $('auth-login').style.display = t === 'login' ? 'block' : 'none';
+  $('auth-register').style.display = t === 'register' ? 'block' : 'none';
+  document.querySelectorAll('.auth-tab').forEach((el, i) => el.classList.toggle('on', (i===0&&t==='login')||(i===1&&t==='register')));
+}
+
+function showAuthErr(id, msg) {
+  const el = $(id); el.textContent = msg; el.classList.add('on');
+  setTimeout(() => el.classList.remove('on'), 4000);
+}
+
+async function doLogin() {
+  const email = $('login-email').value.trim();
+  const pass  = $('login-pass').value;
+  if (!email || !pass) { showAuthErr('login-err', 'Preencha email e senha'); return; }
+  const btn = $('login-btn'); btn.textContent = 'Entrando...'; btn.disabled = true;
+  try {
+    const res = await fetch('/auth/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pass }) });
+    const data = await res.json();
+    if (!res.ok) { showAuthErr('login-err', data.error || 'Erro ao entrar'); btn.textContent = 'Entrar →'; btn.disabled = false; return; }
+    await loadAuthState();
+  } catch(e) { showAuthErr('login-err', 'Erro de conexão'); btn.textContent = 'Entrar →'; btn.disabled = false; }
+}
+
+async function doRegister() {
+  const name  = $('reg-name').value.trim();
+  const email = $('reg-email').value.trim();
+  const pass  = $('reg-pass').value;
+  if (!name || !email || !pass) { showAuthErr('reg-err', 'Preencha todos os campos'); return; }
+  const btn = $('reg-btn'); btn.textContent = 'Criando...'; btn.disabled = true;
+  try {
+    const res = await fetch('/auth/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name, email, password: pass }) });
+    const data = await res.json();
+    if (!res.ok) { showAuthErr('reg-err', data.error || 'Erro ao cadastrar'); btn.textContent = 'Criar conta →'; btn.disabled = false; return; }
+    await loadAuthState();
+  } catch(e) { showAuthErr('reg-err', 'Erro de conexão'); btn.textContent = 'Criar conta →'; btn.disabled = false; }
+}
+
+// ── GOOGLE AUTH / AUTH STATE ───────────────────────────────
 async function loadAuthState() {
   try {
     const res = await fetch('/auth/me');
     const { user } = await res.json();
     loggedInUser = user;
+
     if (user) {
-      // Show user in lobby
-      const googleDiv = $('l-google');
-      googleDiv.innerHTML = `
-        <div style="display:flex;align-items:center;gap:.75rem;padding:.75rem;background:var(--s2);border-radius:12px;margin-bottom:1rem;border:1px solid var(--border)">
-          <img src="${esc(user.avatarUrl||'')}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'">
-          <div style="flex:1;min-width:0"><div style="font-weight:600;font-size:.9rem">${esc(user.name)}</div><div style="font-size:.72rem;color:var(--sub);font-family:'DM Mono',monospace">${esc(user.email||'')}</div></div>
-          <a href="/auth/logout" style="font-size:.72rem;color:var(--sub);font-family:'DM Mono',monospace;text-decoration:none;padding:.25rem .5rem;border-radius:6px;border:1px solid var(--border)">Sair</a>
+      // Hide auth screen, show room screen
+      $('auth-screen').style.display = 'none';
+      $('room-screen').style.display = 'block';
+
+      // Render user card
+      const cardHtml = `
+        <div class="user-card" style="margin-bottom:1.4rem">
+          <div class="user-card-av">${user.avatarUrl ? `<img src="${esc(user.avatarUrl)}">` : '👤'}</div>
+          <div class="user-card-info">
+            <div class="user-card-name">${esc(user.name)}</div>
+            <div class="user-card-email">${esc(user.email || '')}</div>
+          </div>
+          <a href="/auth/logout" class="user-card-out">Sair</a>
         </div>`;
+      $('auth-user-card2').innerHTML = cardHtml;
+
       // Pre-fill name
       $('l-name').value = user.name;
       $('j-name').value = user.name;
+    } else {
+      // Not logged in — show auth screen, hide room screen
+      $('auth-screen').style.display = 'block';
+      $('room-screen').style.display = 'none';
     }
   } catch(e) {}
 }
@@ -524,6 +633,7 @@ function lTab(t) {
 }
 
 async function createRoom() {
+  if (!loggedInUser) { showLErr('Faça login para criar uma sala'); return; }
   const name = $('l-name').value.trim();
   if (!name) { showLErr('Digite seu nome'); return; }
   try {
@@ -534,6 +644,7 @@ async function createRoom() {
 }
 
 async function joinRoom() {
+  if (!loggedInUser) { showLErr('Faça login para entrar em uma sala'); return; }
   const name = $('j-name').value.trim();
   const code = $('j-code').value.trim().toUpperCase();
   if (!name) { showLErr('Digite seu nome'); return; }
