@@ -126,7 +126,10 @@ passport.use(new GoogleStrategy({
       RETURNING *
     `, [uuid(), googleId, name, email, avatarUrl]);
 
-    done(null, rows[0]);
+    // Attach access token to user object for session
+    const user = rows[0];
+    user._googleAccessToken = accessToken;
+    done(null, user);
   } catch(e) { done(e); }
 }));
 
@@ -184,8 +187,14 @@ app.get('/auth/me', (req, res) => {
     id: req.user.id,
     name: req.user.name,
     email: req.user.email,
-    avatarUrl: req.user.avatar_url
+    avatarUrl: req.user.avatar_url,
+    googleAccessToken: req.user._googleAccessToken || null
   }});
+});
+
+// Expose public config to frontend (API key is restricted to this domain so safe to expose)
+app.get('/api/config', (req, res) => {
+  res.json({ googleApiKey: process.env.GOOGLE_API_KEY || '' });
 });
 
 // ─────────────────────────────────────────
