@@ -746,6 +746,12 @@ function loadVideo(video, broadcast) {
     window.removeEventListener('message', onYTMsg);
     window.addEventListener('message', onYTMsg);
     clearInterval(window._ytPoll);
+    // Send 'listening' once iframe loads so YT starts sending postMessage events
+    iframe.addEventListener('load', () => {
+      try {
+        iframe.contentWindow.postMessage(JSON.stringify({ event: 'listening' }), '*');
+      } catch(e) {}
+    });
   } else if (src === 'vimeo') {
     $('src-badge').textContent = 'VM';
     const m = url.match(/vimeo\.com\/(\d+)/);
@@ -787,17 +793,26 @@ function loadVideo(video, broadcast) {
 function onYTMsg(e) {
   try {
     const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
-    if (!d || !d.info) return;
+    if (!d) return;
+
+    // YT fires {event:"onReady"} when player is ready to accept commands
+    if (!ytReady && d.event === 'onReady') {
+      ytReady = true;
+      if (lastKnownPlaying) doPlay(); else doPause();
+      return;
+    }
+
+    // YT also sends state via d.info — use as fallback ready signal
+    if (!d.info) return;
 
     // Track current time locally
     if (d.info.currentTime !== undefined) {
       ytCurrentTime = d.info.currentTime;
     }
 
-    // Player ready once it leaves unstarted state (-1)
+    // Fallback: if we got info but ytReady still false, set it now
     if (!ytReady && d.info.playerState !== undefined && d.info.playerState !== -1) {
       ytReady = true;
-      // Now that player is ready, apply the server's play/pause state
       if (lastKnownPlaying) doPlay(); else doPause();
     }
 
