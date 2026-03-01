@@ -638,35 +638,32 @@ function handle(msg) {
   }
 
   if (type === 'STATE') {
+    // payload.currentTime is the exact time at moment of action — use directly
     lastKnownServerTime = payload.currentTime;
-    lastKnownServerTS = payload.ts;
+    lastKnownServerTS = Date.now();
     lastKnownPlaying = payload.playing;
-    if (ytIframe && !ytReady) return; // lastKnownPlaying already stored above; onYTMsg applies it when ready
+    if (ytIframe && !ytReady) return; // onYTMsg will apply when ready
     isSyncing = true;
-    const elapsed = (Date.now() - payload.ts) / 1000;
-    const expected = payload.currentTime + (payload.playing ? elapsed : 0);
     const current = ytIframe ? ytCurrentTime : (nativeVid ? nativeVid.currentTime : 0);
-    if (!(current === 0 && expected > 2)) {
-      if (Math.abs(current - expected) > 1.5) seekTo(Math.max(0, expected));
-    }
+    if (Math.abs(current - payload.currentTime) > 2.0) seekTo(Math.max(0, payload.currentTime));
     if (payload.playing !== isPlaying) { if (payload.playing) doPlay(); else doPause(); }
     isSyncing = false;
   }
 
   if (type === 'SYNC_PING') {
     if (!amIHost) {
-      lastKnownServerTime = payload.currentTime;
-      lastKnownServerTS = payload.ts;
+      // payload.currentTime is already the projected time calculated by server
+      // Don't re-add elapsed — server already did that math
+      const expected = payload.currentTime;
+      lastKnownServerTime = expected;
+      lastKnownServerTS = Date.now();
       lastKnownPlaying = payload.playing;
-      console.log('[SYNC_PING] serverTime=', payload.currentTime, 'ts=', payload.ts, 'playing=', payload.playing, 'ytCurrentTime=', ytCurrentTime, 'ytReady=', ytReady);
-      if (!ytReady && ytIframe) return; // YT not ready yet, just stored reference above
+      console.log('[SYNC_PING] expected=', expected, 'ytCurrentTime=', ytCurrentTime, 'ytReady=', ytReady);
+      if (!ytReady && ytIframe) return;
       isSyncing = true;
-      const elapsed = (Date.now() - payload.ts) / 1000;
-      const expected = payload.currentTime + (payload.playing ? elapsed : 0);
       const current = ytIframe ? ytCurrentTime : (nativeVid ? nativeVid.currentTime : 0);
       const drift = Math.abs(current - expected);
-      // For YT use a larger threshold (10s) — start= already synced on load
-      // For native video use smaller threshold (3s)
+      console.log('[SYNC_PING] current=', current, 'drift=', drift);
       const threshold = ytIframe ? 10.0 : 3.0;
       if (current > 0 && drift > threshold) {
         seekTo(Math.max(0, expected));
