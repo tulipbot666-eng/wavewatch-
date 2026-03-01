@@ -44,6 +44,7 @@ function roomInfo(room) {
     id: room.id,
     host: room.host,
     members: [...room.members.values()].map(m => m.user),
+    memberCount: room.members.size,
     video: room.video,
     queue: room.queue,
     playing: room.playing,
@@ -172,7 +173,10 @@ wss.on('connection', (ws) => {
       const newHostId = currentRoom.members.keys().next().value;
       currentRoom.host = newHostId;
       const newHostMember = currentRoom.members.get(newHostId);
-      if (newHostMember) newHostMember.user.isHost = true;
+      if (newHostMember) {
+        newHostMember.user.isHost = true;
+        broadcastAll(currentRoom, { type: 'HOST_CHANGED', payload: { hostId: newHostId } });
+      }
     }
     // Clean up empty rooms after delay
     if (currentRoom.members.size === 0) {
@@ -246,6 +250,27 @@ function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   return 'WAVE-' + Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
+
+// ─────────────────────────────────────────
+// PERIODIC SYNC PING — every 5s, host state is pushed to all guests
+// ─────────────────────────────────────────
+setInterval(() => {
+  rooms.forEach(room => {
+    if (room.members.size < 2 || !room.video) return;
+    const elapsed = (Date.now() - room.lastUpdate) / 1000;
+    const projected = room.currentTime + (room.playing ? elapsed : 0);
+    // Only broadcast to non-hosts
+    const data = JSON.stringify({
+      type: 'SYNC_PING',
+      payload: { playing: room.playing, currentTime: projected, ts: Date.now() }
+    });
+    room.members.forEach((member, id) => {
+      if (id !== room.host && member.ws.readyState === 1) {
+        member.ws.send(data);
+      }
+    });
+  });
+}, 5000);
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`WaveWatch running on port ${PORT}`));
