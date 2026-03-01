@@ -480,6 +480,11 @@ let isPlaying = false, isSyncing = false;
 let currentSrc = 'youtube', pickedFile = null;
 let ytInfoCache = {};
 let selectedAvatar = '🎬';
+let amIHost = false;
+let syncInterval = null;
+let lastKnownServerTime = 0;
+let lastKnownServerTS = 0;
+let lastKnownPlaying = false;
 
 // ═══════════════════════════════════════
 // UTILS
@@ -571,27 +576,38 @@ function handle(msg) {
   if (type === 'ROOM_STATE') {
     roomState = payload;
     myUser.id = payload.members.find(m=>m.name===myUser.name)?.id || myUser.id;
+    amIHost = payload.host === myUser.id;
+    updateHostUI();
     renderMembers(payload.members);
     renderQueue(payload.queue);
     renderHistory(payload.history);
     if (payload.video) loadVideo(payload.video, false);
-    if (payload.playing !== isPlaying) {
-      isSyncing = true;
-      const elapsed = (Date.now() - payload.lastUpdate) / 1000;
-      const expected = payload.currentTime + (payload.playing ? elapsed : 0);
-      seekTo(Math.max(0, expected));
-      if (payload.playing) doPlay(); else doPause();
-      isSyncing = false;
-    }
+    // Always hard-sync to server state on join
+    isSyncing = true;
+    const elapsed = (Date.now() - payload.lastUpdate) / 1000;
+    const expected = payload.currentTime + (payload.playing ? elapsed : 0);
+    lastKnownServerTime = expected;
+    lastKnownServerTS = Date.now();
+    lastKnownPlaying = payload.playing;
+    seekTo(Math.max(0, expected));
+    if (payload.playing) doPlay(); else doPause();
+    isSyncing = false;
     updateLiveLbl(payload.memberCount || payload.members.length);
+    startSyncWatcher();
   }
 
   if (type === 'USER_JOINED') {
     sysMsg(`${payload.user.avatar} ${payload.user.name} entrou na sala`);
     updateLiveLbl(payload.memberCount);
     if (payload.user.name !== myUser.name) {
-      send('ROOM_STATE_REQUEST', {}); // ask for fresh state
+      send('ROOM_STATE_REQUEST', {});
     }
+  }
+
+  if (type === 'HOST_CHANGED') {
+    amIHost = payload.hostId === myUser.id;
+    updateHostUI();
+    if (amIHost) sysMsg('👑 Você agora é o host da sala');
   }
 
   if (type === 'USER_LEFT') {
@@ -622,13 +638,33 @@ function handle(msg) {
     isSyncing = true;
     const elapsed = (Date.now() - payload.ts) / 1000;
     const expected = payload.currentTime + (payload.playing ? elapsed : 0);
-    if (Math.abs(curTime() - expected) > 2) seekTo(Math.max(0, expected));
+    lastKnownServerTime = expected;
+    lastKnownServerTS = Date.now();
+    lastKnownPlaying = payload.playing;
+    if (Math.abs(curTime() - expected) > 1.5) seekTo(Math.max(0, expected));
     if (payload.playing !== isPlaying) { if (payload.playing) doPlay(); else doPause(); }
     isSyncing = false;
   }
 
+  if (type === 'SYNC_PING') {
+    // Server-initiated periodic sync check for non-hosts
+    if (!amIHost) {
+      isSyncing = true;
+      const elapsed = (Date.now() - payload.ts) / 1000;
+      const expected = payload.currentTime + (payload.playing ? elapsed : 0);
+      lastKnownServerTime = expected;
+      lastKnownServerTS = Date.now();
+      lastKnownPlaying = payload.playing;
+      if (Math.abs(curTime() - expected) > 1.0) seekTo(Math.max(0, expected));
+      if (payload.playing !== isPlaying) { if (payload.playing) doPlay(); else doPause(); }
+      isSyncing = false;
+    }
+  }
+
   if (type === 'SEEK') {
     isSyncing = true;
+    lastKnownServerTime = payload.t;
+    lastKnownServerTS = Date.now();
     seekTo(payload.t);
     isSyncing = false;
   }
@@ -704,9 +740,9 @@ function loadVideo(video, broadcast) {
     v.volume = parseFloat($('vol').value);
     wrap.appendChild(v);
     nativeVid = v;
-    v.addEventListener('play',  ()=>{ if(!isSyncing){ isPlaying=true;  $('pbtn').textContent='⏸'; send('STATE',{playing:true, currentTime:v.currentTime}); }});
-    v.addEventListener('pause', ()=>{ if(!isSyncing){ isPlaying=false; $('pbtn').textContent='▶'; send('STATE',{playing:false,currentTime:v.currentTime}); }});
-    v.addEventListener('seeked',()=>{ if(!isSyncing) send('SEEK',{t:v.currentTime}); });
+    v.addEventListener('play',  ()=>{ if(!isSyncing && amIHost){ isPlaying=true;  $('pbtn').textContent='⏸'; send('STATE',{playing:true, currentTime:v.currentTime, ts:Date.now()}); } else if(!isSyncing){ isPlaying=true; $('pbtn').textContent='⏸'; }});
+    v.addEventListener('pause', ()=>{ if(!isSyncing && amIHost){ isPlaying=false; $('pbtn').textContent='▶'; send('STATE',{playing:false,currentTime:v.currentTime, ts:Date.now()}); } else if(!isSyncing){ isPlaying=false; $('pbtn').textContent='▶'; }});
+    v.addEventListener('seeked',()=>{ if(!isSyncing && amIHost) send('SEEK',{t:v.currentTime}); });
     v.addEventListener('error', ()=> toast('Erro ao carregar vídeo'));
   }
 
@@ -722,11 +758,11 @@ function onYTMsg(e) {
     if (!d || !d.info) return;
     if (d.info.playerState === 1 && !isSyncing) {
       isPlaying = true; $('pbtn').textContent = '⏸';
-      send('STATE', { playing: true, currentTime: d.info.currentTime||0 });
+      if (amIHost) send('STATE', { playing: true, currentTime: d.info.currentTime||0, ts: Date.now() });
     }
     if (d.info.playerState === 2 && !isSyncing) {
       isPlaying = false; $('pbtn').textContent = '▶';
-      send('STATE', { playing: false, currentTime: d.info.currentTime||0 });
+      if (amIHost) send('STATE', { playing: false, currentTime: d.info.currentTime||0, ts: Date.now() });
     }
   } catch(e){}
 }
@@ -737,26 +773,82 @@ function ytCmd(cmd, args) {
 }
 
 // ═══════════════════════════════════════
+// HOST UI
+// ═══════════════════════════════════════
+function updateHostUI() {
+  const ctrl = $('ctrl');
+  // Show a host badge in topbar
+  let badge = $('host-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.id = 'host-badge';
+    badge.style.cssText = 'font-size:.65rem;font-family:"DM Mono",monospace;padding:.15rem .45rem;border-radius:5px;background:rgba(232,67,147,.2);color:var(--accent);border:1px solid rgba(232,67,147,.3);';
+    $('tb-right').prepend(badge);
+  }
+  badge.textContent = amIHost ? '👑 host' : '👤 membro';
+
+  // Dim controls for non-hosts
+  const btns = ctrl.querySelectorAll('.c-btn, #vol');
+  btns.forEach(b => {
+    if (!amIHost) {
+      b.style.opacity = '0.35';
+      b.style.pointerEvents = 'none';
+      b.title = 'Apenas o host pode controlar';
+    } else {
+      b.style.opacity = '';
+      b.style.pointerEvents = '';
+      b.title = '';
+    }
+  });
+  // Also dim prog bar click for non-hosts
+  $('prog').style.pointerEvents = amIHost ? 'auto' : 'none';
+  $('prog').style.cursor = amIHost ? 'pointer' : 'default';
+}
+
+// ═══════════════════════════════════════
+// SYNC WATCHER — re-syncs guests if drift > 2s
+// ═══════════════════════════════════════
+function startSyncWatcher() {
+  if (syncInterval) clearInterval(syncInterval);
+  syncInterval = setInterval(() => {
+    if (amIHost || !lastKnownPlaying || !nativeVid) return;
+    const elapsed = (Date.now() - lastKnownServerTS) / 1000;
+    const expected = lastKnownServerTime + elapsed;
+    const drift = Math.abs(curTime() - expected);
+    if (drift > 2.0) {
+      isSyncing = true;
+      seekTo(Math.max(0, expected));
+      isSyncing = false;
+    }
+  }, 3000);
+}
+
+// ═══════════════════════════════════════
 // CONTROLS
 // ═══════════════════════════════════════
 function curTime() { if (nativeVid) return nativeVid.currentTime||0; return 0; }
 function curDur()  { if (nativeVid) return nativeVid.duration||0; return 0; }
 
 function togglePlay() {
-  if (ytIframe) { ytCmd(isPlaying?'pauseVideo':'playVideo'); isPlaying=!isPlaying; $('pbtn').textContent=isPlaying?'⏸':'▶'; send('STATE',{playing:isPlaying,currentTime:0}); return; }
+  if (!amIHost) { toast('Apenas o host pode pausar/dar play ▶'); return; }
+  if (ytIframe) { ytCmd(isPlaying?'pauseVideo':'playVideo'); isPlaying=!isPlaying; $('pbtn').textContent=isPlaying?'⏸':'▶'; send('STATE',{playing:isPlaying,currentTime:0,ts:Date.now()}); return; }
   if (nativeVid) { if (isPlaying) nativeVid.pause(); else nativeVid.play().catch(()=>{}); }
-  send('STATE', { playing: !isPlaying, currentTime: curTime() });
+  send('STATE', { playing: !isPlaying, currentTime: curTime(), ts: Date.now() });
 }
-function doPlay()  { isPlaying=true;  $('pbtn').textContent='⏸'; ytCmd('playVideo');  if(nativeVid)nativeVid.play().catch(()=>{}); }
-function doPause() { isPlaying=false; $('pbtn').textContent='▶'; ytCmd('pauseVideo'); if(nativeVid)nativeVid.pause(); }
-function seekTo(t) { ytCmd('seekTo',[t,true]); if(nativeVid)nativeVid.currentTime=t; }
-function skip(s)   { const t=Math.max(0,curTime()+s); seekTo(t); send('SEEK',{t}); }
+function skip(s) {
+  if (!amIHost) { toast('Apenas o host pode avançar/voltar ⏩'); return; }
+  const t=Math.max(0,curTime()+s); seekTo(t); send('SEEK',{t});
+}
 function seekClick(e) {
+  if (!amIHost) return;
   const dur=curDur(); if(!dur&&!ytIframe)return;
   const r=$('prog').getBoundingClientRect();
   const t=Math.max(0,Math.min(dur||600,((e.clientX-r.left)/r.width)*(dur||600)));
   seekTo(t); send('SEEK',{t});
 }
+function doPlay()  { isPlaying=true;  $('pbtn').textContent='⏸'; ytCmd('playVideo');  if(nativeVid)nativeVid.play().catch(()=>{}); }
+function doPause() { isPlaying=false; $('pbtn').textContent='▶'; ytCmd('pauseVideo'); if(nativeVid)nativeVid.pause(); }
+function seekTo(t) { ytCmd('seekTo',[t,true]); if(nativeVid)nativeVid.currentTime=t; }
 function setVol(v) { if(nativeVid)nativeVid.volume=v; ytCmd('setVolume',[v*100]); }
 function goFS() { const w=$('vwrap'); if(!document.fullscreenElement)w.requestFullscreen&&w.requestFullscreen(); else document.exitFullscreen&&document.exitFullscreen(); }
 
