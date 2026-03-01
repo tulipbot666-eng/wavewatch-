@@ -485,7 +485,9 @@ let syncInterval = null;
 let lastKnownServerTime = 0;
 let lastKnownServerTS = 0;
 let lastKnownPlaying = false;
+let ytReady = false; // true only after YouTube player fires 'onReady'
 let ytCurrentTime = 0; // tracks YouTube current time via postMessage
+let ytPendingSeek = null; // seek to apply once player is ready
 
 // ═══════════════════════════════════════
 // UTILS
@@ -637,12 +639,13 @@ function handle(msg) {
   }
 
   if (type === 'STATE') {
-    isSyncing = true;
-    const elapsed = (Date.now() - payload.ts) / 1000;
-    const expected = payload.currentTime + (payload.playing ? elapsed : 0);
     lastKnownServerTime = payload.currentTime;
     lastKnownServerTS = payload.ts;
     lastKnownPlaying = payload.playing;
+    if (ytIframe && !ytReady) return; // store reference, apply when ready
+    isSyncing = true;
+    const elapsed = (Date.now() - payload.ts) / 1000;
+    const expected = payload.currentTime + (payload.playing ? elapsed : 0);
     const current = ytIframe ? ytCurrentTime : (nativeVid ? nativeVid.currentTime : 0);
     if (!(current === 0 && expected > 2)) {
       if (Math.abs(current - expected) > 1.5) seekTo(Math.max(0, expected));
@@ -653,16 +656,14 @@ function handle(msg) {
 
   if (type === 'SYNC_PING') {
     if (!amIHost) {
-      isSyncing = true;
-      const elapsed = (Date.now() - payload.ts) / 1000;
-      const expected = payload.currentTime + (payload.playing ? elapsed : 0);
-      // Update server reference
       lastKnownServerTime = payload.currentTime;
       lastKnownServerTS = payload.ts;
       lastKnownPlaying = payload.playing;
-      // Get actual current position
+      if (ytIframe && !ytReady) return; // player not ready yet, just store reference
+      isSyncing = true;
+      const elapsed = (Date.now() - payload.ts) / 1000;
+      const expected = payload.currentTime + (payload.playing ? elapsed : 0);
       const current = ytIframe ? ytCurrentTime : (nativeVid ? nativeVid.currentTime : 0);
-      // Don't seek if video still loading
       if (!(current === 0 && expected > 2)) {
         if (Math.abs(current - expected) > 3.0) seekTo(Math.max(0, expected));
       }
@@ -690,6 +691,9 @@ function loadVideo(video, broadcast) {
 
   // Cleanup
   if (ytIframe) { ytIframe = null; }
+  ytReady = false;
+  ytCurrentTime = 0;
+  ytPendingSeek = null;
   if (nativeVid) { nativeVid.pause(); nativeVid = null; }
 
   const wrap = $('vwrap');
@@ -782,18 +786,27 @@ function onYTMsg(e) {
     const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
     if (!d || !d.info) return;
 
-    // Track current time locally — never use this as server reference
+    // Track current time locally
     if (d.info.currentTime !== undefined) {
       ytCurrentTime = d.info.currentTime;
     }
 
+    // Player ready — apply any pending seek
+    if (!ytReady && d.info.playerState !== undefined && d.info.playerState !== -1) {
+      ytReady = true;
+      if (ytPendingSeek !== null) {
+        ytCmd('seekTo', [ytPendingSeek, true]);
+        ytPendingSeek = null;
+      }
+      // Also apply pending play/pause state
+      if (lastKnownPlaying) doPlay(); else doPause();
+    }
+
     if (d.info.playerState === 1 && !isSyncing) {
-      // Playing
       isPlaying = true; $('pbtn').textContent = '⏸';
       if (amIHost) {
         send('STATE', { playing: true, currentTime: ytCurrentTime, ts: Date.now() });
       } else {
-        // Member shouldn't trigger play — enforce server state
         isSyncing = true;
         if (!lastKnownPlaying) ytCmd('pauseVideo');
         isSyncing = false;
@@ -801,12 +814,10 @@ function onYTMsg(e) {
     }
 
     if (d.info.playerState === 2 && !isSyncing) {
-      // Paused
       isPlaying = false; $('pbtn').textContent = '▶';
       if (amIHost) {
         send('STATE', { playing: false, currentTime: ytCurrentTime, ts: Date.now() });
       } else {
-        // Member shouldn't trigger pause — enforce server state
         isSyncing = true;
         if (lastKnownPlaying) ytCmd('playVideo');
         isSyncing = false;
@@ -864,12 +875,11 @@ function startSyncWatcher() {
   if (syncInterval) clearInterval(syncInterval);
   syncInterval = setInterval(() => {
     if (amIHost || !lastKnownPlaying) return;
-    // Only sync if we have a valid server reference
     if (lastKnownServerTS === 0) return;
+    if (ytIframe && !ytReady) return; // don't sync until YT player is ready
     const elapsed = (Date.now() - lastKnownServerTS) / 1000;
     const expected = lastKnownServerTime + elapsed;
     const current = ytIframe ? ytCurrentTime : (nativeVid ? nativeVid.currentTime : 0);
-    // Don't sync if video hasn't loaded yet (current === 0 and expected > 2)
     if (current === 0 && expected > 2) return;
     const drift = Math.abs(current - expected);
     if (drift > 3.0) {
@@ -911,7 +921,16 @@ function seekClick(e) {
 }
 function doPlay()  { isPlaying=true;  $('pbtn').textContent='⏸'; ytCmd('playVideo');  if(nativeVid)nativeVid.play().catch(()=>{}); }
 function doPause() { isPlaying=false; $('pbtn').textContent='▶'; ytCmd('pauseVideo'); if(nativeVid)nativeVid.pause(); }
-function seekTo(t) { ytCmd('seekTo',[t,true]); if(nativeVid)nativeVid.currentTime=t; }
+function seekTo(t) {
+  if (ytIframe) {
+    if (ytReady) {
+      ytCmd('seekTo', [t, true]);
+    } else {
+      ytPendingSeek = t; // apply once player is ready
+    }
+  }
+  if (nativeVid) nativeVid.currentTime = t;
+}
 function setVol(v) { if(nativeVid)nativeVid.volume=v; ytCmd('setVolume',[v*100]); }
 function goFS() { const w=$('vwrap'); if(!document.fullscreenElement)w.requestFullscreen&&w.requestFullscreen(); else document.exitFullscreen&&document.exitFullscreen(); }
 
