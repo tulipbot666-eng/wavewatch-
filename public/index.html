@@ -584,17 +584,12 @@ function handle(msg) {
     renderMembers(payload.members);
     renderQueue(payload.queue);
     renderHistory(payload.history);
-    if (payload.video) loadVideo(payload.video, false);
-    // Always hard-sync to server state on join
-    isSyncing = true;
-    const elapsed = (Date.now() - payload.lastUpdate) / 1000;
-    const expected = payload.currentTime + (payload.playing ? elapsed : 0);
+    // Set server reference BEFORE loadVideo so iframe start= param is correct
     lastKnownServerTime = payload.currentTime;
     lastKnownServerTS = payload.lastUpdate;
     lastKnownPlaying = payload.playing;
-    seekTo(Math.max(0, expected));
-    if (payload.playing) doPlay(); else doPause();
-    isSyncing = false;
+    if (payload.video) loadVideo(payload.video, false);
+    // doPlay/doPause will be called by onYTMsg once player is ready
     updateLiveLbl(payload.memberCount || payload.members.length);
     startSyncWatcher();
   }
@@ -629,6 +624,10 @@ function handle(msg) {
 
   if (type === 'VIDEO') {
     if (payload.video) {
+      // New video always starts from 0
+      lastKnownServerTime = 0;
+      lastKnownServerTS = Date.now();
+      lastKnownPlaying = false;
       loadVideo(payload.video, false);
       sysMsg(`${payload.by?.avatar||''} ${payload.by?.name||'Alguém'} adicionou: ${payload.video.title}`);
     }
