@@ -257,12 +257,11 @@ function generateRoomCode() {
 setInterval(() => {
   rooms.forEach(room => {
     if (room.members.size < 2 || !room.video) return;
-    const elapsed = (Date.now() - room.lastUpdate) / 1000;
-    const projected = room.currentTime + (room.playing ? elapsed : 0);
-    // Only broadcast to non-hosts
+    // Send raw currentTime + the timestamp it was recorded at
+    // Client will project: currentTime + (Date.now() - ts) / 1000
     const data = JSON.stringify({
       type: 'SYNC_PING',
-      payload: { playing: room.playing, currentTime: projected, ts: Date.now() }
+      payload: { playing: room.playing, currentTime: room.currentTime, ts: room.lastUpdate }
     });
     room.members.forEach((member, id) => {
       if (id !== room.host && member.ws.readyState === 1) {
