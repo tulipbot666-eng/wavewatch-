@@ -587,8 +587,8 @@ function handle(msg) {
     isSyncing = true;
     const elapsed = (Date.now() - payload.lastUpdate) / 1000;
     const expected = payload.currentTime + (payload.playing ? elapsed : 0);
-    lastKnownServerTime = expected;
-    lastKnownServerTS = Date.now();
+    lastKnownServerTime = payload.currentTime;
+    lastKnownServerTS = payload.lastUpdate;
     lastKnownPlaying = payload.playing;
     seekTo(Math.max(0, expected));
     if (payload.playing) doPlay(); else doPause();
@@ -640,24 +640,32 @@ function handle(msg) {
     isSyncing = true;
     const elapsed = (Date.now() - payload.ts) / 1000;
     const expected = payload.currentTime + (payload.playing ? elapsed : 0);
-    lastKnownServerTime = expected;
-    lastKnownServerTS = Date.now();
+    lastKnownServerTime = payload.currentTime;
+    lastKnownServerTS = payload.ts;
     lastKnownPlaying = payload.playing;
-    if (Math.abs(curTime() - expected) > 1.5) seekTo(Math.max(0, expected));
+    const current = ytIframe ? ytCurrentTime : (nativeVid ? nativeVid.currentTime : 0);
+    if (!(current === 0 && expected > 2)) {
+      if (Math.abs(current - expected) > 1.5) seekTo(Math.max(0, expected));
+    }
     if (payload.playing !== isPlaying) { if (payload.playing) doPlay(); else doPause(); }
     isSyncing = false;
   }
 
   if (type === 'SYNC_PING') {
-    // Server-initiated periodic sync check for non-hosts
     if (!amIHost) {
       isSyncing = true;
       const elapsed = (Date.now() - payload.ts) / 1000;
       const expected = payload.currentTime + (payload.playing ? elapsed : 0);
-      lastKnownServerTime = expected;
-      lastKnownServerTS = Date.now();
+      // Update server reference
+      lastKnownServerTime = payload.currentTime;
+      lastKnownServerTS = payload.ts;
       lastKnownPlaying = payload.playing;
-      if (Math.abs(curTime() - expected) > 1.0) seekTo(Math.max(0, expected));
+      // Get actual current position
+      const current = ytIframe ? ytCurrentTime : (nativeVid ? nativeVid.currentTime : 0);
+      // Don't seek if video still loading
+      if (!(current === 0 && expected > 2)) {
+        if (Math.abs(current - expected) > 3.0) seekTo(Math.max(0, expected));
+      }
       if (payload.playing !== isPlaying) { if (payload.playing) doPlay(); else doPause(); }
       isSyncing = false;
     }
@@ -774,18 +782,18 @@ function onYTMsg(e) {
     const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
     if (!d || !d.info) return;
 
-    // Always track current time from YT
+    // Track current time locally — never use this as server reference
     if (d.info.currentTime !== undefined) {
       ytCurrentTime = d.info.currentTime;
     }
 
     if (d.info.playerState === 1 && !isSyncing) {
-      // Video playing
+      // Playing
       isPlaying = true; $('pbtn').textContent = '⏸';
       if (amIHost) {
         send('STATE', { playing: true, currentTime: ytCurrentTime, ts: Date.now() });
       } else {
-        // Member started playing on their own — force back to server state
+        // Member shouldn't trigger play — enforce server state
         isSyncing = true;
         if (!lastKnownPlaying) ytCmd('pauseVideo');
         isSyncing = false;
@@ -793,24 +801,18 @@ function onYTMsg(e) {
     }
 
     if (d.info.playerState === 2 && !isSyncing) {
-      // Video paused
+      // Paused
       isPlaying = false; $('pbtn').textContent = '▶';
       if (amIHost) {
         send('STATE', { playing: false, currentTime: ytCurrentTime, ts: Date.now() });
       } else {
-        // Member paused on their own — force back to playing if server says so
+        // Member shouldn't trigger pause — enforce server state
         isSyncing = true;
         if (lastKnownPlaying) ytCmd('playVideo');
         isSyncing = false;
       }
     }
-
-    // Request time update every tick (YT sends this ~4x/sec with enablejsapi)
-    if (d.info.playerState === 1) {
-      lastKnownServerTime = ytCurrentTime;
-      lastKnownServerTS = Date.now();
-    }
-  } catch(e){}
+  } catch(err){}
 }
 function ytCmd(cmd, args) {
   if (ytIframe?.contentWindow) {
@@ -861,16 +863,21 @@ function updateYTOverlay() {
 function startSyncWatcher() {
   if (syncInterval) clearInterval(syncInterval);
   syncInterval = setInterval(() => {
-    if (amIHost || !lastKnownPlaying || !nativeVid) return;
+    if (amIHost || !lastKnownPlaying) return;
+    // Only sync if we have a valid server reference
+    if (lastKnownServerTS === 0) return;
     const elapsed = (Date.now() - lastKnownServerTS) / 1000;
     const expected = lastKnownServerTime + elapsed;
-    const drift = Math.abs(curTime() - expected);
-    if (drift > 2.0) {
+    const current = ytIframe ? ytCurrentTime : (nativeVid ? nativeVid.currentTime : 0);
+    // Don't sync if video hasn't loaded yet (current === 0 and expected > 2)
+    if (current === 0 && expected > 2) return;
+    const drift = Math.abs(current - expected);
+    if (drift > 3.0) {
       isSyncing = true;
       seekTo(Math.max(0, expected));
       isSyncing = false;
     }
-  }, 3000);
+  }, 4000);
 }
 
 // ═══════════════════════════════════════
