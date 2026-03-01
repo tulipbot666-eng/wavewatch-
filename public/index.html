@@ -642,7 +642,7 @@ function handle(msg) {
     lastKnownServerTime = payload.currentTime;
     lastKnownServerTS = payload.ts;
     lastKnownPlaying = payload.playing;
-    if (ytIframe && !ytReady) return; // store reference, apply when ready
+    if (ytIframe && !ytReady) return; // lastKnownPlaying already stored above; onYTMsg applies it when ready
     isSyncing = true;
     const elapsed = (Date.now() - payload.ts) / 1000;
     const expected = payload.currentTime + (payload.playing ? elapsed : 0);
@@ -794,15 +794,11 @@ function onYTMsg(e) {
       ytCurrentTime = d.info.currentTime;
     }
 
-    // Player ready when it starts buffering or playing (state 1=playing, 3=buffering, 5=cued)
-    // State 5 = cued/ready to play — safe to seek and command
+    // Player ready once it leaves unstarted state (-1)
     if (!ytReady && d.info.playerState !== undefined && d.info.playerState !== -1) {
       ytReady = true;
-      // Apply play/pause state from server
-      if (lastKnownPlaying) {
-        doPlay();
-      }
-      // No need for pendingSeek — start= URL param already positioned the video
+      // Now that player is ready, apply the server's play/pause state
+      if (lastKnownPlaying) doPlay(); else doPause();
     }
 
     if (d.info.playerState === 1 && !isSyncing) {
@@ -902,10 +898,10 @@ function curDur()  { if (nativeVid) return nativeVid.duration||0; return 0; }
 function togglePlay() {
   if (!amIHost) { toast('Apenas o host pode pausar/dar play ▶'); return; }
   if (ytIframe) {
-    ytCmd(isPlaying ? 'pauseVideo' : 'playVideo');
-    isPlaying = !isPlaying;
-    $('pbtn').textContent = isPlaying ? '⏸' : '▶';
-    send('STATE', { playing: isPlaying, currentTime: ytCurrentTime, ts: Date.now() });
+    const newPlaying = !isPlaying;
+    // Use doPlay/doPause so ytReady check is respected
+    if (newPlaying) doPlay(); else doPause();
+    send('STATE', { playing: newPlaying, currentTime: ytCurrentTime, ts: Date.now() });
     return;
   }
   if (nativeVid) { if (isPlaying) nativeVid.pause(); else nativeVid.play().catch(()=>{}); }
@@ -922,8 +918,21 @@ function seekClick(e) {
   const t=Math.max(0,Math.min(dur||600,((e.clientX-r.left)/r.width)*(dur||600)));
   seekTo(t); send('SEEK',{t});
 }
-function doPlay()  { isPlaying=true;  $('pbtn').textContent='⏸'; ytCmd('playVideo');  if(nativeVid)nativeVid.play().catch(()=>{}); }
-function doPause() { isPlaying=false; $('pbtn').textContent='▶'; ytCmd('pauseVideo'); if(nativeVid)nativeVid.pause(); }
+function doPlay() {
+  isPlaying = true; $('pbtn').textContent = '⏸';
+  if (ytIframe) {
+    if (ytReady) ytCmd('playVideo');
+    // if not ready yet, onYTMsg will call doPlay() once ready
+  }
+  if (nativeVid) nativeVid.play().catch(()=>{});
+}
+function doPause() {
+  isPlaying = false; $('pbtn').textContent = '▶';
+  if (ytIframe) {
+    if (ytReady) ytCmd('pauseVideo');
+  }
+  if (nativeVid) nativeVid.pause();
+}
 function seekTo(t) {
   if (ytIframe) {
     if (ytReady) {
