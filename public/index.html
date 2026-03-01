@@ -659,13 +659,17 @@ function handle(msg) {
       lastKnownServerTime = payload.currentTime;
       lastKnownServerTS = payload.ts;
       lastKnownPlaying = payload.playing;
-      if (ytIframe && !ytReady) return; // player not ready yet, just store reference
+      if (!ytReady && ytIframe) return; // YT not ready yet, just stored reference above
       isSyncing = true;
       const elapsed = (Date.now() - payload.ts) / 1000;
       const expected = payload.currentTime + (payload.playing ? elapsed : 0);
       const current = ytIframe ? ytCurrentTime : (nativeVid ? nativeVid.currentTime : 0);
-      if (!(current === 0 && expected > 2)) {
-        if (Math.abs(current - expected) > 3.0) seekTo(Math.max(0, expected));
+      const drift = Math.abs(current - expected);
+      // For YT use a larger threshold (10s) — start= already synced on load
+      // For native video use smaller threshold (3s)
+      const threshold = ytIframe ? 10.0 : 3.0;
+      if (current > 0 && drift > threshold) {
+        seekTo(Math.max(0, expected));
       }
       if (payload.playing !== isPlaying) { if (payload.playing) doPlay(); else doPause(); }
       isSyncing = false;
@@ -719,9 +723,14 @@ function loadVideo(video, broadcast) {
     $('src-badge').textContent = 'YT';
     const vid = extractYT(url);
     if (!vid) { toast('URL inválida'); return; }
+
+    // Start iframe at the correct server time directly via URL ?start= param
+    const _elapsed = lastKnownServerTS > 0 ? (Date.now() - lastKnownServerTS) / 1000 : 0;
+    const startAt = Math.floor(Math.max(0, lastKnownServerTime + (lastKnownPlaying ? _elapsed : 0)));
+
     const iframe = document.createElement('iframe');
     iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
-    iframe.src = `https://www.youtube-nocookie.com/embed/${vid}?autoplay=0&controls=0&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
+    iframe.src = `https://www.youtube-nocookie.com/embed/${vid}?autoplay=0&controls=0&rel=0&modestbranding=1&enablejsapi=1&start=${startAt}&origin=${encodeURIComponent(location.origin)}`;
     iframe.allow = 'autoplay; fullscreen; accelerometer; encrypted-media; gyroscope; picture-in-picture';
     iframe.allowFullscreen = true;
     wrap.appendChild(iframe);
@@ -736,13 +745,7 @@ function loadVideo(video, broadcast) {
 
     window.removeEventListener('message', onYTMsg);
     window.addEventListener('message', onYTMsg);
-    // Poll YT for currentTime every second via postMessage
     clearInterval(window._ytPoll);
-    window._ytPoll = setInterval(() => {
-      if (ytIframe?.contentWindow) {
-        try { ytIframe.contentWindow.postMessage(JSON.stringify({event:'listening'}),'*'); } catch(e){}
-      }
-    }, 1000);
   } else if (src === 'vimeo') {
     $('src-badge').textContent = 'VM';
     const m = url.match(/vimeo\.com\/(\d+)/);
@@ -791,15 +794,15 @@ function onYTMsg(e) {
       ytCurrentTime = d.info.currentTime;
     }
 
-    // Player ready — apply any pending seek
+    // Player ready when it starts buffering or playing (state 1=playing, 3=buffering, 5=cued)
+    // State 5 = cued/ready to play — safe to seek and command
     if (!ytReady && d.info.playerState !== undefined && d.info.playerState !== -1) {
       ytReady = true;
-      if (ytPendingSeek !== null) {
-        ytCmd('seekTo', [ytPendingSeek, true]);
-        ytPendingSeek = null;
+      // Apply play/pause state from server
+      if (lastKnownPlaying) {
+        doPlay();
       }
-      // Also apply pending play/pause state
-      if (lastKnownPlaying) doPlay(); else doPause();
+      // No need for pendingSeek — start= URL param already positioned the video
     }
 
     if (d.info.playerState === 1 && !isSyncing) {
