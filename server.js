@@ -137,7 +137,7 @@ passport.use(new GoogleStrategy({
 // AUTH ROUTES
 // ─────────────────────────────────────────
 app.get('/auth/google',
-  passport.authenticate('google', { scope: ['profile', 'email'] })
+  passport.authenticate('google', { scope: ['profile', 'email', 'https://www.googleapis.com/auth/drive.readonly'] })
 );
 
 app.get('/auth/google/callback',
