@@ -481,6 +481,9 @@ let currentSrc = 'youtube', pickedFile = null;
 let ytInfoCache = {};
 let selectedAvatar = '🎬';
 let amIHost = false;
+let rtt = 0; // round-trip time in ms, measured via PING/PONG
+let pingInterval = null;
+let pingTs = 0;
 let syncInterval = null;
 let lastKnownServerTime = 0;
 let lastKnownServerTS = 0;
@@ -553,10 +556,19 @@ function enterApp(id, name) {
   connectWS();
 }
 
+function startPing() {
+  if (pingInterval) clearInterval(pingInterval);
+  pingInterval = setInterval(() => {
+    pingTs = Date.now();
+    send('PING', { ts: pingTs });
+  }, 3000);
+}
+
 function connectWS() {
   ws = new WebSocket(WS_URL);
   ws.onopen = () => {
     send('JOIN', { roomId, user: myUser });
+    startPing();
   };
   ws.onmessage = (e) => {
     try { handle(JSON.parse(e.data)); } catch(err){}
@@ -614,6 +626,11 @@ function handle(msg) {
     updateLiveLbl(payload.memberCount);
   }
 
+  if (type === 'PONG') {
+    rtt = Date.now() - pingTs;
+    console.log('[PING] RTT=', rtt, 'ms');
+  }
+
   if (type === 'CHAT') {
     renderChatMsg(payload);
   }
@@ -652,20 +669,20 @@ function handle(msg) {
 
   if (type === 'SYNC_PING') {
     if (!amIHost) {
-      // payload.currentTime is already the projected time calculated by server
-      // Don't re-add elapsed — server already did that math
-      const expected = payload.currentTime;
+      // Compensate for network latency: add half RTT to account for travel time
+      const latencyCompensation = (rtt / 2) / 1000;
+      const expected = payload.currentTime + (payload.playing ? latencyCompensation : 0);
       lastKnownServerTime = expected;
       lastKnownServerTS = Date.now();
       lastKnownPlaying = payload.playing;
-      console.log('[SYNC_PING] expected=', expected, 'ytCurrentTime=', ytCurrentTime, 'ytReady=', ytReady);
+      console.log('[SYNC_PING] expected=', expected, 'rtt=', rtt, 'ytCurrentTime=', ytCurrentTime);
       if (!ytReady && ytIframe) return;
       isSyncing = true;
       const current = ytIframe ? ytCurrentTime : (nativeVid ? nativeVid.currentTime : 0);
-      const drift = Math.abs(current - expected);
+      const drift = current - expected; // signed: positive = client ahead, negative = client behind
       console.log('[SYNC_PING] current=', current, 'drift=', drift);
-      const threshold = ytIframe ? 10.0 : 3.0;
-      if (current > 0 && drift > threshold) {
+      // Only hard-seek if very out of sync (>3s)
+      if (current > 0 && Math.abs(drift) > 3.0) {
         seekTo(Math.max(0, expected));
       }
       if (payload.playing !== isPlaying) { if (payload.playing) doPlay(); else doPause(); }
