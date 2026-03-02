@@ -298,20 +298,24 @@ app.get('/api/proxy', async (req, res) => {
 });
 
 app.get('/api/drive/stream/:fileId', async (req, res) => {
-  const { fileId } = req.params;
-  const token = req.session.googleAccessToken;
+  const { fileId, roomId } = req.params;
+  const { room: roomIdQuery } = req.query;
+
+  // Usa token do usuário, ou do host da sala, ou fallback público
+  const userToken = req.session.googleAccessToken;
+  const room = roomIdQuery ? rooms.get(roomIdQuery) : null;
+  const hostToken = room?.hostDriveToken || null;
+  const token = userToken || hostToken;
 
   try {
     let driveRes;
 
     if (token) {
-      // Authenticated request via Drive API — works for owner's files
       const driveUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`;
       const fetchHeaders = { 'Authorization': `Bearer ${token}` };
       if (req.headers.range) fetchHeaders['Range'] = req.headers.range;
       driveRes = await fetch(driveUrl, { headers: fetchHeaders });
     } else {
-      // Public file fallback
       const driveUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
       const fetchHeaders = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36' };
       if (req.headers.range) fetchHeaders['Range'] = req.headers.range;
@@ -469,6 +473,7 @@ function getProjectedTime(room) {
 function roomInfo(room) {
   return {
     id: room.id,
+    hostDriveToken: room.hostDriveToken || null,
     name: room.name,
     isPublic: room.isPublic,
     category: room.category,
@@ -520,13 +525,15 @@ wss.on('connection', (ws) => {
     const { type, payload } = msg;
 
     if (type === 'JOIN') {
-      const { roomId, user, roomName, isPublic, category } = payload;
+      const { roomId, user, roomName, isPublic, category, driveToken } = payload;
       currentUser = { ...user, id: wsId, joinedAt: Date.now() };
       currentRoom = getOrCreateRoom(roomId);
       if (currentRoom.members.size === 0) {
         currentRoom.host = wsId;
         currentRoom.hostName = user.name;
         currentUser.isHost = true;
+        // Salva token do host para usar no Drive
+        if (driveToken) currentRoom.hostDriveToken = driveToken;
         // Set room metadata on creation
         if (roomName) currentRoom.name = roomName;
         if (isPublic !== undefined) currentRoom.isPublic = !!isPublic;
@@ -535,6 +542,13 @@ wss.on('connection', (ws) => {
       currentRoom.members.set(wsId, { ws, user: currentUser, rtt: 80 });
       ws.send(JSON.stringify({ type: 'ROOM_STATE', payload: roomInfo(currentRoom) }));
       broadcast(currentRoom, { type: 'USER_JOINED', payload: { user: currentUser, memberCount: currentRoom.members.size } }, wsId);
+    }
+
+    if (type === 'HOST_TOKEN' && currentRoom) {
+      // Host atualiza token do Drive na sala
+      if (currentRoom.host === wsId && payload.driveToken) {
+        currentRoom.hostDriveToken = payload.driveToken;
+      }
     }
 
     if (type === 'PING') {
