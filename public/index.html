@@ -542,7 +542,6 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
       <div class="src-opt" data-s="twitch" onclick="selSrc(this,'twitch')"><span class="ico">🟣</span>Twitch</div>
       <div class="src-opt" data-s="direct" onclick="selSrc(this,'direct')"><span class="ico">🔗</span>URL direta</div>
       <div class="src-opt" data-s="gdrive" onclick="selSrc(this,'gdrive')"><span class="ico">📁</span>Google Drive</div>
-      <div class="src-opt" data-s="toky" onclick="selSrc(this,'toky')"><span class="ico">🎞️</span>TokyvVideo</div>
       <div class="src-opt" data-s="local" onclick="selSrc(this,'local')"><span class="ico">💾</span>Arquivo</div>
     </div>
     <div id="yt-section">
@@ -1228,7 +1227,7 @@ function renderQueue(queue){
   wrap.innerHTML='';
   localQueue.forEach((v,i)=>{
     const d=document.createElement('div');d.className='qi';
-    const thumb=v.thumb?`<img class="qi-thumb" src="${esc(v.thumb)}" onerror="this.style.display='none'">`:`<div class="qi-thumb">${v.src==='youtube'?'▶️':v.src==='vimeo'?'🎥':v.src==='toky'?'🎞️':'🎬'}</div>`;
+    const thumb=v.thumb?`<img class="qi-thumb" src="${esc(v.thumb)}" onerror="this.style.display='none'">`:`<div class="qi-thumb">${v.src==='youtube'?'▶️':v.src==='vimeo'?'🎥':'🎬'}</div>`;
     d.innerHTML=`${thumb}<div class="qi-info"><div class="qi-title">${esc(v.title||v.url)}</div><div class="qi-src">${esc(v.src||'')}</div></div>${amIHost?`<span class="qi-rm" onclick="removeQ(${i})">✕</span>`:''}`;
     d.onclick=(e)=>{if(!e.target.classList.contains('qi-rm')&&amIHost)loadVideo(v,true);};
     wrap.appendChild(d);
@@ -1268,17 +1267,16 @@ function updateLiveLbl(n){$('live-lbl').textContent=(n||1)+' online';}
 // ── MODAL ─────────────────────────────────────────────────
 function openAddModal(){$('add-modal').classList.add('on');}
 function closeModal(id){$(id).classList.remove('on');}
-const SRC_LABELS={vimeo:'URL do Vimeo',twitch:'Canal Twitch',direct:'URL do vídeo',toky:'Link do TokyvVideo'};
-const SRC_PLACEHOLDERS={vimeo:'https://vimeo.com/...',twitch:'nome do canal',direct:'https://exemplo.com/video.mp4',toky:'https://www.tokyvideo.com/video/...'};
-
+const SRC_LABELS={vimeo:'URL do Vimeo',twitch:'Canal Twitch',direct:'URL do vídeo'};
+const SRC_PLACEHOLDERS={vimeo:'https://vimeo.com/...',twitch:'nome do canal',direct:'https://exemplo.com/video.mp4'};
 
 function selSrc(el,src){
   document.querySelectorAll('.src-opt').forEach(e=>e.classList.remove('on'));el.classList.add('on');currentSrc=src;
   $('yt-section').style.display=src==='youtube'?'block':'none';
-  $('url-section').style.display=['vimeo','twitch','direct','toky'].includes(src)?'block':'none';
+  $('url-section').style.display=['vimeo','twitch','direct'].includes(src)?'block':'none';
   $('gdrive-section').style.display=src==='gdrive'?'block':'none';
   $('local-section').style.display=src==='local'?'block':'none';
-  if(['vimeo','twitch','direct','toky'].includes(src)){$('url-mlabel').textContent=SRC_LABELS[src]||'URL';$('vurl').placeholder=SRC_PLACEHOLDERS[src]||'https://';}
+  if(['vimeo','twitch','direct'].includes(src)){$('url-mlabel').textContent=SRC_LABELS[src]||'URL';$('vurl').placeholder=SRC_PLACEHOLDERS[src]||'https://';}
 }
 
 // ── GOOGLE DRIVE PICKER ───────────────────────────────────
@@ -1393,21 +1391,6 @@ async function addVideo(){
     const url=`https://drive.google.com/file/d/${fileId}/view`;
     const thumb=`https://drive.google.com/thumbnail?id=${fileId}&sz=w320`;
     video={src:'gdrive',url,title,thumb};
-  }else if(currentSrc==='toky'){
-    const tokyUrl=$('vurl').value.trim();
-    if(!tokyUrl||!tokyUrl.includes('tokyvideo.com')){merr('Cole um link válido do TokyvVideo');return;}
-    merr('');
-    $('add-submit').textContent='Carregando...';
-    $('add-submit').disabled=true;
-    try {
-      const data = await fetch(`/api/toky/extract?url=${encodeURIComponent(tokyUrl)}`).then(r=>r.json());
-      if(data.error){merr('Erro: '+data.error);$('add-submit').textContent='Adicionar';$('add-submit').disabled=false;return;}
-      const proxyUrl = `/api/toky/stream?url=${encodeURIComponent(data.mp4)}`;
-      video={src:'direct',url:proxyUrl,title:data.title||'TokyvVideo',thumb:data.thumb||''};
-    } catch(e) {
-      merr('Erro ao extrair vídeo');$('add-submit').textContent='Adicionar';$('add-submit').disabled=false;return;
-    }
-    $('add-submit').textContent='Adicionar';$('add-submit').disabled=false;
   }else if(currentSrc==='local'){
     if(!pickedFile){merr('Selecione um arquivo');return;}
     const title=pickedFile.name;
@@ -1416,10 +1399,28 @@ async function addVideo(){
     reader.readAsDataURL(pickedFile);return;
   }else{
     const url=$('vurl').value.trim();if(!url){merr('Digite a URL');return;}
-    let title=url.split('/').pop().split('?')[0]||url;
-    const srcLabels={vimeo:'Vimeo',twitch:'Twitch',direct:''};
-    if(srcLabels[currentSrc])title=srcLabels[currentSrc]+': '+title;
-    video={src:currentSrc,url,title,thumb:''};
+    const isDirectVideo = /\.(mp4|webm|mkv|avi|mov|m3u8)(\?|$)/i.test(url);
+    if(!isDirectVideo && currentSrc==='direct'){
+      merr('');
+      $('add-submit').textContent='Extraindo...';
+      $('add-submit').disabled=true;
+      try {
+        const data = await fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json());
+        $('add-submit').textContent='Adicionar';
+        $('add-submit').disabled=false;
+        if(data.error){merr('Não foi possível extrair: '+data.error);return;}
+        video={src:'direct',url:data.url,title:data.title||'Vídeo',thumb:data.thumb||''};
+      } catch(e){
+        $('add-submit').textContent='Adicionar';
+        $('add-submit').disabled=false;
+        merr('Erro ao extrair vídeo');return;
+      }
+    } else {
+      let title=url.split('/').pop().split('?')[0]||url;
+      const srcLabels={vimeo:'Vimeo',twitch:'Twitch',direct:''};
+      if(srcLabels[currentSrc])title=srcLabels[currentSrc]+': '+title;
+      video={src:currentSrc,url,title,thumb:''};
+    }
   }
   localQueue.push(video);send('QUEUE_UPDATE',{queue:localQueue.filter(q=>q.src!=='local')});
   renderQueue(localQueue);loadVideo(video,true);closeModal('add-modal');
