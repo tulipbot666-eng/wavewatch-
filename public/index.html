@@ -271,6 +271,7 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
   gap:.5rem;
   padding:0 1rem .5rem;
   z-index:15;
+  pointer-events:all;
   transition:opacity .3s;
 }
 /* show controls overlay on hover */
@@ -1678,8 +1679,10 @@ function loadVideo(video,doBroadcast){
     iframe.allow='autoplay; fullscreen; accelerometer; encrypted-media; gyroscope; picture-in-picture';
     iframe.allowFullscreen=true; wrap.appendChild(iframe); ytIframe=iframe;
     const overlay=document.createElement('div');
-    overlay.id='yt-overlay';overlay.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;';
-    overlay.onclick=()=>{if(!amIHost)toast('Apenas o host pode controlar o vídeo ▶');};
+    overlay.id='yt-overlay';
+    // z-index:5 — below ctrl (z-index:15) and reacts (z-index:20) so buttons stay clickable
+    overlay.style.cssText='position:absolute;top:0;left:0;width:100%;height:calc(100% - 56px);z-index:5;';
+    overlay.onclick=()=>{if(amIHost)togglePlay();else toast('Apenas o host pode controlar o vídeo ▶');};
     wrap.appendChild(overlay);
     window.removeEventListener('message',onYTMsg); window.addEventListener('message',onYTMsg);
     iframe.addEventListener('load',()=>{try{iframe.contentWindow.postMessage(JSON.stringify({event:'listening'}),'*');}catch(e){}});
