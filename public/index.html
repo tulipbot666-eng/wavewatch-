@@ -28,16 +28,19 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
 body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:9999;opacity:.4;}
 
-/* ── LOBBY ── */
-#lobby{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;background:var(--bg);overflow-y:auto;}
-#lobby::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(232,67,147,.15) 0%,transparent 70%),radial-gradient(ellipse 60% 40% at 80% 100%,rgba(124,92,252,.12) 0%,transparent 60%);pointer-events:none;}
-#lobby::after{content:'';position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23e84393' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");pointer-events:none;opacity:.4;}
-.lobby-inner{width:100%;max-width:400px;position:relative;z-index:1;padding:1rem 0;}
-.brand{text-align:center;margin-bottom:2rem;}
-.brand-logo{font-size:3rem;font-weight:800;letter-spacing:-2px;line-height:1;}
-.brand-logo span{background:linear-gradient(135deg,var(--accent),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-.brand-sub{color:var(--sub);font-size:.8rem;margin-top:.4rem;font-family:'DM Mono',monospace;letter-spacing:1px;}
-.glass{background:rgba(15,16,24,.85);border:1px solid var(--border);border-radius:20px;padding:2rem;backdrop-filter:blur(24px);box-shadow:0 24px 64px rgba(0,0,0,.5);}
+/* ── NETFLIX INTRO ── */
+#netflix-intro{position:fixed;inset:0;z-index:9000;background:#000;display:flex;align-items:center;justify-content:center;}
+#netflix-intro .n-logo{font-size:5rem;font-weight:900;letter-spacing:-4px;background:linear-gradient(135deg,var(--accent),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;opacity:0;transform:scale(2);animation:netflixPop 2.4s cubic-bezier(.16,1,.3,1) forwards;}
+@keyframes netflixPop{0%{opacity:0;transform:scale(2.5)}30%{opacity:1;transform:scale(1)}80%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.8)}}
+
+/* ── LOGIN SCREEN (fullscreen, centered, minimal) ── */
+#login-screen{position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;background:var(--bg);}
+#login-screen::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 20%,rgba(232,67,147,.18) 0%,transparent 70%),radial-gradient(ellipse 50% 40% at 80% 80%,rgba(124,92,252,.13) 0%,transparent 60%);pointer-events:none;}
+.login-box{width:100%;max-width:380px;position:relative;z-index:1;padding:1.5rem;}
+.login-brand{text-align:center;margin-bottom:2.5rem;}
+.login-brand-logo{font-size:3.5rem;font-weight:900;letter-spacing:-3px;line-height:1;background:linear-gradient(135deg,var(--accent),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.login-brand-sub{color:var(--sub);font-size:.78rem;margin-top:.5rem;font-family:'DM Mono',monospace;letter-spacing:2px;text-transform:uppercase;}
+.login-card{background:rgba(15,16,24,.9);border:1px solid var(--border);border-radius:22px;padding:2rem;backdrop-filter:blur(30px);box-shadow:0 32px 80px rgba(0,0,0,.6);}
 
 /* Auth tabs */
 .auth-tabs{display:flex;gap:2px;background:var(--bg);border-radius:12px;padding:3px;margin-bottom:1.8rem;}
@@ -73,7 +76,76 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 .lerr{color:var(--danger);font-size:.78rem;margin-top:.75rem;font-family:'DM Mono',monospace;text-align:center;min-height:1rem;padding:.4rem;background:rgba(255,69,103,.08);border-radius:8px;display:none;}
 .lerr.on{display:block;}
 
-/* logged-in user card in lobby */
+/* ── HOME SCREEN (RAVE-STYLE) ── */
+#home-screen{position:fixed;inset:0;z-index:400;display:none;flex-direction:column;background:var(--bg);overflow:hidden;}
+#home-screen.visible{display:flex;}
+
+/* Home topbar */
+.home-topbar{height:64px;background:linear-gradient(180deg,rgba(8,9,15,1) 0%,transparent 100%);display:flex;align-items:center;padding:0 2rem;gap:1rem;flex-shrink:0;position:absolute;top:0;left:0;right:0;z-index:10;}
+.home-logo{font-size:1.5rem;font-weight:900;letter-spacing:-1px;background:linear-gradient(135deg,var(--accent),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.home-nav{display:flex;gap:.3rem;margin-left:2rem;}
+.home-nav-btn{background:none;border:none;color:rgba(240,240,255,.6);font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:600;cursor:pointer;padding:.4rem .8rem;border-radius:8px;transition:all .2s;}
+.home-nav-btn:hover,.home-nav-btn.on{color:var(--text);background:rgba(255,255,255,.08);}
+.home-topbar-right{margin-left:auto;display:flex;align-items:center;gap:.75rem;}
+.home-user-av{width:34px;height:34px;border-radius:50%;overflow:hidden;background:var(--s3);cursor:pointer;border:2px solid transparent;transition:border-color .2s;flex-shrink:0;}
+.home-user-av:hover{border-color:var(--accent);}
+.home-user-av img{width:100%;height:100%;object-fit:cover;}
+.home-user-name{font-size:.85rem;font-weight:600;color:var(--text);}
+.home-logout{font-size:.72rem;color:var(--sub);font-family:'DM Mono',monospace;text-decoration:none;padding:.3rem .7rem;border-radius:7px;border:1px solid var(--border);transition:all .2s;}
+.home-logout:hover{color:var(--danger);border-color:var(--danger);}
+
+/* Hero banner */
+.home-hero{height:52vh;min-height:280px;position:relative;flex-shrink:0;background:linear-gradient(135deg,rgba(232,67,147,.2) 0%,rgba(124,92,252,.15) 50%,rgba(0,212,170,.1) 100%);}
+.home-hero::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,var(--bg) 100%);}
+.home-hero-bg{position:absolute;inset:0;opacity:.15;background-image:url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23e84393' fill-opacity='0.15'%3E%3Ccircle cx='50' cy='50' r='40' fill='none' stroke='%23e84393' stroke-width='.5'/%3E%3Ccircle cx='50' cy='50' r='25' fill='none' stroke='%237c5cfc' stroke-width='.3'/%3E%3C/g%3E%3C/svg%3E");background-size:200px;}
+.home-hero-content{position:absolute;bottom:3rem;left:2.5rem;right:2.5rem;z-index:1;}
+.home-hero-eyebrow{font-size:.72rem;font-family:'DM Mono',monospace;color:var(--accent);letter-spacing:3px;text-transform:uppercase;margin-bottom:.5rem;}
+.home-hero-title{font-size:2.8rem;font-weight:900;letter-spacing:-2px;line-height:1.05;margin-bottom:.8rem;}
+.home-hero-title span{background:linear-gradient(135deg,var(--accent),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.home-hero-sub{font-size:.9rem;color:rgba(240,240,255,.65);max-width:500px;line-height:1.6;margin-bottom:1.4rem;}
+.home-hero-btns{display:flex;gap:.75rem;flex-wrap:wrap;}
+.hero-btn{padding:.8rem 1.8rem;border:none;border-radius:50px;font-family:'DM Sans',sans-serif;font-size:.92rem;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.3px;}
+.hero-btn.primary{background:linear-gradient(135deg,var(--accent),var(--a2));color:#fff;box-shadow:0 4px 24px rgba(232,67,147,.4);}
+.hero-btn.primary:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(232,67,147,.5);}
+.hero-btn.ghost{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(8px);}
+.hero-btn.ghost:hover{background:rgba(255,255,255,.18);}
+
+/* Home body (rooms list) */
+.home-body{flex:1;overflow-y:auto;padding:1.5rem 2rem 2rem;scrollbar-width:thin;}
+.home-section-title{font-size:.7rem;font-family:'DM Mono',monospace;color:var(--sub);text-transform:uppercase;letter-spacing:2px;margin-bottom:1rem;display:flex;align-items:center;gap:.6rem;}
+.home-section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* Cat filter pills */
+.cat-filter{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:1.2rem;}
+.cat-btn{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:50px;padding:.35rem .85rem;color:var(--sub);font-size:.75rem;font-family:'DM Mono',monospace;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.cat-btn.on,.cat-btn:hover{background:rgba(232,67,147,.12);border-color:var(--accent);color:var(--accent);}
+
+/* Room cards grid - RAVE style */
+.rooms-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem;}
+.rooms-empty{color:var(--sub);font-size:.82rem;text-align:center;padding:3rem 0;font-family:'DM Mono',monospace;}
+.room-card{background:var(--s2);border:1px solid var(--border);border-radius:16px;overflow:hidden;cursor:pointer;transition:all .25s;position:relative;}
+.room-card:hover{border-color:rgba(232,67,147,.4);transform:translateY(-4px) scale(1.02);box-shadow:0 12px 40px rgba(0,0,0,.5),0 0 0 1px rgba(232,67,147,.15);}
+.room-card-thumb{width:100%;aspect-ratio:16/9;background:var(--s3);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:2.8rem;}
+.room-card-thumb img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;}
+.room-card-thumb-overlay{position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,rgba(8,9,15,.8) 100%);}
+.room-card-live-badge{position:absolute;top:.6rem;left:.6rem;background:rgba(232,67,147,.9);color:#fff;font-size:.6rem;font-family:'DM Mono',monospace;font-weight:700;padding:.2rem .5rem;border-radius:5px;display:flex;align-items:center;gap:.3rem;letter-spacing:.5px;text-transform:uppercase;}
+.room-card-live-badge::before{content:'';width:5px;height:5px;border-radius:50%;background:#fff;animation:pulse 1.5s infinite;}
+.room-card-viewers{position:absolute;top:.6rem;right:.6rem;background:rgba(8,9,15,.75);color:var(--ok);font-size:.65rem;font-family:'DM Mono',monospace;padding:.2rem .5rem;border-radius:5px;backdrop-filter:blur(4px);}
+.room-card-body{padding:.8rem;}
+.room-card-name{font-weight:700;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.3rem;}
+.room-card-video{font-size:.72rem;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'DM Mono',monospace;margin-bottom:.5rem;}
+.room-card-meta{display:flex;align-items:center;gap:.4rem;}
+.room-card-cat{font-size:.6rem;font-family:'DM Mono',monospace;padding:.15rem .5rem;border-radius:50px;background:rgba(124,92,252,.15);color:var(--a2);border:1px solid rgba(124,92,252,.2);}
+.room-card-host{font-size:.65rem;color:var(--sub);margin-left:auto;font-family:'DM Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px;}
+
+/* Join by code panel in home */
+.join-code-bar{display:flex;gap:.5rem;align-items:center;background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:.7rem 1rem;margin-bottom:1.5rem;}
+.join-code-bar input{flex:1;background:none;border:none;color:var(--text);font-family:'DM Mono',monospace;font-size:.95rem;outline:none;letter-spacing:2px;text-transform:uppercase;}
+.join-code-bar input::placeholder{color:var(--sub);text-transform:none;letter-spacing:normal;font-family:'DM Sans',sans-serif;}
+.join-code-bar button{background:linear-gradient(135deg,var(--accent),var(--a2));border:none;border-radius:10px;padding:.5rem 1.1rem;color:#fff;font-family:'DM Sans',sans-serif;font-size:.85rem;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.join-code-bar button:hover{opacity:.85;}
+
+/* user card */
 .user-card{display:flex;align-items:center;gap:.75rem;padding:.85rem 1rem;background:var(--s2);border-radius:12px;margin-bottom:1.2rem;border:1px solid var(--border);}
 .user-card-av{width:42px;height:42px;border-radius:50%;overflow:hidden;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.3rem;}
 .user-card-av img{width:100%;height:100%;object-fit:cover;}
@@ -91,6 +163,14 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 .av-opt.on{border-color:var(--accent);transform:scale(1.1);}
 .av-label{font-size:.7rem;color:var(--sub);margin-bottom:.5rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.8px;display:block;}
 .avatar-pick{display:flex;gap:.5rem;margin-bottom:1.5rem;flex-wrap:wrap;}
+
+@media(max-width:600px){
+  .home-hero-title{font-size:1.8rem;}
+  .home-body{padding:1rem 1rem 1.5rem;}
+  .home-topbar{padding:0 1rem;}
+  .rooms-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));}
+  .home-hero-content{left:1.2rem;right:1.2rem;bottom:2rem;}
+}
 
 /* ── APP ── */
 #app{display:none;height:100vh;flex-direction:column;}
@@ -276,24 +356,6 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spin{animation:spin 1s linear infinite;display:inline-block;}
 
-/* room cards & public rooms */
-.cat-filter{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.9rem;}
-.cat-btn{background:var(--s2);border:1px solid var(--border);border-radius:20px;padding:.3rem .7rem;color:var(--sub);font-size:.72rem;font-family:'DM Mono',monospace;cursor:pointer;transition:all .2s;white-space:nowrap;}
-.cat-btn.on,.cat-btn:hover{background:rgba(232,67,147,.12);border-color:var(--accent);color:var(--accent);}
-.rooms-empty{color:var(--sub);font-size:.8rem;text-align:center;padding:2rem 0;font-family:'DM Mono',monospace;}
-.room-card{background:var(--s2);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s;margin-bottom:.6rem;display:flex;gap:0;animation:msgIn .2s ease;}
-.room-card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 4px 20px rgba(232,67,147,.15);}
-.room-card-thumb{width:90px;min-height:64px;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.8rem;position:relative;overflow:hidden;}
-.room-card-thumb img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;}
-.room-card-body{flex:1;padding:.65rem .8rem;min-width:0;}
-.room-card-name{font-weight:700;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.2rem;}
-.room-card-video{font-size:.72rem;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'DM Mono',monospace;margin-bottom:.35rem;}
-.room-card-meta{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
-.room-card-cat{font-size:.6rem;font-family:'DM Mono',monospace;padding:.15rem .4rem;border-radius:5px;background:rgba(124,92,252,.15);color:var(--a2);border:1px solid rgba(124,92,252,.2);}
-.room-card-live{display:flex;align-items:center;gap:.3rem;font-size:.65rem;color:var(--ok);font-family:'DM Mono',monospace;}
-.room-card-live::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite;}
-.room-card-playing{font-size:.6rem;font-family:'DM Mono',monospace;color:var(--accent);padding:.15rem .4rem;border-radius:5px;background:rgba(232,67,147,.1);border:1px solid rgba(232,67,147,.2);}
-
 /* create room modal extras */
 .cat-select{display:flex;gap:.35rem;flex-wrap:wrap;}
 .cat-sel-btn{background:var(--s2);border:1px solid var(--border);border-radius:20px;padding:.3rem .7rem;color:var(--sub);font-size:.72rem;font-family:'DM Mono',monospace;cursor:pointer;transition:all .2s;}
@@ -309,25 +371,23 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 </head>
 <body>
 
-<!-- LOBBY -->
-<div id="lobby">
-  <div class="lobby-inner">
-    <div class="brand">
-      <div class="brand-logo">Wave<span>Watch</span></div>
-      <div class="brand-sub">// watch together, anywhere</div>
+<!-- NETFLIX INTRO -->
+<div id="netflix-intro">
+  <div class="n-logo">WW</div>
+</div>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-brand">
+      <div class="login-brand-logo">WaveWatch</div>
+      <div class="login-brand-sub">// watch together, anywhere</div>
     </div>
-
-    <!-- AUTH SCREEN (login/cadastro) -->
-    <div class="glass" id="auth-screen">
-      <!-- Logged-in user card (shown when already authenticated) -->
-      <div id="auth-user-card" style="display:none"></div>
-
-      <!-- Auth tabs: Login / Cadastrar -->
+    <div class="login-card">
       <div class="auth-tabs" id="auth-tabs">
         <button class="auth-tab on" onclick="authTab('login')">Entrar</button>
         <button class="auth-tab" onclick="authTab('register')">Cadastrar</button>
       </div>
-
       <!-- LOGIN FORM -->
       <div id="auth-login">
         <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="seu@email.com" autocomplete="email"></div>
@@ -340,7 +400,6 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
         </a>
         <div class="lerr" id="login-err"></div>
       </div>
-
       <!-- REGISTER FORM -->
       <div id="auth-register" style="display:none">
         <div class="field"><label>Nome de exibição</label><input type="text" id="reg-name" placeholder="Como quer ser chamado?" maxlength="30" autocomplete="name"></div>
@@ -355,46 +414,68 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
         <div class="lerr" id="reg-err"></div>
       </div>
     </div>
+  </div>
+</div>
 
-    <!-- ROOM SCREEN (shown after login) -->
-    <div class="glass" id="room-screen" style="display:none;margin-top:1rem;">
-      <div id="auth-user-card2"></div>
+<!-- HOME SCREEN (Rave-style, after login) -->
+<div id="home-screen">
+  <!-- Topbar -->
+  <div class="home-topbar">
+    <div class="home-logo">WaveWatch</div>
+    <div class="home-nav">
+      <button class="home-nav-btn on" onclick="filterCat('all',this);document.querySelectorAll('.home-nav-btn').forEach(b=>b.classList.remove('on'));this.classList.add('on')">Início</button>
+      <button class="home-nav-btn" onclick="filterCat('filmes',this);document.querySelectorAll('.home-nav-btn').forEach(b=>b.classList.remove('on'));this.classList.add('on')">Filmes</button>
+      <button class="home-nav-btn" onclick="filterCat('series',this);document.querySelectorAll('.home-nav-btn').forEach(b=>b.classList.remove('on'));this.classList.add('on')">Séries</button>
+      <button class="home-nav-btn" onclick="filterCat('anime',this);document.querySelectorAll('.home-nav-btn').forEach(b=>b.classList.remove('on'));this.classList.add('on')">Anime</button>
+      <button class="home-nav-btn" onclick="filterCat('games',this);document.querySelectorAll('.home-nav-btn').forEach(b=>b.classList.remove('on'));this.classList.add('on')">Games</button>
+    </div>
+    <div class="home-topbar-right">
+      <div class="home-user-av" id="home-user-av"><img id="home-user-img" src="" onerror="this.style.display='none'"></div>
+      <span class="home-user-name" id="home-user-name"></span>
+      <a href="/auth/logout" class="home-logout">Sair</a>
+    </div>
+  </div>
 
-      <!-- Main actions -->
-      <div style="display:flex;gap:.6rem;margin-bottom:1.2rem;">
-        <button class="pill-btn primary" style="flex:1" onclick="openCreateModal()">🎬 Criar Sala</button>
-        <button class="pill-btn ghost" style="flex:1" onclick="showJoinPanel()">🔑 Entrar</button>
+  <!-- Hero Banner -->
+  <div class="home-hero">
+    <div class="home-hero-bg"></div>
+    <div class="home-hero-content">
+      <div class="home-hero-eyebrow">🔴 Ao Vivo Agora</div>
+      <div class="home-hero-title">Assista junto.<br><span>Em qualquer lugar.</span></div>
+      <div class="home-hero-sub">Crie uma sala, convide seus amigos e sincronize tudo em tempo real. YouTube, Vimeo, MP4 e mais.</div>
+      <div class="home-hero-btns">
+        <button class="hero-btn primary" onclick="openCreateModal()">🎬 Criar Sala</button>
+        <button class="hero-btn ghost" onclick="$('join-code-wrap').style.display=$('join-code-wrap').style.display==='none'?'flex':'none'">🔑 Entrar com Código</button>
       </div>
-
-      <!-- Join by code panel -->
-      <div id="join-panel" style="display:none;margin-bottom:1.2rem;">
-        <div class="field"><label>Código da Sala</label><input type="text" id="j-code" placeholder="WAVE-XXXX" maxlength="9" style="text-transform:uppercase;letter-spacing:2px" onkeydown="if(event.key==='Enter')joinRoom()"></div>
-        <button class="pill-btn primary" onclick="joinRoom()">🚀 Entrar na Sala</button>
-      </div>
-
-      <div class="lerr" id="lerr"></div>
-
-      <!-- Public rooms -->
-      <div style="margin-top:1.4rem;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;">
-          <span style="font-size:.72rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px;color:var(--sub)">Salas públicas</span>
-          <button onclick="loadPublicRooms()" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:.75rem;font-family:'DM Mono',monospace;transition:color .2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--sub)'">↻ atualizar</button>
+      <div id="join-code-wrap" style="display:none;margin-top:1rem;max-width:360px;">
+        <div class="join-code-bar">
+          <input type="text" id="j-code" placeholder="Cole o código da sala (WAVE-XXXX)" maxlength="9" onkeydown="if(event.key==='Enter')joinRoom()">
+          <button onclick="joinRoom()">Entrar →</button>
         </div>
-
-        <!-- Category filter -->
-        <div class="cat-filter" id="cat-filter">
-          <button class="cat-btn on" onclick="filterCat('all',this)">Todos</button>
-          <button class="cat-btn" onclick="filterCat('filmes',this)">🎬 Filmes</button>
-          <button class="cat-btn" onclick="filterCat('series',this)">📺 Séries</button>
-          <button class="cat-btn" onclick="filterCat('anime',this)">⛩️ Anime</button>
-          <button class="cat-btn" onclick="filterCat('musica',this)">🎵 Música</button>
-          <button class="cat-btn" onclick="filterCat('games',this)">🎮 Games</button>
-          <button class="cat-btn" onclick="filterCat('geral',this)">💬 Geral</button>
-        </div>
-
-        <div id="public-rooms-list"><div class="rooms-empty">Carregando salas...</div></div>
       </div>
     </div>
+  </div>
+
+  <!-- Body -->
+  <div class="home-body">
+    <div class="lerr" id="lerr" style="margin-bottom:1rem;"></div>
+
+    <!-- Cat filter -->
+    <div class="cat-filter" id="cat-filter">
+      <button class="cat-btn on" onclick="filterCat('all',this)">Todos</button>
+      <button class="cat-btn" onclick="filterCat('filmes',this)">🎬 Filmes</button>
+      <button class="cat-btn" onclick="filterCat('series',this)">📺 Séries</button>
+      <button class="cat-btn" onclick="filterCat('anime',this)">⛩️ Anime</button>
+      <button class="cat-btn" onclick="filterCat('musica',this)">🎵 Música</button>
+      <button class="cat-btn" onclick="filterCat('games',this)">🎮 Games</button>
+      <button class="cat-btn" onclick="filterCat('geral',this)">💬 Geral</button>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <div class="home-section-title">Salas públicas</div>
+      <button onclick="loadPublicRooms()" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:.75rem;font-family:'DM Mono',monospace;transition:color .2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--sub)'">↻ atualizar</button>
+    </div>
+    <div class="rooms-grid" id="public-rooms-list"><div class="rooms-empty">Carregando salas...</div></div>
   </div>
 </div>
 
@@ -698,24 +779,18 @@ async function loadAuthState() {
     loggedInUser = user;
 
     if (user) {
-      // Hide auth screen, show room screen
-      $('auth-screen').style.display = 'none';
-      $('room-screen').style.display = 'block';
+      // Hide login screen, show home screen
+      $('login-screen').style.display = 'none';
+      $('home-screen').classList.add('visible');
 
-      // Render user card
-      const cardHtml = `
-        <div class="user-card" style="margin-bottom:1.4rem">
-          <div class="user-card-av">${user.avatarUrl ? `<img src="${esc(user.avatarUrl)}">` : '👤'}</div>
-          <div class="user-card-info">
-            <div class="user-card-name">${esc(user.name)}</div>
-            <div class="user-card-email">${esc(user.email || '')}</div>
-          </div>
-          <a href="/auth/logout" class="user-card-out">Sair</a>
-        </div>`;
-      $('auth-user-card2').innerHTML = cardHtml;
+      // Update home topbar user info
+      const img = $('home-user-img');
+      if (user.avatarUrl) { img.src = user.avatarUrl; img.style.display = ''; }
+      else img.style.display = 'none';
+      $('home-user-name').textContent = user.name;
 
       // Pre-fill name
-      $('l-name').value = user.name;
+      if($('l-name')) $('l-name').value = user.name;
       if($('j-name')) $('j-name').value = user.name;
 
       // Load public rooms
@@ -726,9 +801,9 @@ async function loadAuthState() {
       // Pre-load Google Picker if logged in with Google
       if(user.googleAccessToken) loadPickerAPI();
     } else {
-      // Not logged in — show auth screen, hide room screen
-      $('auth-screen').style.display = 'block';
-      $('room-screen').style.display = 'none';
+      // Not logged in — show login screen, hide home screen
+      $('login-screen').style.display = 'flex';
+      $('home-screen').classList.remove('visible');
     }
   } catch(e) {}
 }
@@ -776,25 +851,29 @@ async function loadPublicRooms() {
   try {
     const res = await fetch(`/api/rooms/public?category=${currentCatFilter}`);
     const { rooms } = await res.json();
-    if (!rooms.length) { list.innerHTML = '<div class="rooms-empty">Nenhuma sala pública no momento</div>'; return; }
+    if (!rooms.length) { list.innerHTML = '<div class="rooms-empty">Nenhuma sala pública no momento 🎬<br><span style="font-size:.72rem">Seja o primeiro a criar uma!</span></div>'; return; }
     list.innerHTML = '';
     rooms.forEach(room => {
       const card = document.createElement('div');
       card.className = 'room-card';
-      const thumbContent = room.video?.thumb
-        ? `<img src="${esc(room.video.thumb)}" onerror="this.style.display='none'">${getCatEmoji(room.category)}`
-        : getCatEmoji(room.category);
+      const thumbBg = room.video?.thumb ? `<img src="${esc(room.video.thumb)}" onerror="this.style.display='none'">` : '';
+      const catEmoji = getCatEmoji(room.category);
       const videoTitle = room.video ? esc(room.video.title || 'Vídeo') : 'Nenhum vídeo ainda';
-      const playingBadge = room.video && room.playing ? '<span class="room-card-playing">▶ ao vivo</span>' : '';
+      const liveBadge = room.video && room.playing ? '<div class="room-card-live-badge">ao vivo</div>' : '';
       card.innerHTML = `
-        <div class="room-card-thumb">${thumbContent}</div>
+        <div class="room-card-thumb">
+          ${thumbBg}
+          <div class="room-card-thumb-overlay"></div>
+          ${catEmoji}
+          ${liveBadge}
+          <div class="room-card-viewers">👁 ${room.memberCount}</div>
+        </div>
         <div class="room-card-body">
           <div class="room-card-name">${esc(room.name || room.id)}</div>
           <div class="room-card-video">${videoTitle}</div>
           <div class="room-card-meta">
             <span class="room-card-cat">${esc(room.category || 'geral')}</span>
-            <span class="room-card-live">${room.memberCount} assistindo</span>
-            ${playingBadge}
+            <span class="room-card-host">por ${esc(room.hostName || '?')}</span>
           </div>
         </div>`;
       card.onclick = () => quickJoinRoom(room.id);
@@ -805,7 +884,7 @@ async function loadPublicRooms() {
 
 function getCatEmoji(cat) {
   const map = { filmes:'🎬', series:'📺', anime:'⛩️', musica:'🎵', games:'🎮', geral:'💬' };
-  return `<span style="position:relative;z-index:1;font-size:1.8rem">${map[cat]||'🎬'}</span>`;
+  return `<span style="position:relative;z-index:1;font-size:2.8rem;filter:drop-shadow(0 2px 8px rgba(0,0,0,.5))">${map[cat]||'🎬'}</span>`;
 }
 
 async function quickJoinRoom(roomId) {
@@ -846,7 +925,7 @@ async function joinRoom() {
   } catch(e) { showLErr('Erro ao conectar — servidor offline?'); }
 }
 
-function showLErr(m) { $('lerr').textContent = m; $('lerr').classList.add('on'); setTimeout(()=>$('lerr').classList.remove('on'), 3500); }
+function showLErr(m) { const el=$('lerr'); el.textContent = m; el.classList.add('on'); setTimeout(()=>el.classList.remove('on'), 3500); }
 
 // ── APP ───────────────────────────────────────────────────
 function enterApp(id, name, roomName, isPublic, category) {
@@ -860,7 +939,8 @@ function enterApp(id, name, roomName, isPublic, category) {
     _isPublic: isPublic,
     _category: category
   };
-  $('lobby').style.display = 'none';
+  $('home-screen').classList.remove('visible');
+  $('login-screen').style.display = 'none';
   $('app').style.display = 'flex';
   $('room-badge').textContent = '📋 ' + roomId;
 
@@ -1448,10 +1528,64 @@ async function addVideo(){
 
 function sTab(t,el){document.querySelectorAll('.stab').forEach(s=>s.classList.remove('on'));el.classList.add('on');['chat','queue','history','members','friends'].forEach(p=>{const panel=$('p-'+p);if(panel)panel.classList.toggle('on',p===t);});}
 function copyCode(){navigator.clipboard.writeText(roomId).then(()=>toast('Código copiado: '+roomId));}
-function leaveRoom(){if(ws)ws.close();$('app').style.display='none';$('lobby').style.display='flex';roomId='';rendered=new Set();loadPublicRooms();}
+function leaveRoom(){if(ws)ws.close();$('app').style.display='none';$('home-screen').classList.add('visible');roomId='';rendered=new Set();loadPublicRooms();}
+
+// ── NETFLIX TUDUM SOUND ───────────────────────────────────
+function playTudum() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.5, ctx.currentTime);
+    master.connect(ctx.destination);
+
+    function note(freq, start, dur, vol=0.5, type='sawtooth') {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+      g.gain.setValueAtTime(0, ctx.currentTime + start);
+      g.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+      osc.connect(g); g.connect(master);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    }
+
+    // Tudum: low boom + rising chord + sustain
+    note(55, 0, 0.3, 0.7, 'sine');       // deep bass hit
+    note(110, 0, 0.25, 0.4, 'sine');
+    note(220, 0.05, 0.2, 0.3, 'sine');
+    note(330, 0.25, 1.2, 0.5, 'sine');   // rising note
+    note(440, 0.35, 1.0, 0.4, 'sine');
+    note(660, 0.45, 0.9, 0.35, 'sine');
+    note(880, 0.5, 0.8, 0.25, 'sine');   // top sparkle
+
+    // Noise burst
+    const bufSize = ctx.sampleRate * 0.15;
+    const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for(let i=0;i<bufSize;i++) data[i]=Math.random()*2-1;
+    const noise = ctx.createBufferSource();
+    noise.buffer = buf;
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.15, ctx.currentTime);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+    noise.connect(noiseGain); noiseGain.connect(master);
+    noise.start(ctx.currentTime); noise.stop(ctx.currentTime + 0.15);
+  } catch(e) {}
+}
 
 // ── INIT ──────────────────────────────────────────────────
 async function init() {
+  // Show Netflix intro for 2.4s
+  const intro = $('netflix-intro');
+  playTudum();
+  setTimeout(() => {
+    intro.style.transition = 'opacity .4s ease';
+    intro.style.opacity = '0';
+    setTimeout(() => { intro.style.display = 'none'; }, 400);
+  }, 2000);
+
   try {
     const res = await fetch('/api/config');
     const cfg = await res.json();
