@@ -930,16 +930,17 @@ function genRoomId() {
 
 async function createRoom() {
   if (!loggedInUser) { showLErr('Faça login para criar uma sala'); return; }
-  const name = $('l-name').value.trim();
+  const name = loggedInUser.name;
   const roomName = $('room-name-inp').value.trim();
-  if (!name) { $('create-err').textContent = 'Digite seu nome'; $('create-err').classList.add('on'); return; }
 
   let id;
   try {
-    const res = await fetch('/api/room/new');
+    const res = await fetch('/api/room/new', { credentials: 'include' });
+    if (!res.ok) throw new Error('Erro ao criar sala');
     const data = await res.json();
     id = data.roomId;
   } catch(e) {
+    console.error('Erro ao obter ID da sala:', e);
     id = genRoomId();
   }
 
