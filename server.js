@@ -891,6 +891,88 @@ app.get('/api/bm/session', (req, res) => {
   res.json({ roomId, wsUrl, host: wsHost });
 });
 
+// ── EXTRATOR DE URL DIRETA DE VÍDEO ──────────────────────────
+// Lê o HTML público da página e extrai a URL do vídeo.
+// O vídeo vai direto do CDN pro usuário — nunca passa pelo servidor.
+app.get('/api/extract', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: 'URL required' });
+
+  try {
+    const target = new URL(url);
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+        'Referer': target.origin
+      }
+    });
+
+    const html = await response.text();
+
+    const found = new Set();
+
+    // 1. MP4/WebM URLs diretas
+    const directPattern = /https?:\/\/[^\s"'<>]+\.(?:mp4|webm|ogv|ogg)(?:\?[^\s"'<>]*)?/gi;
+    let m;
+    while ((m = directPattern.exec(html)) !== null) {
+      found.add(m[0]);
+    }
+
+    // 2. M3U8 (HLS)
+    const hlsPattern = /https?:\/\/[^\s"'<>]+\.m3u8(?:\?[^\s"'<>]*)?/gi;
+    while ((m = hlsPattern.exec(html)) !== null) {
+      found.add(m[0]);
+    }
+
+    // 3. JSON fields comuns de players
+    const jsonPattern = /"(?:src|url|file|videoUrl|mp4|stream|source|hls|video_url)"\s*:\s*"(https?:[^"]+)"/gi;
+    while ((m = jsonPattern.exec(html)) !== null) {
+      found.add(m[1]);
+    }
+
+    // 4. Atributos HTML
+    const attrPattern = /(?:src|href|data-src|data-url)\s*=\s*['"]([^'"]+\.(?:mp4|webm|m3u8|ogv)[^'"]*)['"]/gi;
+    while ((m = attrPattern.exec(html)) !== null) {
+      found.add(m[1]);
+    }
+
+    // Filtra lixo
+    const blocked = ['googlesyndication','doubleclick','ads.','/ad/','adserver','googleads'];
+    const urls = [...found].filter(u => {
+      if (u.length < 15) return false;
+      if (u.includes('undefined')) return false;
+      if (blocked.some(b => u.includes(b))) return false;
+      return true;
+    });
+
+    // Ordena: mp4 primeiro, depois m3u8
+    urls.sort((a, b) => {
+      const score = u => u.includes('.mp4') ? 2 : u.includes('.m3u8') ? 1 : 0;
+      return score(b) - score(a);
+    });
+
+    if (!urls.length) {
+      return res.json({ error: 'Nenhum vídeo encontrado. O site pode proteger as URLs.', urls: [] });
+    }
+
+    // Tenta buscar título da página
+    const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+    const title = titleMatch ? titleMatch[1].replace(/\s*[-|].*$/, '').trim() : url.split('/').pop();
+
+    // Tenta buscar thumbnail
+    const thumbMatch = html.match(/(?:og:image|twitter:image)[^>]*content="([^"]+)"/i) ||
+                       html.match(/content="([^"]+)"[^>]*(?:og:image|twitter:image)/i);
+    const thumb = thumbMatch ? thumbMatch[1] : '';
+
+    res.json({ urls, title, thumb, total: urls.length });
+
+  } catch(e) {
+    res.status(500).json({ error: 'Erro ao analisar a página: ' + e.message });
+  }
+});
+
 app.get('/api/yt/search', async (req, res) => {
   const q = req.query.q;
   if (!q) return res.json({ items: [] });
