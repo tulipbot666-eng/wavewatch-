@@ -225,25 +225,34 @@ app.get('/api/users/check-username', async (req, res) => {
   } catch(e) { res.status(500).json({ available: false, error: 'Erro interno' }); }
 });
 
-// ── SETUP PROFILE (onboarding) ──
+// ── SETUP PROFILE (onboarding + profile edit) ──
 app.post('/auth/setup-profile', async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Não autenticado' });
   const { username, avatarEmoji, displayName } = req.body;
-  if (!username) return res.status(400).json({ error: 'Username obrigatório' });
-  const clean = username.trim().toLowerCase();
-  if (clean.length < 3) return res.status(400).json({ error: 'Username muito curto' });
-  if (clean.length > 20) return res.status(400).json({ error: 'Username muito longo' });
-  if (!/^[a-z0-9._]+$/.test(clean)) return res.status(400).json({ error: 'Username inválido' });
-  try {
+
+  // If user already has a username and none was sent, keep the existing one
+  const existingUsername = req.user.username;
+  let finalUsername = existingUsername;
+
+  if (username && username.trim()) {
+    const clean = username.trim().toLowerCase();
+    if (clean.length < 3) return res.status(400).json({ error: 'Username muito curto' });
+    if (clean.length > 20) return res.status(400).json({ error: 'Username muito longo' });
+    if (!/^[a-z0-9._]+$/.test(clean)) return res.status(400).json({ error: 'Username inválido' });
     const taken = await pool.query('SELECT id FROM users WHERE LOWER(username) = $1 AND id != $2', [clean, req.user.id]);
     if (taken.rows.length) return res.status(400).json({ error: 'Username já está em uso' });
+    finalUsername = clean;
+  }
+
+  if (!finalUsername) return res.status(400).json({ error: 'Username obrigatório' });
+
+  try {
     const safeName = (displayName || '').trim() || req.user.name;
-    const emoji = avatarEmoji || '🎬';
+    const emoji = avatarEmoji || req.user.avatar_emoji || '🎬';
     const { rows } = await pool.query(
       'UPDATE users SET username=$1, avatar_emoji=$2, name=$3, profile_complete=TRUE WHERE id=$4 RETURNING *',
-      [clean, emoji, safeName, req.user.id]
+      [finalUsername, emoji, safeName, req.user.id]
     );
-    // Refresh session user
     req.login(rows[0], err => {
       if (err) return res.status(500).json({ error: 'Erro ao atualizar sessão' });
       res.json({ ok: true });
@@ -407,14 +416,14 @@ function requireAuth(req, res, next) {
   next();
 }
 
-// Search users by name
+// Search users by name or username
 app.get('/api/users/search', requireAuth, async (req, res) => {
   const q = req.query.q?.trim();
   if (!q) return res.json({ users: [] });
   try {
     const { rows } = await pool.query(`
-      SELECT id, name, avatar_url FROM users
-      WHERE name ILIKE $1 AND id != $2
+      SELECT id, name, username, avatar_url, avatar_emoji FROM users
+      WHERE (name ILIKE $1 OR username ILIKE $1) AND id != $2
       LIMIT 10
     `, [`%${q}%`, req.user.id]);
     res.json({ users: rows });
@@ -463,11 +472,11 @@ app.delete('/api/friends/:friendId', requireAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// List friends (accepted)
+// List friends (accepted + pending sent)
 app.get('/api/friends', requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(`
-      SELECT u.id, u.name, u.avatar_url, f.status
+      SELECT u.id, u.name, u.username, u.avatar_url, u.avatar_emoji, f.status
       FROM friendships f
       JOIN users u ON u.id = f.friend_id
       WHERE f.user_id = $1
@@ -481,7 +490,7 @@ app.get('/api/friends', requireAuth, async (req, res) => {
 app.get('/api/friends/pending', requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(`
-      SELECT u.id, u.name, u.avatar_url
+      SELECT u.id, u.name, u.username, u.avatar_url, u.avatar_emoji
       FROM friendships f
       JOIN users u ON u.id = f.user_id
       WHERE f.friend_id = $1 AND f.status = 'pending'
