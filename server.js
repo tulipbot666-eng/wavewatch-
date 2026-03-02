@@ -10,12 +10,6 @@ const { Strategy: LocalStrategy } = require('passport-local');
 const { Pool } = require('pg');
 const pgSession = require('connect-pg-simple')(session);
 const bcrypt = require('bcrypt');
-const { execFile, exec } = require('child_process');
-
-// Instala yt-dlp automaticamente se não existir
-exec('which yt-dlp || pip install yt-dlp --break-system-packages', (err) => {
-  if (err) exec('pip3 install yt-dlp --break-system-packages', () => {});
-});
 
 const app = express();
 const server = createServer(app);
@@ -210,36 +204,96 @@ app.get('/api/config', (req, res) => {
   res.json({ googleApiKey: process.env.GOOGLE_API_KEY || '' });
 });
 
-// ── EXTRATOR UNIVERSAL DE VÍDEO (yt-dlp) ──
-app.get('/api/extract', async (req, res) => {
+// ── PROXY REVERSO PARA IFRAME (remove X-Frame-Options) ──
+app.get('/api/proxy', async (req, res) => {
   const { url } = req.query;
-  if (!url) return res.status(400).json({ error: 'URL required' });
-  
-  const ytdlp = process.env.YTDLP_PATH || 'yt-dlp';
-  
-  execFile(ytdlp, [
-    '--dump-json',
-    '--no-playlist',
-    '--no-warnings',
-    url
-  ], { timeout: 30000 }, (err, stdout, stderr) => {
-    if (err) return res.status(500).json({ error: 'Could not extract video', detail: stderr?.substring(0, 200) });
-    try {
-      const info = JSON.parse(stdout);
-      // Pega melhor formato de vídeo direto
-      const formats = (info.formats || []).filter(f => f.url && (f.ext === 'mp4' || f.vcodec !== 'none'));
-      const best = formats.sort((a, b) => (b.height || 0) - (a.height || 0))[0];
-      res.json({
-        url: best?.url || info.url,
-        title: info.title || 'Vídeo',
-        thumb: info.thumbnail || '',
-        duration: info.duration || 0,
-        ext: best?.ext || 'mp4'
-      });
-    } catch(e) {
-      res.status(500).json({ error: 'Parse error' });
-    }
+  if (!url) return res.status(400).send('URL required');
+
+  try {
+    const target = new URL(url);
+    const proxyBase = `${req.protocol}://${req.get('host')}/api/proxy?url=`;
+
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+        'Referer': target.origin
+      },
+      redirect: 'follow'
+    });
+
+    // Remove headers que bloqueiam iframe
+    const headers = {};
+    response.headers.forEach((val, key) => {
+      const lower = key.toLowerCase();
+      if (!['x-frame-options','content-security-policy','x-content-type-options'].includes(lower)) {
+        headers[key] = val;
+      }
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+
+    if (contentType.includes('text/html')) {
+      let html = await response.text();
+
+      // Reescreve links relativos para absolutos
+      html = html
+        .replace(/(href|src|action)="\/(?!\/)/g, `$1="${target.origin}/`)
+        .replace(/(href|src|action)='\/(?!\/)/g, `$1='${target.origin}/`);
+
+      // Injeta script de controle do player
+      const controlScript = `
+<script>
+(function() {
+  function findVideo() {
+    return document.querySelector('video');
+  }
+
+  // Escuta comandos do WaveWatch
+  window.addEventListener('message', function(e) {
+    const v = findVideo();
+    if (!v) return;
+    if (e.data.type === 'WW_PLAY') v.play();
+    if (e.data.type === 'WW_PAUSE') v.pause();
+    if (e.data.type === 'WW_SEEK') v.currentTime = e.data.time;
   });
+
+  // Envia eventos de volta para o WaveWatch
+  function watch() {
+    const v = findVideo();
+    if (!v) { setTimeout(watch, 500); return; }
+    v.addEventListener('play', () => window.parent.postMessage({type:'WW_PLAYING', time: v.currentTime}, '*'));
+    v.addEventListener('pause', () => window.parent.postMessage({type:'WW_PAUSED', time: v.currentTime}, '*'));
+    v.addEventListener('seeked', () => window.parent.postMessage({type:'WW_SEEKED', time: v.currentTime}, '*'));
+    v.addEventListener('timeupdate', () => {
+      if (Math.floor(v.currentTime) % 2 === 0)
+        window.parent.postMessage({type:'WW_TIME', time: v.currentTime, duration: v.duration}, '*');
+    });
+    window.parent.postMessage({type:'WW_READY'}, '*');
+  }
+  
+  if (document.readyState === 'complete') watch();
+  else window.addEventListener('load', watch);
+})();
+</script>`;
+
+      html = html.replace('</body>', controlScript + '</body>');
+      
+      Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
+      res.removeHeader('x-frame-options');
+      res.removeHeader('content-security-policy');
+      res.setHeader('content-type', 'text/html; charset=utf-8');
+      res.send(html);
+    } else {
+      // Para recursos não-HTML (JS, CSS, imagens), faz proxy direto
+      Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
+      const { Readable } = require('stream');
+      Readable.fromWeb(response.body).pipe(res);
+    }
+  } catch(e) {
+    res.status(500).send('Proxy error: ' + e.message);
+  }
 });
 
 app.get('/api/drive/stream/:fileId', async (req, res) => {
