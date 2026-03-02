@@ -1047,7 +1047,8 @@ function loadVideo(video,doBroadcast){
     if(!fileIdMatch){ toast('URL do Google Drive inválida'); return; }
     const fileId = fileIdMatch[1].replace(/[^a-zA-Z0-9_-]/g, '');
     // Use our server proxy — bypasses CORS, supports seeking
-    const streamUrl = `/api/drive/stream/${fileId}`;
+    const token = loggedInUser?.googleAccessToken || '';
+    const streamUrl = `/api/drive/stream/${fileId}${token ? '?token='+encodeURIComponent(token) : ''}`;
     const v=document.createElement('video');
     v.src=streamUrl;
     v.controls=false;
