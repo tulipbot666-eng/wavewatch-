@@ -99,6 +99,46 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 
 @media(max-width:520px){.rooms-grid{grid-template-columns:1fr;}}
 
+/* ── FRIENDS SIDEBAR ── */
+.lobby-content{display:flex;flex:1;overflow:hidden;min-height:0;}
+.lobby-main{flex:1;overflow-y:auto;padding:.9rem 1.2rem;}
+.friends-sidebar{width:256px;flex-shrink:0;background:var(--s1);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.fs-header{padding:.75rem 1rem .5rem;border-bottom:1px solid var(--border);flex-shrink:0;}
+.fs-title{font-size:.82rem;font-weight:700;margin-bottom:.55rem;display:flex;align-items:center;justify-content:space-between;}
+.fs-badge{background:var(--accent);color:#fff;font-size:.58rem;font-family:"DM Mono",monospace;border-radius:10px;padding:.1rem .38rem;display:none;}
+.fs-badge.on{display:inline-block;}
+.fs-add-btn{background:none;border:none;color:var(--sub);cursor:pointer;font-size:.85rem;padding:.2rem;border-radius:6px;transition:all .15s;line-height:1;}
+.fs-add-btn:hover{background:var(--s3);color:var(--accent);}
+.fs-search{position:relative;}
+.fs-search input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.42rem .75rem .42rem 1.9rem;color:var(--text);font-family:"DM Sans",sans-serif;font-size:.8rem;outline:none;transition:border-color .2s;}
+.fs-search input:focus{border-color:var(--accent);}
+.fs-search-icon{position:absolute;left:.55rem;top:50%;transform:translateY(-50%);font-size:.75rem;color:var(--sub);pointer-events:none;}
+.fs-body{flex:1;overflow-y:auto;padding:.4rem 0;}
+.fs-section{padding:.3rem 1rem .15rem;font-size:.6rem;font-family:"DM Mono",monospace;text-transform:uppercase;letter-spacing:.8px;color:var(--sub);}
+.fs-row{display:flex;align-items:center;gap:.55rem;padding:.45rem 1rem;cursor:pointer;transition:background .15s;}
+.fs-row:hover{background:var(--s2);}
+.fs-av{width:34px;height:34px;border-radius:50%;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;position:relative;}
+.fs-av img{width:100%;height:100%;object-fit:cover;}
+.fs-online-dot{position:absolute;bottom:1px;right:1px;width:9px;height:9px;border-radius:50%;background:var(--ok);border:2px solid var(--s1);}
+.fs-online-dot.offline{background:var(--sub);opacity:.5;}
+.fs-info{flex:1;min-width:0;}
+.fs-name{font-size:.82rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fs-sub{font-size:.68rem;color:var(--sub);font-family:"DM Mono",monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:.05rem;}
+.fs-sub.online{color:var(--ok);}
+.fs-sub.watching{color:var(--accent);}
+.fs-actions{display:flex;gap:.25rem;flex-shrink:0;}
+.fs-act-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:.2rem .42rem;font-size:.65rem;color:var(--sub);cursor:pointer;font-family:"DM Mono",monospace;transition:all .15s;}
+.fs-act-btn:hover{border-color:var(--accent);color:var(--accent);}
+.fs-act-btn.ok{border-color:var(--ok);color:var(--ok);}
+.fs-act-btn.ok:hover{background:rgba(0,212,170,.1);}
+.fs-act-btn.del:hover{border-color:var(--danger);color:var(--danger);}
+.fs-invite-btn{display:inline-flex;align-items:center;gap:.25rem;background:rgba(232,67,147,.1);border:1px solid rgba(232,67,147,.25);border-radius:20px;padding:.15rem .45rem;font-size:.62rem;font-family:"DM Mono",monospace;color:var(--accent);cursor:pointer;margin-top:.2rem;transition:background .15s;white-space:nowrap;}
+.fs-invite-btn:hover{background:rgba(232,67,147,.2);}
+.fs-empty{padding:1.8rem 1rem;text-align:center;color:var(--sub);}
+.fs-empty-icon{font-size:1.6rem;opacity:.3;margin-bottom:.35rem;}
+.fs-empty-txt{font-size:.72rem;font-family:"DM Mono",monospace;line-height:1.6;}
+@media(max-width:768px){.friends-sidebar{display:none;}}
+
 .glass{background:rgba(15,16,24,.85);border:1px solid var(--border);border-radius:20px;padding:2rem;backdrop-filter:blur(24px);box-shadow:0 24px 64px rgba(0,0,0,.5);}
 /* kept for create modal compat */
 .brand{display:none;}
@@ -336,6 +376,43 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 .yt-preview-title{font-size:.84rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .yt-preview-ch{font-size:.72rem;color:var(--sub);margin-top:.15rem;font-family:'DM Mono',monospace;}
 
+/* ── PROFILE MODAL ── */
+.profile-overlay{position:fixed;inset:0;z-index:250;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(8,9,15,.85);backdrop-filter:blur(16px);}
+.profile-overlay.hidden{display:none;}
+.profile-box{width:100%;max-width:380px;background:var(--s1);border:1px solid var(--border);border-radius:24px;overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,.7);animation:modalIn .25s ease;}
+.profile-banner{height:90px;background:linear-gradient(135deg,rgba(232,67,147,.4),rgba(124,92,252,.4));position:relative;}
+.profile-banner-close{position:absolute;top:.6rem;right:.6rem;background:rgba(8,9,15,.5);border:none;color:var(--text);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+.profile-banner-close:hover{background:rgba(8,9,15,.8);}
+.profile-av-wrap{position:absolute;bottom:-28px;left:1.4rem;}
+.profile-av{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--a2));border:3px solid var(--s1);display:flex;align-items:center;justify-content:center;font-size:1.8rem;overflow:hidden;cursor:pointer;transition:opacity .2s;}
+.profile-av:hover{opacity:.85;}
+.profile-av img{width:100%;height:100%;object-fit:cover;}
+.profile-av-hint{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.55);font-size:.5rem;font-family:'DM Mono',monospace;text-align:center;padding:.1rem;border-radius:0 0 50% 50%;opacity:0;transition:opacity .2s;}
+.profile-av-wrap:hover .profile-av-hint{opacity:1;}
+.profile-body{padding:2.2rem 1.4rem 1.4rem;}
+.profile-name-row{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.15rem;}
+.profile-name{font-size:1.1rem;font-weight:800;letter-spacing:-.2px;}
+.profile-username{font-size:.78rem;color:var(--sub);font-family:'DM Mono',monospace;margin-bottom:.9rem;}
+.profile-stats{display:flex;gap:1.2rem;margin-bottom:1.2rem;padding:.7rem 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+.profile-stat{text-align:center;}
+.profile-stat-n{font-size:1.1rem;font-weight:700;}
+.profile-stat-l{font-size:.65rem;color:var(--sub);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.6px;}
+/* edit fields */
+.profile-edit{display:none;}
+.profile-edit.on{display:block;}
+.profile-edit-field{margin-bottom:.8rem;}
+.profile-edit-field label{display:block;font-size:.65rem;color:var(--sub);margin-bottom:.3rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.8px;}
+.profile-edit-inp{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:.65rem .85rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.9rem;outline:none;transition:border-color .2s;}
+.profile-edit-inp:focus{border-color:var(--accent);}
+/* avatar mini grid in profile */
+.profile-av-grid{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1rem;}
+.profile-av-opt{width:34px;height:34px;border-radius:8px;border:2px solid var(--border);background:var(--s2);font-size:1.1rem;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;}
+.profile-av-opt:hover{border-color:var(--a2);}
+.profile-av-opt.on{border-color:var(--accent);background:rgba(232,67,147,.12);}
+.profile-actions{display:flex;gap:.5rem;margin-top:.2rem;}
+.profile-logout-btn{background:var(--s3);border:1px solid var(--border);border-radius:10px;padding:.6rem 1rem;color:var(--sub);font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:.4rem;}
+.profile-logout-btn:hover{border-color:var(--danger);color:var(--danger);}
+
 /* ── ONBOARDING ── */
 .onboarding-overlay{position:fixed;inset:0;z-index:250;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(8,9,15,.92);backdrop-filter:blur(16px);}
 .onboarding-overlay.hidden{display:none;}
@@ -466,43 +543,151 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
     <div class="lobby-topbar-right">
       <button class="tb-btn" onclick="showJoinPanel()">🔑 Entrar com código</button>
       <button class="pill-btn primary" style="padding:.38rem .9rem;font-size:.8rem;font-weight:700" onclick="openCreateModal()">+ Criar Sala</button>
-      <div style="display:flex;align-items:center;gap:.4rem;padding:.25rem .5rem;border-radius:8px;border:1px solid var(--border);background:var(--s2);cursor:pointer;" onclick="window.location='/auth/logout'" title="Sair">
+      <div style="display:flex;align-items:center;gap:.4rem;padding:.25rem .5rem;border-radius:8px;border:1px solid var(--border);background:var(--s2);cursor:pointer;transition:background .2s;" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='var(--s2)'" onclick="openProfileModal()" title="Ver perfil">
         <div class="lobby-user-av" id="lobby-user-av">👤</div>
         <span class="lobby-user-name" id="lobby-user-name"></span>
-        <span style="font-size:.6rem;color:var(--sub);font-family:'DM Mono',monospace">↩</span>
+        <span style="font-size:.6rem;color:var(--sub);font-family:'DM Mono',monospace">▾</span>
       </div>
     </div>
   </div>
 
-  <!-- Body: rooms list -->
-  <div class="lobby-body" id="lobby-body" style="display:none">
-    <!-- Join inline panel -->
-    <div class="join-inline" id="join-panel">
-      <div class="field" style="flex:1;margin:0"><label>Código da Sala</label><input type="text" id="j-code" placeholder="WAVE-XXXX" maxlength="9" style="text-transform:uppercase;letter-spacing:2px" onkeydown="if(event.key==='Enter')joinRoom()"></div>
-      <button class="pill-btn primary" style="padding:.75rem 1.2rem;white-space:nowrap;flex-shrink:0" onclick="joinRoom()">Entrar →</button>
+  <!-- Body: rooms list + friends sidebar -->
+  <div class="lobby-content" id="lobby-body" style="display:none">
+
+    <!-- MAIN CONTENT -->
+    <div class="lobby-main">
+      <!-- Join inline panel -->
+      <div class="join-inline" id="join-panel">
+        <div class="field" style="flex:1;margin:0"><label>Código da Sala</label><input type="text" id="j-code" placeholder="WAVE-XXXX" maxlength="9" style="text-transform:uppercase;letter-spacing:2px" onkeydown="if(event.key==='Enter')joinRoom()"></div>
+        <button class="pill-btn primary" style="padding:.75rem 1.2rem;white-space:nowrap;flex-shrink:0" onclick="joinRoom()">Entrar →</button>
+      </div>
+
+      <div class="lerr" id="lerr" style="margin-bottom:.8rem"></div>
+
+      <!-- Category filter -->
+      <div class="cat-filter" id="cat-filter">
+        <button class="cat-btn on" onclick="filterCat('all',this)">🌍 Todos</button>
+        <button class="cat-btn" onclick="filterCat('filmes',this)">🎬 Filmes</button>
+        <button class="cat-btn" onclick="filterCat('series',this)">📺 Séries</button>
+        <button class="cat-btn" onclick="filterCat('anime',this)">⛩️ Anime</button>
+        <button class="cat-btn" onclick="filterCat('musica',this)">🎵 Música</button>
+        <button class="cat-btn" onclick="filterCat('games',this)">🎮 Games</button>
+        <button class="cat-btn" onclick="filterCat('geral',this)">💬 Geral</button>
+      </div>
+
+      <!-- Rooms header -->
+      <div class="rooms-header">
+        <span class="rooms-title">Salas ao vivo</span>
+        <button class="refresh-btn" onclick="loadPublicRooms()">↻ atualizar</button>
+      </div>
+
+      <div class="rooms-grid" id="public-rooms-list">
+        <div class="rooms-empty">Carregando salas...</div>
+      </div>
     </div>
 
-    <div class="lerr" id="lerr" style="margin-bottom:.8rem"></div>
-
-    <!-- Category filter -->
-    <div class="cat-filter" id="cat-filter">
-      <button class="cat-btn on" onclick="filterCat('all',this)">🌍 Todos</button>
-      <button class="cat-btn" onclick="filterCat('filmes',this)">🎬 Filmes</button>
-      <button class="cat-btn" onclick="filterCat('series',this)">📺 Séries</button>
-      <button class="cat-btn" onclick="filterCat('anime',this)">⛩️ Anime</button>
-      <button class="cat-btn" onclick="filterCat('musica',this)">🎵 Música</button>
-      <button class="cat-btn" onclick="filterCat('games',this)">🎮 Games</button>
-      <button class="cat-btn" onclick="filterCat('geral',this)">💬 Geral</button>
+    <!-- FRIENDS SIDEBAR -->
+    <div class="friends-sidebar">
+      <div class="fs-header">
+        <div class="fs-title">
+          <span style="display:flex;align-items:center;gap:.4rem">
+            Amigos
+            <span class="fs-badge" id="fs-pending-badge">0</span>
+          </span>
+          <button class="fs-add-btn" onclick="fsSwitchView('search')" title="Adicionar amigo">＋</button>
+        </div>
+        <div class="fs-search">
+          <span class="fs-search-icon">🔍</span>
+          <input type="text" id="fs-search-inp" placeholder="Pesquisar amigos..." oninput="fsSearch(this.value)" onkeydown="if(event.key==='Escape'){this.value='';fsSearch('');}">
+        </div>
+      </div>
+      <div class="fs-body" id="fs-body">
+        <div class="fs-empty">
+          <div class="fs-empty-icon">👥</div>
+          <div class="fs-empty-txt">Carregando...</div>
+        </div>
+      </div>
     </div>
 
-    <!-- Rooms header -->
-    <div class="rooms-header">
-      <span class="rooms-title">Salas ao vivo</span>
-      <button class="refresh-btn" onclick="loadPublicRooms()">↻ atualizar</button>
-    </div>
+  </div>
+</div>
 
-    <div class="rooms-grid" id="public-rooms-list">
-      <div class="rooms-empty">Carregando salas...</div>
+<!-- PROFILE MODAL -->
+<div class="profile-overlay hidden" id="profile-overlay" onclick="if(event.target===this)closeProfileModal()">
+  <div class="profile-box">
+    <div class="profile-banner">
+      <button class="profile-banner-close" onclick="closeProfileModal()">✕</button>
+      <div class="profile-av-wrap">
+        <div class="profile-av" id="prof-av" onclick="toggleProfileEdit()">
+          <span id="prof-av-inner">🎬</span>
+        </div>
+      </div>
+    </div>
+    <div class="profile-body">
+      <!-- View mode -->
+      <div id="prof-view">
+        <div class="profile-name-row">
+          <div>
+            <div class="profile-name" id="prof-name">Usuário</div>
+            <div class="profile-username" id="prof-username">@username</div>
+          </div>
+          <button class="tb-btn" onclick="toggleProfileEdit()" id="prof-edit-btn" style="font-size:.72rem;padding:.28rem .6rem">✏️ Editar</button>
+        </div>
+        <div class="profile-stats">
+          <div class="profile-stat">
+            <div class="profile-stat-n" id="prof-stat-friends">0</div>
+            <div class="profile-stat-l">Amigos</div>
+          </div>
+          <div class="profile-stat">
+            <div class="profile-stat-n" id="prof-stat-rooms">—</div>
+            <div class="profile-stat-l">Salas criadas</div>
+          </div>
+          <div class="profile-stat">
+            <div class="profile-stat-n" id="prof-stat-since">—</div>
+            <div class="profile-stat-l">Membro desde</div>
+          </div>
+        </div>
+        <div class="profile-actions">
+          <button class="profile-logout-btn" onclick="window.location='/auth/logout'">↩ Sair da conta</button>
+        </div>
+      </div>
+
+      <!-- Edit mode -->
+      <div class="profile-edit" id="prof-edit">
+        <div style="font-size:.82rem;font-weight:700;margin-bottom:1rem;display:flex;align-items:center;gap:.4rem">✏️ Editar perfil</div>
+        <div class="profile-edit-field">
+          <label>Nome de exibição</label>
+          <input class="profile-edit-inp" id="prof-edit-name" maxlength="30" placeholder="Seu nome">
+        </div>
+        <div class="profile-edit-field">
+          <label>Avatar</label>
+          <div class="profile-av-grid" id="prof-av-grid">
+            <div class="profile-av-opt on" data-av="🎬" onclick="selectProfAv(this)">🎬</div>
+            <div class="profile-av-opt" data-av="🦊" onclick="selectProfAv(this)">🦊</div>
+            <div class="profile-av-opt" data-av="🐼" onclick="selectProfAv(this)">🐼</div>
+            <div class="profile-av-opt" data-av="🌙" onclick="selectProfAv(this)">🌙</div>
+            <div class="profile-av-opt" data-av="⚡" onclick="selectProfAv(this)">⚡</div>
+            <div class="profile-av-opt" data-av="🔥" onclick="selectProfAv(this)">🔥</div>
+            <div class="profile-av-opt" data-av="🎵" onclick="selectProfAv(this)">🎵</div>
+            <div class="profile-av-opt" data-av="🍕" onclick="selectProfAv(this)">🍕</div>
+            <div class="profile-av-opt" data-av="👾" onclick="selectProfAv(this)">👾</div>
+            <div class="profile-av-opt" data-av="🌊" onclick="selectProfAv(this)">🌊</div>
+            <div class="profile-av-opt" data-av="🦋" onclick="selectProfAv(this)">🦋</div>
+            <div class="profile-av-opt" data-av="🎃" onclick="selectProfAv(this)">🎃</div>
+            <div class="profile-av-opt" data-av="🐉" onclick="selectProfAv(this)">🐉</div>
+            <div class="profile-av-opt" data-av="🌸" onclick="selectProfAv(this)">🌸</div>
+            <div class="profile-av-opt" data-av="🎯" onclick="selectProfAv(this)">🎯</div>
+            <div class="profile-av-opt" data-av="🚀" onclick="selectProfAv(this)">🚀</div>
+            <div class="profile-av-opt" data-av="💎" onclick="selectProfAv(this)">💎</div>
+            <div class="profile-av-opt" data-av="🎮" onclick="selectProfAv(this)">🎮</div>
+          </div>
+        </div>
+        <div class="lerr" id="prof-err" style="margin-bottom:.5rem"></div>
+        <div class="profile-actions">
+          <button class="pill-btn ghost" style="flex:1;padding:.65rem" onclick="toggleProfileEdit()">Cancelar</button>
+          <button class="pill-btn primary" style="flex:2;padding:.65rem" onclick="saveProfile()" id="prof-save-btn">Salvar →</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -916,11 +1101,14 @@ async function loadAuthState() {
       if($('l-name')) $('l-name').value = user.name;
       if($('j-name')) $('j-name').value = user.name;
 
-      // Load public rooms
+      // Load public rooms + friends
       loadPublicRooms();
+      loadFriends();
       // Auto-refresh every 15s
       if(window._roomRefresh) clearInterval(window._roomRefresh);
       window._roomRefresh = setInterval(loadPublicRooms, 15000);
+      if(window._friendsRefresh) clearInterval(window._friendsRefresh);
+      window._friendsRefresh = setInterval(loadFriends, 20000);
       // Pre-load Google Picker if logged in with Google
       if(user.googleAccessToken) loadPickerAPI();
     } else {
@@ -930,6 +1118,77 @@ async function loadAuthState() {
       $('lobby-body').style.display = 'none';
     }
   } catch(e) {}
+}
+
+// ── PROFILE MODAL ─────────────────────────────────────────
+let profEditAvatar = null;
+
+function openProfileModal() {
+  if(!loggedInUser) return;
+  const u = loggedInUser;
+  // Avatar
+  const av = u.avatarEmoji || '🎬';
+  const avEl = $('prof-av-inner');
+  if(u.avatarUrl) {
+    avEl.outerHTML = `<img id="prof-av-inner" src="${esc(u.avatarUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.outerHTML='<span id=prof-av-inner>${esc(av)}</span>'">`;
+  } else {
+    avEl.textContent = av;
+  }
+  // Info
+  $('prof-name').textContent = u.name;
+  $('prof-username').textContent = u.username ? `@${u.username}` : '';
+  // Stats: use cached friend count
+  $('prof-stat-friends').textContent = fsFriends.filter(f=>f.status==='accepted').length;
+  $('prof-stat-since').textContent = '—';
+  // Pre-fill edit
+  $('prof-edit-name').value = u.name;
+  profEditAvatar = av;
+  // Mark current avatar in grid
+  document.querySelectorAll('.profile-av-opt').forEach(el => el.classList.toggle('on', el.dataset.av === av));
+  // Show view mode
+  $('prof-view').style.display = 'block';
+  $('prof-edit').classList.remove('on');
+  $('profile-overlay').classList.remove('hidden');
+}
+
+function closeProfileModal() {
+  $('profile-overlay').classList.add('hidden');
+}
+
+function toggleProfileEdit() {
+  const editing = $('prof-edit').classList.contains('on');
+  $('prof-view').style.display = editing ? 'block' : 'none';
+  $('prof-edit').classList.toggle('on', !editing);
+  if(!editing) $('prof-edit-name').focus();
+}
+
+function selectProfAv(el) {
+  document.querySelectorAll('.profile-av-opt').forEach(e => e.classList.remove('on'));
+  el.classList.add('on');
+  profEditAvatar = el.dataset.av;
+  // live preview
+  const avInner = $('prof-av-inner');
+  if(avInner) avInner.textContent = profEditAvatar;
+}
+
+async function saveProfile() {
+  const name = $('prof-edit-name').value.trim();
+  if(!name) { const e=$('prof-err'); e.textContent='Nome não pode ficar vazio'; e.classList.add('on'); return; }
+  const btn = $('prof-save-btn'); btn.textContent='Salvando...'; btn.disabled=true;
+  try {
+    const res = await fetch('/auth/setup-profile', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username: loggedInUser.username || '', avatarEmoji: profEditAvatar, displayName: name })
+    });
+    const data = await res.json();
+    if(!res.ok) {
+      const e=$('prof-err'); e.textContent=data.error||'Erro ao salvar'; e.classList.add('on');
+      btn.textContent='Salvar →'; btn.disabled=false; return;
+    }
+    await loadAuthState();
+    closeProfileModal();
+    toast('Perfil atualizado! ✨');
+  } catch(e) { btn.textContent='Salvar →'; btn.disabled=false; }
 }
 
 // ── ONBOARDING ─────────────────────────────────────────────
@@ -1748,6 +2007,179 @@ async function addVideo(){
 function sTab(t,el){document.querySelectorAll('.stab').forEach(s=>s.classList.remove('on'));el.classList.add('on');['chat','queue','history','members','friends'].forEach(p=>{const panel=$('p-'+p);if(panel)panel.classList.toggle('on',p===t);});}
 function copyCode(){navigator.clipboard.writeText(roomId).then(()=>toast('Código copiado: '+roomId));}
 function leaveRoom(){if(ws)ws.close();$('app').style.display='none';$('lobby').style.display='flex';roomId='';rendered=new Set();if(loggedInUser){$('auth-overlay').classList.add('hidden');$('lobby-topbar').style.display='flex';$('lobby-body').style.display='block';}loadPublicRooms();}
+
+// ── FRIENDS SIDEBAR ───────────────────────────────────────
+let fsView = 'list'; // 'list' | 'search'
+let fsFriends = [], fsPending = [], fsSearchResults = [];
+let fsSearchTimer = null;
+
+function fsAvatarHtml(f) {
+  const av = f.avatar_emoji || '👤';
+  const img = f.avatar_url;
+  return img
+    ? `<img src="${esc(img)}" onerror="this.outerHTML='<span>${esc(av)}</span>'">`
+    : `<span>${esc(av)}</span>`;
+}
+
+function fsSwitchView(v) {
+  fsView = v;
+  if(v === 'search') { $('fs-search-inp').value = ''; $('fs-search-inp').focus(); }
+  renderFsSidebar();
+}
+
+function fsSearch(q) {
+  clearTimeout(fsSearchTimer);
+  if(!q.trim()) { fsView = 'list'; renderFsSidebar(); return; }
+  fsView = 'search';
+  fsSearchTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      fsSearchResults = data.users || [];
+      renderFsSidebar();
+    } catch(e) {}
+  }, 350);
+}
+
+async function loadFriends() {
+  try {
+    const [fr, pend] = await Promise.all([
+      fetch('/api/friends').then(r=>r.json()),
+      fetch('/api/friends/pending').then(r=>r.json())
+    ]);
+    fsFriends = fr.friends || [];
+    fsPending = pend.pending || [];
+    // Update pending badge
+    const badge = $('fs-pending-badge');
+    if(fsPending.length > 0) { badge.textContent = fsPending.length; badge.classList.add('on'); }
+    else badge.classList.remove('on');
+    renderFsSidebar();
+  } catch(e) {}
+}
+
+function renderFsSidebar() {
+  const body = $('fs-body');
+  if(!body) return;
+
+  if(fsView === 'search') {
+    if(!fsSearchResults.length) {
+      body.innerHTML = `<div class="fs-empty"><div class="fs-empty-icon">🔍</div><div class="fs-empty-txt">Nenhum usuário encontrado</div></div>`;
+      return;
+    }
+    // Get IDs already friended or pending
+    const knownIds = new Set([...fsFriends.map(f=>f.id), ...fsPending.map(f=>f.id)]);
+    body.innerHTML = `<div class="fs-section">Resultados</div>` +
+      fsSearchResults.map(u => {
+        const isMe = loggedInUser && u.id === loggedInUser.id;
+        const isFriend = fsFriends.find(f=>f.id===u.id && f.status==='accepted');
+        const isPending = fsFriends.find(f=>f.id===u.id && f.status==='pending') || fsPending.find(f=>f.id===u.id);
+        const uname = u.username ? `@${u.username}` : '';
+        const actionBtn = isMe ? '' : isFriend
+          ? `<span style="font-size:.62rem;color:var(--ok);font-family:'DM Mono',monospace">✓ amigo</span>`
+          : isPending
+          ? `<span style="font-size:.62rem;color:var(--sub);font-family:'DM Mono',monospace">pendente</span>`
+          : `<button class="fs-act-btn ok" onclick="fsAddFriend('${u.id}',this)">+ add</button>`;
+        return `<div class="fs-row">
+          <div class="fs-av">${fsAvatarHtml(u)}</div>
+          <div class="fs-info">
+            <div class="fs-name">${esc(u.name)}</div>
+            <div class="fs-sub">${esc(uname)}</div>
+          </div>
+          <div class="fs-actions">${actionBtn}</div>
+        </div>`;
+      }).join('');
+    return;
+  }
+
+  // Default: list view
+  let html = '';
+
+  // Pending requests
+  if(fsPending.length) {
+    html += `<div class="fs-section">Pedidos (${fsPending.length})</div>`;
+    html += fsPending.map(f => `
+      <div class="fs-row">
+        <div class="fs-av">${fsAvatarHtml(f)}<div class="fs-online-dot offline"></div></div>
+        <div class="fs-info">
+          <div class="fs-name">${esc(f.name)}</div>
+          <div class="fs-sub">${f.username ? '@'+f.username : 'quer ser amigo'}</div>
+        </div>
+        <div class="fs-actions">
+          <button class="fs-act-btn ok" onclick="fsAccept('${f.id}',this)" title="Aceitar">✓</button>
+          <button class="fs-act-btn del" onclick="fsRemove('${f.id}',this)" title="Recusar">✕</button>
+        </div>
+      </div>`).join('');
+  }
+
+  const accepted = fsFriends.filter(f=>f.status==='accepted');
+  const sentPending = fsFriends.filter(f=>f.status==='pending');
+
+  if(!accepted.length && !sentPending.length && !fsPending.length) {
+    body.innerHTML = `<div class="fs-empty"><div class="fs-empty-icon">👥</div><div class="fs-empty-txt">Nenhum amigo ainda.<br>Clique em ＋ para adicionar!</div></div>`;
+    return;
+  }
+
+  if(accepted.length) {
+    html += `<div class="fs-section">Amigos · ${accepted.length}</div>`;
+    html += accepted.map(f => {
+      // Check if friend is in a room (future: via WebSocket presence)
+      const uname = f.username ? `@${f.username}` : '';
+      return `<div class="fs-row" title="${esc(f.name)}">
+        <div class="fs-av">${fsAvatarHtml(f)}<div class="fs-online-dot offline"></div></div>
+        <div class="fs-info">
+          <div class="fs-name">${esc(f.name)}</div>
+          <div class="fs-sub">${esc(uname)}</div>
+        </div>
+        <div class="fs-actions">
+          <button class="fs-act-btn del" onclick="fsRemove('${f.id}',this)" title="Remover">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  if(sentPending.length) {
+    html += `<div class="fs-section">Enviados</div>`;
+    html += sentPending.map(f => `
+      <div class="fs-row">
+        <div class="fs-av">${fsAvatarHtml(f)}<div class="fs-online-dot offline"></div></div>
+        <div class="fs-info">
+          <div class="fs-name">${esc(f.name)}</div>
+          <div class="fs-sub" style="color:var(--sub)">aguardando...</div>
+        </div>
+        <div class="fs-actions">
+          <button class="fs-act-btn del" onclick="fsRemove('${f.id}',this)" title="Cancelar">✕</button>
+        </div>
+      </div>`).join('');
+  }
+
+  body.innerHTML = html;
+}
+
+async function fsAddFriend(id, btn) {
+  btn.textContent='...'; btn.disabled=true;
+  try {
+    const res = await fetch('/api/friends/request', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({friendId:id}) });
+    if(res.ok) { btn.textContent='enviado'; btn.style.color='var(--ok)'; await loadFriends(); }
+    else { btn.textContent='+add'; btn.disabled=false; }
+  } catch(e) { btn.textContent='+add'; btn.disabled=false; }
+}
+
+async function fsAccept(id, btn) {
+  btn.disabled=true;
+  try {
+    await fetch('/api/friends/accept', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({friendId:id}) });
+    await loadFriends();
+    toast('Amizade aceita! 🎉');
+  } catch(e) {}
+}
+
+async function fsRemove(id, btn) {
+  btn.disabled=true;
+  try {
+    await fetch(`/api/friends/${id}`, { method:'DELETE' });
+    await loadFriends();
+  } catch(e) {}
+}
 
 // ── INIT ──────────────────────────────────────────────────
 async function init() {
