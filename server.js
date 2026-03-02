@@ -10,6 +10,12 @@ const { Strategy: LocalStrategy } = require('passport-local');
 const { Pool } = require('pg');
 const pgSession = require('connect-pg-simple')(session);
 const bcrypt = require('bcrypt');
+const { execFile, exec } = require('child_process');
+
+// Instala yt-dlp automaticamente se não existir
+exec('which yt-dlp || pip install yt-dlp --break-system-packages', (err) => {
+  if (err) exec('pip3 install yt-dlp --break-system-packages', () => {});
+});
 
 const app = express();
 const server = createServer(app);
@@ -204,53 +210,38 @@ app.get('/api/config', (req, res) => {
   res.json({ googleApiKey: process.env.GOOGLE_API_KEY || '' });
 });
 
-
-// ── TOKY VIDEO EXTRACTOR ──
-app.get("/api/toky/extract", async (req, res) => {
+// ── EXTRATOR UNIVERSAL DE VÍDEO (yt-dlp) ──
+app.get('/api/extract', async (req, res) => {
   const { url } = req.query;
-  if (!url || !url.includes("tokyvideo.com")) return res.status(400).json({ error: "Invalid URL" });
-  try {
-    const html = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-        "Accept-Language": "pt-BR,pt;q=0.9"
-      }
-    }).then(r => r.text());
-    const mp4Match = html.match(/https:\/\/cdnst[^"'\s]+\.mp4[^"'\s]*/);
-    if (!mp4Match) return res.status(404).json({ error: "MP4 not found" });
-    const titleMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/);
-    const title = titleMatch ? titleMatch[1].trim() : "TokyvVideo";
-    const thumbMatch = html.match(/https:\/\/img[^"'\s]+previews[^"'\s]+\.jpg/);
-    const thumb = thumbMatch ? thumbMatch[0] : "";
-    res.json({ mp4: mp4Match[0], title, thumb });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+  if (!url) return res.status(400).json({ error: 'URL required' });
+  
+  const ytdlp = process.env.YTDLP_PATH || 'yt-dlp';
+  
+  execFile(ytdlp, [
+    '--dump-json',
+    '--no-playlist',
+    '--no-warnings',
+    url
+  ], { timeout: 30000 }, (err, stdout, stderr) => {
+    if (err) return res.status(500).json({ error: 'Could not extract video', detail: stderr?.substring(0, 200) });
+    try {
+      const info = JSON.parse(stdout);
+      // Pega melhor formato de vídeo direto
+      const formats = (info.formats || []).filter(f => f.url && (f.ext === 'mp4' || f.vcodec !== 'none'));
+      const best = formats.sort((a, b) => (b.height || 0) - (a.height || 0))[0];
+      res.json({
+        url: best?.url || info.url,
+        title: info.title || 'Vídeo',
+        thumb: info.thumbnail || '',
+        duration: info.duration || 0,
+        ext: best?.ext || 'mp4'
+      });
+    } catch(e) {
+      res.status(500).json({ error: 'Parse error' });
+    }
+  });
 });
 
-// ── TOKY VIDEO PROXY STREAM ──
-app.get('/api/toky/stream', async (req, res) => {
-  const { url } = req.query;
-  if (!url || !url.includes('tokyvideo.com')) return res.status(400).json({ error: 'Invalid URL' });
-  try {
-    const headers = { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.tokyvideo.com/' };
-    if (req.headers.range) headers['Range'] = req.headers.range;
-    const videoRes = await fetch(url, { headers });
-    if (!videoRes.ok) return res.status(videoRes.status).json({ error: 'Stream failed' });
-    res.setHeader('Content-Type', videoRes.headers.get('content-type') || 'video/mp4');
-    res.setHeader('Accept-Ranges', 'bytes');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    const cl = videoRes.headers.get('content-length');
-    const cr = videoRes.headers.get('content-range');
-    if (cl) res.setHeader('Content-Length', cl);
-    if (cr) res.setHeader('Content-Range', cr);
-    res.status(videoRes.status);
-    const { Readable } = require('stream');
-    Readable.fromWeb(videoRes.body).pipe(res);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
 app.get('/api/drive/stream/:fileId', async (req, res) => {
   const { fileId } = req.params;
   const token = req.session.googleAccessToken;
