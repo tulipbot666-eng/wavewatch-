@@ -203,47 +203,42 @@ app.get('/auth/me', (req, res) => {
 app.get('/api/config', (req, res) => {
   res.json({ googleApiKey: process.env.GOOGLE_API_KEY || '' });
 });
+
 app.get('/api/drive/stream/:fileId', async (req, res) => {
   const { fileId } = req.params;
-  const token = req.session.googleAccessToken;
-
-  // Build the Drive download URL
-  const driveUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
 
   try {
-    const headers = { 'User-Agent': 'WaveWatch/1.0' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const driveUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
+    const fetchHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36'
+    };
+    if (req.headers.range) fetchHeaders['Range'] = req.headers.range;
 
-    // Forward range header for seeking support
-    if (req.headers.range) headers['Range'] = req.headers.range;
-
-    const driveRes = await fetch(driveUrl, { headers });
+    const driveRes = await fetch(driveUrl, { headers: fetchHeaders, redirect: 'follow' });
 
     if (!driveRes.ok) {
-      // Try public URL as fallback
-      const publicUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
-      const pubRes = await fetch(publicUrl, { headers: { 'User-Agent': 'WaveWatch/1.0', ...(req.headers.range ? { 'Range': req.headers.range } : {}) } });
-      if (!pubRes.ok) return res.status(404).json({ error: 'File not found or not accessible' });
-      res.status(pubRes.status);
-      res.setHeader('Content-Type', pubRes.headers.get('content-type') || 'video/mp4');
-      res.setHeader('Accept-Ranges', 'bytes');
-      if (pubRes.headers.get('content-range')) res.setHeader('Content-Range', pubRes.headers.get('content-range'));
-      if (pubRes.headers.get('content-length')) res.setHeader('Content-Length', pubRes.headers.get('content-length'));
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      pubRes.body.pipe(res);
-      return;
+      return res.status(driveRes.status).json({ error: `Drive returned ${driveRes.status}` });
     }
 
-    res.status(driveRes.status);
-    res.setHeader('Content-Type', driveRes.headers.get('content-type') || 'video/mp4');
-    res.setHeader('Accept-Ranges', 'bytes');
+    const contentType = driveRes.headers.get('content-type') || 'video/mp4';
+    
+    // If Drive returned HTML (confirmation page), it's a large file needing different approach
+    if (contentType.includes('text/html')) {
+      return res.status(403).json({ error: 'File requires confirmation — make sure it is publicly shared' });
+    }
+
     res.setHeader('Access-Control-Allow-Origin', '*');
-    if (driveRes.headers.get('content-range')) res.setHeader('Content-Range', driveRes.headers.get('content-range'));
-    if (driveRes.headers.get('content-length')) res.setHeader('Content-Length', driveRes.headers.get('content-length'));
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Accept-Ranges', 'bytes');
+    const contentLength = driveRes.headers.get('content-length');
+    const contentRange = driveRes.headers.get('content-range');
+    if (contentLength) res.setHeader('Content-Length', contentLength);
+    if (contentRange) res.setHeader('Content-Range', contentRange);
+    res.status(driveRes.status);
     driveRes.body.pipe(res);
   } catch(e) {
-    console.error('Drive proxy error:', e);
-    res.status(500).json({ error: 'Proxy error' });
+    console.error('Drive proxy error:', e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 
