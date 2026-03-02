@@ -156,6 +156,14 @@ app.get('/auth/logout', (req, res) => {
   req.logout(() => res.redirect('/'));
 });
 
+// ── SALVAR TOKEN DO DRIVE NA SESSÃO ──
+app.post('/api/save-token', (req, res) => {
+  const { token } = req.body;
+  if (!req.user) return res.status(401).json({ error: 'Not logged in' });
+  if (token) req.session.googleAccessToken = token;
+  res.json({ ok: true });
+});
+
 // ── EMAIL/SENHA: CADASTRO ──
 app.post('/auth/register', async (req, res) => {
   const { name, email, password } = req.body;
