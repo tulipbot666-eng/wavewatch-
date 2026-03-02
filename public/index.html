@@ -29,15 +29,76 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;fon
 body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:9999;opacity:.4;}
 
 /* ── LOBBY ── */
-#lobby{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem;background:var(--bg);overflow-y:auto;}
-#lobby::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(232,67,147,.15) 0%,transparent 70%),radial-gradient(ellipse 60% 40% at 80% 100%,rgba(124,92,252,.12) 0%,transparent 60%);pointer-events:none;}
-#lobby::after{content:'';position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23e84393' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");pointer-events:none;opacity:.4;}
-.lobby-inner{width:100%;max-width:400px;position:relative;z-index:1;padding:1rem 0;}
-.brand{text-align:center;margin-bottom:2rem;}
-.brand-logo{font-size:3rem;font-weight:800;letter-spacing:-2px;line-height:1;}
+#lobby{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;background:var(--bg);overflow:hidden;}
+#lobby::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 40% at 50% 0%,rgba(232,67,147,.1) 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 80% 100%,rgba(124,92,252,.08) 0%,transparent 60%);pointer-events:none;z-index:0;}
+
+/* ── LOBBY TOPBAR ── */
+.lobby-topbar{height:56px;background:rgba(15,16,24,.9);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 1.5rem;gap:1rem;flex-shrink:0;position:relative;z-index:2;backdrop-filter:blur(12px);}
+.brand-logo{font-size:1.3rem;font-weight:800;letter-spacing:-.5px;line-height:1;}
 .brand-logo span{background:linear-gradient(135deg,var(--accent),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-.brand-sub{color:var(--sub);font-size:.8rem;margin-top:.4rem;font-family:'DM Mono',monospace;letter-spacing:1px;}
+.lobby-topbar-right{margin-left:auto;display:flex;align-items:center;gap:.6rem;}
+.lobby-user-av{width:32px;height:32px;border-radius:50%;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;}
+.lobby-user-av img{width:100%;height:100%;object-fit:cover;}
+.lobby-user-name{font-size:.82rem;font-weight:600;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* ── AUTH OVERLAY (modal centralizado) ── */
+.auth-overlay{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(8,9,15,.8);backdrop-filter:blur(12px);}
+.auth-overlay.hidden{display:none;}
+.auth-box{width:100%;max-width:380px;background:rgba(15,16,24,.95);border:1px solid var(--border);border-radius:20px;padding:2rem;box-shadow:0 24px 64px rgba(0,0,0,.6);position:relative;}
+.auth-brand{text-align:center;margin-bottom:1.8rem;}
+.auth-brand-logo{font-size:2.2rem;font-weight:800;letter-spacing:-1.5px;}
+.auth-brand-logo span{background:linear-gradient(135deg,var(--accent),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.auth-brand-sub{color:var(--sub);font-size:.72rem;margin-top:.3rem;font-family:'DM Mono',monospace;letter-spacing:1px;}
+
+/* ── MAIN LOBBY AREA ── */
+.lobby-body{flex:1;overflow-y:auto;padding:1.2rem 1.5rem;position:relative;z-index:1;}
+.lobby-actions{display:flex;gap:.7rem;margin-bottom:1.2rem;}
+.lobby-actions .pill-btn{flex:1;padding:.75rem;}
+
+/* join code inline */
+.join-inline{display:none;background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:1rem;margin-bottom:1.2rem;animation:msgIn .2s ease;}
+.join-inline.on{display:flex;gap:.6rem;align-items:flex-end;}
+.join-inline .field{flex:1;margin:0;}
+
+/* rooms header */
+.rooms-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;}
+.rooms-title{font-size:.78rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1.2px;color:var(--sub);display:flex;align-items:center;gap:.5rem;}
+.rooms-title::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite;}
+.refresh-btn{background:none;border:none;color:var(--sub);cursor:pointer;font-size:.75rem;font-family:'DM Mono',monospace;transition:color .2s;padding:.2rem .5rem;border-radius:6px;}
+.refresh-btn:hover{color:var(--accent);}
+
+/* rooms grid - 2 columns like Rave */
+.rooms-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.8rem;}
+.room-card{background:var(--s2);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s;animation:msgIn .2s ease;display:flex;flex-direction:column;}
+.room-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 6px 24px rgba(232,67,147,.18);}
+.room-card-thumb{width:100%;aspect-ratio:16/9;background:var(--s3);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:2.2rem;}
+.room-card-thumb img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;}
+.room-card-src-badge{position:absolute;top:.4rem;left:.4rem;background:rgba(8,9,15,.8);border:1px solid rgba(255,255,255,.12);border-radius:6px;font-size:.58rem;font-family:'DM Mono',monospace;padding:.15rem .4rem;color:var(--text);backdrop-filter:blur(4px);}
+.room-card-live-badge{position:absolute;bottom:.4rem;right:.4rem;background:rgba(0,212,170,.15);border:1px solid rgba(0,212,170,.3);border-radius:6px;font-size:.58rem;font-family:'DM Mono',monospace;padding:.15rem .4rem;color:var(--ok);display:flex;align-items:center;gap:.3rem;}
+.room-card-live-badge::before{content:'';width:4px;height:4px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite;}
+.room-card-body{padding:.65rem .75rem;}
+.room-card-name{font-weight:700;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.2rem;}
+.room-card-video{font-size:.68rem;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'DM Mono',monospace;margin-bottom:.3rem;}
+.room-card-meta{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;}
+.room-card-cat{font-size:.58rem;font-family:'DM Mono',monospace;padding:.12rem .35rem;border-radius:5px;background:rgba(124,92,252,.15);color:var(--a2);border:1px solid rgba(124,92,252,.2);}
+.room-card-members{font-size:.62rem;color:var(--sub);font-family:'DM Mono',monospace;}
+/* member avatars row on card */
+.room-card-avs{display:flex;align-items:center;margin-top:.4rem;}
+.room-card-av{width:20px;height:20px;border-radius:50%;background:var(--s3);border:2px solid var(--s2);margin-left:-5px;font-size:.65rem;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;}
+.room-card-av:first-child{margin-left:0;}
+.room-card-av img{width:100%;height:100%;object-fit:cover;}
+.room-card-more{font-size:.62rem;color:var(--sub);font-family:'DM Mono',monospace;margin-left:.35rem;}
+
+.rooms-empty{color:var(--sub);font-size:.8rem;text-align:center;padding:3rem 0;font-family:'DM Mono',monospace;grid-column:1/-1;}
+
+@media(max-width:520px){.rooms-grid{grid-template-columns:1fr;}}
+
 .glass{background:rgba(15,16,24,.85);border:1px solid var(--border);border-radius:20px;padding:2rem;backdrop-filter:blur(24px);box-shadow:0 24px 64px rgba(0,0,0,.5);}
+/* kept for create modal compat */
+.brand{display:none;}
+.brand-logo-compat{font-size:3rem;font-weight:800;letter-spacing:-2px;line-height:1;}
+.brand-sub{color:var(--sub);font-size:.8rem;margin-top:.4rem;font-family:'DM Mono',monospace;letter-spacing:1px;}
+.lobby-inner{display:none;}/* replaced by new layout */
 
 /* Auth tabs */
 .auth-tabs{display:flex;gap:2px;background:var(--bg);border-radius:12px;padding:3px;margin-bottom:1.8rem;}
@@ -311,16 +372,13 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 
 <!-- LOBBY -->
 <div id="lobby">
-  <div class="lobby-inner">
-    <div class="brand">
-      <div class="brand-logo">Wave<span>Watch</span></div>
-      <div class="brand-sub">// watch together, anywhere</div>
-    </div>
-
-    <!-- AUTH SCREEN (login/cadastro) -->
-    <div class="glass" id="auth-screen">
-      <!-- Logged-in user card (shown when already authenticated) -->
-      <div id="auth-user-card" style="display:none"></div>
+  <!-- AUTH OVERLAY (shown when not logged in) -->
+  <div class="auth-overlay" id="auth-overlay">
+    <div class="auth-box">
+      <div class="auth-brand">
+        <div class="auth-brand-logo">Wave<span>Watch</span></div>
+        <div class="auth-brand-sub">// watch together, anywhere</div>
+      </div>
 
       <!-- Auth tabs: Login / Cadastrar -->
       <div class="auth-tabs" id="auth-tabs">
@@ -343,7 +401,7 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 
       <!-- REGISTER FORM -->
       <div id="auth-register" style="display:none">
-        <div class="field"><label>Nome de exibição</label><input type="text" id="reg-name" placeholder="Como quer ser chamado?" maxlength="30" autocomplete="name"></div>
+        <div class="field"><label>Nome único</label><input type="text" id="reg-name" placeholder="Seu apelido exclusivo" maxlength="30" autocomplete="name"></div>
         <div class="field"><label>Email</label><input type="email" id="reg-email" placeholder="seu@email.com" autocomplete="email"></div>
         <div class="field"><label>Senha</label><input type="password" id="reg-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password" onkeydown="if(event.key==='Enter')doRegister()"></div>
         <button class="pill-btn primary" onclick="doRegister()" id="reg-btn">Criar conta →</button>
@@ -355,45 +413,52 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
         <div class="lerr" id="reg-err"></div>
       </div>
     </div>
+  </div>
 
-    <!-- ROOM SCREEN (shown after login) -->
-    <div class="glass" id="room-screen" style="display:none;margin-top:1rem;">
-      <div id="auth-user-card2"></div>
-
-      <!-- Main actions -->
-      <div style="display:flex;gap:.6rem;margin-bottom:1.2rem;">
-        <button class="pill-btn primary" style="flex:1" onclick="openCreateModal()">🎬 Criar Sala</button>
-        <button class="pill-btn ghost" style="flex:1" onclick="showJoinPanel()">🔑 Entrar</button>
+  <!-- MAIN LOBBY (shown after login) -->
+  <!-- Topbar -->
+  <div class="lobby-topbar" id="lobby-topbar" style="display:none">
+    <div class="brand-logo">Wave<span>Watch</span></div>
+    <div class="lobby-topbar-right">
+      <button class="pill-btn ghost" style="padding:.4rem 1rem;font-size:.82rem" onclick="showJoinPanel()">🔑 Entrar com código</button>
+      <button class="pill-btn primary" style="padding:.4rem 1rem;font-size:.82rem" onclick="openCreateModal()">🎬 Criar Sala</button>
+      <div style="display:flex;align-items:center;gap:.5rem;padding:.3rem .6rem;border-radius:10px;border:1px solid var(--border);background:var(--s2);cursor:pointer;" onclick="window.location='/auth/logout'" title="Sair">
+        <div class="lobby-user-av" id="lobby-user-av">👤</div>
+        <span class="lobby-user-name" id="lobby-user-name"></span>
+        <span style="font-size:.65rem;color:var(--sub);font-family:'DM Mono',monospace">sair</span>
       </div>
+    </div>
+  </div>
 
-      <!-- Join by code panel -->
-      <div id="join-panel" style="display:none;margin-bottom:1.2rem;">
-        <div class="field"><label>Código da Sala</label><input type="text" id="j-code" placeholder="WAVE-XXXX" maxlength="9" style="text-transform:uppercase;letter-spacing:2px" onkeydown="if(event.key==='Enter')joinRoom()"></div>
-        <button class="pill-btn primary" onclick="joinRoom()">🚀 Entrar na Sala</button>
-      </div>
+  <!-- Body: rooms list -->
+  <div class="lobby-body" id="lobby-body" style="display:none">
+    <!-- Join inline panel -->
+    <div class="join-inline" id="join-panel">
+      <div class="field" style="flex:1;margin:0"><label>Código da Sala</label><input type="text" id="j-code" placeholder="WAVE-XXXX" maxlength="9" style="text-transform:uppercase;letter-spacing:2px" onkeydown="if(event.key==='Enter')joinRoom()"></div>
+      <button class="pill-btn primary" style="padding:.75rem 1.2rem;white-space:nowrap;flex-shrink:0" onclick="joinRoom()">Entrar →</button>
+    </div>
 
-      <div class="lerr" id="lerr"></div>
+    <div class="lerr" id="lerr" style="margin-bottom:.8rem"></div>
 
-      <!-- Public rooms -->
-      <div style="margin-top:1.4rem;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;">
-          <span style="font-size:.72rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px;color:var(--sub)">Salas públicas</span>
-          <button onclick="loadPublicRooms()" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:.75rem;font-family:'DM Mono',monospace;transition:color .2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--sub)'">↻ atualizar</button>
-        </div>
+    <!-- Category filter -->
+    <div class="cat-filter" id="cat-filter">
+      <button class="cat-btn on" onclick="filterCat('all',this)">🌍 Todos</button>
+      <button class="cat-btn" onclick="filterCat('filmes',this)">🎬 Filmes</button>
+      <button class="cat-btn" onclick="filterCat('series',this)">📺 Séries</button>
+      <button class="cat-btn" onclick="filterCat('anime',this)">⛩️ Anime</button>
+      <button class="cat-btn" onclick="filterCat('musica',this)">🎵 Música</button>
+      <button class="cat-btn" onclick="filterCat('games',this)">🎮 Games</button>
+      <button class="cat-btn" onclick="filterCat('geral',this)">💬 Geral</button>
+    </div>
 
-        <!-- Category filter -->
-        <div class="cat-filter" id="cat-filter">
-          <button class="cat-btn on" onclick="filterCat('all',this)">Todos</button>
-          <button class="cat-btn" onclick="filterCat('filmes',this)">🎬 Filmes</button>
-          <button class="cat-btn" onclick="filterCat('series',this)">📺 Séries</button>
-          <button class="cat-btn" onclick="filterCat('anime',this)">⛩️ Anime</button>
-          <button class="cat-btn" onclick="filterCat('musica',this)">🎵 Música</button>
-          <button class="cat-btn" onclick="filterCat('games',this)">🎮 Games</button>
-          <button class="cat-btn" onclick="filterCat('geral',this)">💬 Geral</button>
-        </div>
+    <!-- Rooms header -->
+    <div class="rooms-header">
+      <span class="rooms-title">Salas ao vivo</span>
+      <button class="refresh-btn" onclick="loadPublicRooms()">↻ atualizar</button>
+    </div>
 
-        <div id="public-rooms-list"><div class="rooms-empty">Carregando salas...</div></div>
-      </div>
+    <div class="rooms-grid" id="public-rooms-list">
+      <div class="rooms-empty">Carregando salas...</div>
     </div>
   </div>
 </div>
@@ -698,24 +763,18 @@ async function loadAuthState() {
     loggedInUser = user;
 
     if (user) {
-      // Hide auth screen, show room screen
-      $('auth-screen').style.display = 'none';
-      $('room-screen').style.display = 'block';
+      // Hide auth overlay, show main lobby
+      $('auth-overlay').classList.add('hidden');
+      $('lobby-topbar').style.display = 'flex';
+      $('lobby-body').style.display = 'block';
 
-      // Render user card
-      const cardHtml = `
-        <div class="user-card" style="margin-bottom:1.4rem">
-          <div class="user-card-av">${user.avatarUrl ? `<img src="${esc(user.avatarUrl)}">` : '👤'}</div>
-          <div class="user-card-info">
-            <div class="user-card-name">${esc(user.name)}</div>
-            <div class="user-card-email">${esc(user.email || '')}</div>
-          </div>
-          <a href="/auth/logout" class="user-card-out">Sair</a>
-        </div>`;
-      $('auth-user-card2').innerHTML = cardHtml;
+      // Render user info in topbar
+      const avEl = $('lobby-user-av');
+      avEl.innerHTML = user.avatarUrl ? `<img src="${esc(user.avatarUrl)}" style="width:100%;height:100%;object-fit:cover">` : '👤';
+      $('lobby-user-name').textContent = user.name;
 
-      // Pre-fill name
-      $('l-name').value = user.name;
+      // Pre-fill name fields
+      if($('l-name')) $('l-name').value = user.name;
       if($('j-name')) $('j-name').value = user.name;
 
       // Load public rooms
@@ -726,9 +785,10 @@ async function loadAuthState() {
       // Pre-load Google Picker if logged in with Google
       if(user.googleAccessToken) loadPickerAPI();
     } else {
-      // Not logged in — show auth screen, hide room screen
-      $('auth-screen').style.display = 'block';
-      $('room-screen').style.display = 'none';
+      // Not logged in — show auth overlay
+      $('auth-overlay').classList.remove('hidden');
+      $('lobby-topbar').style.display = 'none';
+      $('lobby-body').style.display = 'none';
     }
   } catch(e) {}
 }
@@ -760,7 +820,8 @@ function setVis(v) {
 
 function showJoinPanel() {
   const p = $('join-panel');
-  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  p.classList.toggle('on');
+  if(p.classList.contains('on')) $('j-code').focus();
 }
 
 function filterCat(cat, el) {
@@ -776,26 +837,34 @@ async function loadPublicRooms() {
   try {
     const res = await fetch(`/api/rooms/public?category=${currentCatFilter}`);
     const { rooms } = await res.json();
-    if (!rooms.length) { list.innerHTML = '<div class="rooms-empty">Nenhuma sala pública no momento</div>'; return; }
+    if (!rooms.length) { list.innerHTML = '<div class="rooms-empty">Nenhuma sala pública no momento 👀</div>'; return; }
     list.innerHTML = '';
     rooms.forEach(room => {
       const card = document.createElement('div');
       card.className = 'room-card';
-      const thumbContent = room.video?.thumb
+      const hasThumb = !!room.video?.thumb;
+      const srcLabel = room.video ? ({youtube:'YT',gdrive:'DRIVE',vimeo:'VIMEO',twitch:'TWITCH',proxy:'WEB',direct:'URL',local:'LOCAL'}[room.video.src]||'WEB') : null;
+      const thumbHtml = hasThumb
         ? `<img src="${esc(room.video.thumb)}" onerror="this.style.display='none'">${getCatEmoji(room.category)}`
         : getCatEmoji(room.category);
+      const srcBadge = srcLabel ? `<span class="room-card-src-badge">🌐 ${srcLabel}</span>` : '';
+      const liveBadge = room.playing ? `<span class="room-card-live-badge">${room.memberCount} ao vivo</span>` : `<span class="room-card-live-badge" style="background:rgba(139,142,168,.1);border-color:var(--border);color:var(--sub)">${room.memberCount} online</span>`;
       const videoTitle = room.video ? esc(room.video.title || 'Vídeo') : 'Nenhum vídeo ainda';
-      const playingBadge = room.video && room.playing ? '<span class="room-card-playing">▶ ao vivo</span>' : '';
+      // Fake member avatars (colored circles)
+      const colors=['#e84393','#7c5cfc','#00d4aa','#ff9500','#4285f4','#ea4335'];
+      const avCount = Math.min(room.memberCount, 4);
+      const moreCount = room.memberCount > 4 ? `<span class="room-card-more">+${room.memberCount-4}</span>` : '';
+      let avsHtml = '';
+      for(let i=0;i<avCount;i++) avsHtml+=`<div class="room-card-av" style="background:${colors[i%colors.length]};font-size:.55rem;color:#fff;font-weight:700">${String.fromCharCode(65+i)}</div>`;
       card.innerHTML = `
-        <div class="room-card-thumb">${thumbContent}</div>
+        <div class="room-card-thumb">${thumbHtml}${srcBadge}${liveBadge}</div>
         <div class="room-card-body">
           <div class="room-card-name">${esc(room.name || room.id)}</div>
           <div class="room-card-video">${videoTitle}</div>
           <div class="room-card-meta">
             <span class="room-card-cat">${esc(room.category || 'geral')}</span>
-            <span class="room-card-live">${room.memberCount} assistindo</span>
-            ${playingBadge}
           </div>
+          <div class="room-card-avs">${avsHtml}${moreCount}</div>
         </div>`;
       card.onclick = () => quickJoinRoom(room.id);
       list.appendChild(card);
@@ -1448,7 +1517,7 @@ async function addVideo(){
 
 function sTab(t,el){document.querySelectorAll('.stab').forEach(s=>s.classList.remove('on'));el.classList.add('on');['chat','queue','history','members','friends'].forEach(p=>{const panel=$('p-'+p);if(panel)panel.classList.toggle('on',p===t);});}
 function copyCode(){navigator.clipboard.writeText(roomId).then(()=>toast('Código copiado: '+roomId));}
-function leaveRoom(){if(ws)ws.close();$('app').style.display='none';$('lobby').style.display='flex';roomId='';rendered=new Set();loadPublicRooms();}
+function leaveRoom(){if(ws)ws.close();$('app').style.display='none';$('lobby').style.display='flex';roomId='';rendered=new Set();if(loggedInUser){$('auth-overlay').classList.add('hidden');$('lobby-topbar').style.display='flex';$('lobby-body').style.display='block';}loadPublicRooms();}
 
 // ── INIT ──────────────────────────────────────────────────
 async function init() {
