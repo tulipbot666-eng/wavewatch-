@@ -1052,7 +1052,8 @@ function loadVideo(video,doBroadcast){
     if(!fileIdMatch && !video.fileId){ toast('URL do Google Drive inválida'); return; }
     const fileId = (video.fileId || fileIdMatch[1]).replace(/[^a-zA-Z0-9_-]/g, '');
     const token = loggedInUser?.googleAccessToken || '';
-    const streamUrl = `/api/drive/stream/${fileId}${token ? '?token='+encodeURIComponent(token) : ''}`;
+    const tokenParam = token ? `token=${encodeURIComponent(token)}` : `roomId=${encodeURIComponent(roomId||'')}`;
+    const streamUrl = `/api/drive/stream/${fileId}?${tokenParam}`;
     const v=document.createElement('video');
     v.src=streamUrl;
     v.controls=false;
@@ -1405,6 +1406,14 @@ async function addVideo(){
     const url=`https://drive.google.com/file/d/${fileId}/view`;
     const thumb=`https://drive.google.com/thumbnail?id=${fileId}&sz=w320`;
     video={src:'gdrive',url,title,thumb,fileId};
+    // Salva token do host na sala para outros usuários usarem
+    if(loggedInUser?.googleAccessToken && roomId) {
+      fetch(`/api/room/${roomId}/drive-token`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({token: loggedInUser.googleAccessToken})
+      });
+    }
   }else if(currentSrc==='local'){
     if(!pickedFile){merr('Selecione um arquivo');return;}
     const title=pickedFile.name;
