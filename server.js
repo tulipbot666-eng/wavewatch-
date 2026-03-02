@@ -623,7 +623,10 @@ wss.on('connection', (ws) => {
     }
 
     if (type === 'CHAT' && currentRoom) {
-      broadcastAll(currentRoom, { type: 'CHAT', payload: { id: uuid(), user: currentUser, text: payload.text, ts: Date.now() } });
+      // Limit image size (base64 ~5MB → ~6.7MB string)
+      const imgData = payload.imgData && payload.imgData.length < 7_000_000 ? payload.imgData : null;
+      const gifUrl = payload.gifUrl || null;
+      broadcastAll(currentRoom, { type: 'CHAT', payload: { id: uuid(), user: currentUser, text: payload.text || '', gifUrl, imgData, ts: Date.now() } });
     }
 
     if (type === 'REACTION' && currentRoom) {
