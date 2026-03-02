@@ -330,6 +330,44 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 .yt-preview-title{font-size:.84rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .yt-preview-ch{font-size:.72rem;color:var(--sub);margin-top:.15rem;font-family:'DM Mono',monospace;}
 
+/* ── ONBOARDING ── */
+.onboarding-overlay{position:fixed;inset:0;z-index:250;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(8,9,15,.92);backdrop-filter:blur(16px);}
+.onboarding-overlay.hidden{display:none;}
+.onboarding-box{width:100%;max-width:420px;background:var(--s1);border:1px solid var(--border);border-radius:24px;padding:2.2rem;box-shadow:0 32px 80px rgba(0,0,0,.7);animation:modalIn .3s ease;}
+.ob-step{display:none;}.ob-step.on{display:block;}
+.ob-header{text-align:center;margin-bottom:2rem;}
+.ob-emoji{font-size:3rem;display:block;margin-bottom:.6rem;}
+.ob-title{font-size:1.3rem;font-weight:800;letter-spacing:-.3px;}
+.ob-sub{color:var(--sub);font-size:.84rem;margin-top:.4rem;line-height:1.6;}
+.ob-steps-dots{display:flex;justify-content:center;gap:.4rem;margin-bottom:1.8rem;}
+.ob-dot{width:6px;height:6px;border-radius:50%;background:var(--border);transition:all .3s;}
+.ob-dot.on{background:var(--accent);width:18px;border-radius:10px;}
+/* username input with status */
+.username-wrap{position:relative;}
+.username-prefix{position:absolute;left:.9rem;top:50%;transform:translateY(-50%);color:var(--sub);font-family:'DM Mono',monospace;font-size:.95rem;pointer-events:none;}
+.username-inp{width:100%;background:var(--bg);border:2px solid var(--border);border-radius:12px;padding:.8rem 2.8rem .8rem 1.8rem;color:var(--text);font-family:'DM Mono',monospace;font-size:1rem;outline:none;transition:all .2s;letter-spacing:.5px;}
+.username-inp:focus{border-color:var(--accent);}
+.username-inp.ok{border-color:var(--ok);}
+.username-inp.err{border-color:var(--danger);}
+.username-status{position:absolute;right:.8rem;top:50%;transform:translateY(-50%);font-size:.85rem;}
+.username-hint{font-size:.72rem;font-family:'DM Mono',monospace;margin-top:.45rem;min-height:1rem;transition:color .2s;}
+.username-hint.ok{color:var(--ok);}
+.username-hint.err{color:var(--danger);}
+/* avatar grid */
+.ob-av-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:.5rem;margin:1rem 0 1.5rem;}
+.ob-av{width:100%;aspect-ratio:1;border-radius:12px;border:2px solid var(--border);background:var(--s2);font-size:1.5rem;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;}
+.ob-av:hover{border-color:var(--a2);transform:scale(1.08);}
+.ob-av.on{border-color:var(--accent);background:rgba(232,67,147,.12);transform:scale(1.1);box-shadow:0 0 0 3px rgba(232,67,147,.2);}
+/* display name */
+.ob-name-wrap{margin-bottom:1.5rem;}
+.ob-name-inp{width:100%;background:var(--bg);border:2px solid var(--border);border-radius:12px;padding:.8rem 1rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:1rem;outline:none;transition:border-color .2s;}
+.ob-name-inp:focus{border-color:var(--accent);}
+/* preview card */
+.ob-preview{background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:1rem;display:flex;align-items:center;gap:.8rem;margin-bottom:1.5rem;}
+.ob-preview-av{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--a2));display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0;border:3px solid rgba(232,67,147,.3);}
+.ob-preview-name{font-size:1rem;font-weight:700;}
+.ob-preview-user{font-size:.78rem;color:var(--sub);font-family:'DM Mono',monospace;margin-top:.15rem;}
+
 .toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--s2);border:1px solid var(--border);border-radius:50px;padding:.5rem 1.4rem;font-size:.78rem;font-family:'DM Mono',monospace;z-index:300;transition:transform .3s ease;white-space:nowrap;pointer-events:none;}
 .toast.on{transform:translateX(-50%) translateY(0);}
 
@@ -459,6 +497,92 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 
     <div class="rooms-grid" id="public-rooms-list">
       <div class="rooms-empty">Carregando salas...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ONBOARDING OVERLAY -->
+<div class="onboarding-overlay hidden" id="onboarding-overlay">
+  <div class="onboarding-box">
+    <!-- Steps dots -->
+    <div class="ob-steps-dots">
+      <div class="ob-dot on" id="ob-dot-0"></div>
+      <div class="ob-dot" id="ob-dot-1"></div>
+      <div class="ob-dot" id="ob-dot-2"></div>
+    </div>
+
+    <!-- Step 0: username -->
+    <div class="ob-step on" id="ob-step-0">
+      <div class="ob-header">
+        <span class="ob-emoji">✨</span>
+        <div class="ob-title">Escolha seu @username</div>
+        <div class="ob-sub">Seu identificador único no WaveWatch.<br>Amigos vão te encontrar por ele.</div>
+      </div>
+      <div class="username-wrap" style="margin-bottom:.4rem">
+        <span class="username-prefix">@</span>
+        <input class="username-inp" id="ob-username" placeholder="seunome" maxlength="20" oninput="checkUsername(this.value)" autocomplete="off" spellcheck="false">
+        <span class="username-status" id="ob-username-status"></span>
+      </div>
+      <div class="username-hint" id="ob-username-hint">Letras, números, ponto e _ · 3–20 caracteres</div>
+      <button class="pill-btn primary" style="margin-top:1.4rem" onclick="obNext(1)" id="ob-btn-0">Continuar →</button>
+    </div>
+
+    <!-- Step 1: avatar -->
+    <div class="ob-step" id="ob-step-1">
+      <div class="ob-header">
+        <span class="ob-emoji">🎭</span>
+        <div class="ob-title">Escolha seu avatar</div>
+        <div class="ob-sub">Esse emoji vai aparecer no chat<br>e na lista de salas.</div>
+      </div>
+      <div class="ob-av-grid" id="ob-av-grid">
+        <div class="ob-av on" data-av="🎬" onclick="selectObAv(this)">🎬</div>
+        <div class="ob-av" data-av="🦊" onclick="selectObAv(this)">🦊</div>
+        <div class="ob-av" data-av="🐼" onclick="selectObAv(this)">🐼</div>
+        <div class="ob-av" data-av="🌙" onclick="selectObAv(this)">🌙</div>
+        <div class="ob-av" data-av="⚡" onclick="selectObAv(this)">⚡</div>
+        <div class="ob-av" data-av="🔥" onclick="selectObAv(this)">🔥</div>
+        <div class="ob-av" data-av="🎵" onclick="selectObAv(this)">🎵</div>
+        <div class="ob-av" data-av="🍕" onclick="selectObAv(this)">🍕</div>
+        <div class="ob-av" data-av="👾" onclick="selectObAv(this)">👾</div>
+        <div class="ob-av" data-av="🌊" onclick="selectObAv(this)">🌊</div>
+        <div class="ob-av" data-av="🦋" onclick="selectObAv(this)">🦋</div>
+        <div class="ob-av" data-av="🎃" onclick="selectObAv(this)">🎃</div>
+        <div class="ob-av" data-av="🐉" onclick="selectObAv(this)">🐉</div>
+        <div class="ob-av" data-av="🌸" onclick="selectObAv(this)">🌸</div>
+        <div class="ob-av" data-av="🎯" onclick="selectObAv(this)">🎯</div>
+        <div class="ob-av" data-av="🚀" onclick="selectObAv(this)">🚀</div>
+        <div class="ob-av" data-av="💎" onclick="selectObAv(this)">💎</div>
+        <div class="ob-av" data-av="🎮" onclick="selectObAv(this)">🎮</div>
+      </div>
+      <div style="display:flex;gap:.6rem">
+        <button class="pill-btn ghost" style="flex:0 0 auto;padding:.75rem 1rem" onclick="obNext(0)">←</button>
+        <button class="pill-btn primary" style="flex:1" onclick="obNext(2)">Continuar →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: display name + preview -->
+    <div class="ob-step" id="ob-step-2">
+      <div class="ob-header">
+        <span class="ob-emoji">🙌</span>
+        <div class="ob-title">Como quer ser chamado?</div>
+        <div class="ob-sub">Nome que aparece no chat e nas salas.<br>Pode mudar depois.</div>
+      </div>
+      <div class="ob-name-wrap">
+        <input class="ob-name-inp" id="ob-displayname" placeholder="Seu nome de exibição" maxlength="30" oninput="updateObPreview()">
+      </div>
+      <!-- Preview card -->
+      <div class="ob-preview">
+        <div class="ob-preview-av" id="ob-prev-av">🎬</div>
+        <div>
+          <div class="ob-preview-name" id="ob-prev-name">Seu Nome</div>
+          <div class="ob-preview-user" id="ob-prev-user">@username</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:.6rem">
+        <button class="pill-btn ghost" style="flex:0 0 auto;padding:.75rem 1rem" onclick="obNext(1)">←</button>
+        <button class="pill-btn primary" style="flex:1" onclick="finishOnboarding()" id="ob-finish-btn">🚀 Entrar no WaveWatch</button>
+      </div>
+      <div class="lerr" id="ob-err" style="margin-top:.6rem"></div>
     </div>
   </div>
 </div>
@@ -763,6 +887,15 @@ async function loadAuthState() {
     loggedInUser = user;
 
     if (user) {
+      // Check if onboarding needed
+      if (!user.profileComplete) {
+        $('auth-overlay').classList.add('hidden');
+        $('lobby-topbar').style.display = 'none';
+        $('lobby-body').style.display = 'none';
+        showOnboarding();
+        return;
+      }
+
       // Hide auth overlay, show main lobby
       $('auth-overlay').classList.add('hidden');
       $('lobby-topbar').style.display = 'flex';
@@ -791,6 +924,97 @@ async function loadAuthState() {
       $('lobby-body').style.display = 'none';
     }
   } catch(e) {}
+}
+
+// ── ONBOARDING ─────────────────────────────────────────────
+let obUsername = '', obAvatar = '🎬', obUsernameOk = false;
+let usernameCheckTimer = null;
+
+function showOnboarding() {
+  $('onboarding-overlay').classList.remove('hidden');
+  // Pre-fill display name from logged in user
+  if(loggedInUser) $('ob-displayname').value = loggedInUser.name || '';
+  obNext(0);
+  updateObPreview();
+}
+
+function obNext(step) {
+  document.querySelectorAll('.ob-step').forEach((s,i) => s.classList.toggle('on', i===step));
+  document.querySelectorAll('.ob-dot').forEach((d,i) => d.classList.toggle('on', i<=step));
+  if(step===0) setTimeout(()=>$('ob-username').focus(),100);
+  if(step===2) { updateObPreview(); setTimeout(()=>$('ob-displayname').focus(),100); }
+}
+
+function selectObAv(el) {
+  document.querySelectorAll('.ob-av').forEach(e=>e.classList.remove('on'));
+  el.classList.add('on');
+  obAvatar = el.dataset.av;
+  $('ob-prev-av').textContent = obAvatar;
+}
+
+function updateObPreview() {
+  const name = $('ob-displayname').value.trim() || (loggedInUser?.name || 'Você');
+  $('ob-prev-name').textContent = name;
+  $('ob-prev-user').textContent = obUsername ? `@${obUsername}` : '@username';
+  $('ob-prev-av').textContent = obAvatar;
+}
+
+function checkUsername(val) {
+  clearTimeout(usernameCheckTimer);
+  const inp = $('ob-username');
+  const status = $('ob-username-status');
+  const hint = $('ob-username-hint');
+  obUsernameOk = false;
+  inp.classList.remove('ok','err');
+  status.textContent = '';
+  hint.className = 'username-hint';
+  if(!val) { hint.textContent = 'Letras, números, ponto e _ · 3–20 caracteres'; return; }
+  if(val.length < 3) { hint.textContent = 'Mínimo 3 caracteres'; hint.classList.add('err'); inp.classList.add('err'); return; }
+  if(!/^[a-zA-Z0-9._]+$/.test(val)) { hint.textContent = 'Só letras, números, ponto e _'; hint.classList.add('err'); inp.classList.add('err'); return; }
+  status.textContent = '⏳';
+  usernameCheckTimer = setTimeout(async ()=>{
+    try {
+      const res = await fetch(`/api/users/check-username?username=${encodeURIComponent(val)}`);
+      const data = await res.json();
+      if(data.available) {
+        inp.classList.add('ok'); inp.classList.remove('err');
+        status.textContent = '✅';
+        hint.textContent = `@${val.toLowerCase()} está disponível!`;
+        hint.className = 'username-hint ok';
+        obUsername = val.toLowerCase();
+        obUsernameOk = true;
+        updateObPreview();
+      } else {
+        inp.classList.add('err'); inp.classList.remove('ok');
+        status.textContent = '❌';
+        hint.textContent = data.error || `@${val.toLowerCase()} já está em uso`;
+        hint.className = 'username-hint err';
+        obUsernameOk = false;
+      }
+    } catch(e) { status.textContent=''; }
+  }, 500);
+}
+
+async function finishOnboarding() {
+  if(!obUsernameOk) { obNext(0); toast('Escolha um @username válido'); return; }
+  const displayName = $('ob-displayname').value.trim() || loggedInUser?.name || '';
+  const btn = $('ob-finish-btn');
+  btn.textContent = 'Salvando...'; btn.disabled = true;
+  try {
+    const res = await fetch('/auth/setup-profile', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username: obUsername, avatarEmoji: obAvatar, displayName })
+    });
+    const data = await res.json();
+    if(!res.ok) {
+      const errEl = $('ob-err'); errEl.textContent = data.error || 'Erro ao salvar'; errEl.classList.add('on');
+      btn.textContent = '🚀 Entrar no WaveWatch'; btn.disabled = false;
+      return;
+    }
+    $('onboarding-overlay').classList.add('hidden');
+    await loadAuthState();
+    toast('Perfil criado! Bem-vindo ao WaveWatch 🎉');
+  } catch(e) { btn.textContent = '🚀 Entrar no WaveWatch'; btn.disabled = false; }
 }
 
 // ── LOBBY JS ──────────────────────────────────────────────
