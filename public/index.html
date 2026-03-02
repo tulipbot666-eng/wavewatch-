@@ -998,7 +998,14 @@ function loadVideo(video,doBroadcast){
   const{src,url,title,author}=video;
   if(ytIframe){ytIframe=null;}
   ytReady=false;ytCurrentTime=0;ytPendingSeek=null;
-  if(nativeVid){nativeVid.pause();nativeVid=null;}
+  if(nativeVid){nativeVid.pause();nativeVid.src='';nativeVid.load();nativeVid=null;}
+
+  // Remove todos os elementos de vídeo e iframe existentes
+  const wrap=$('vwrap');
+  wrap.querySelectorAll('video,iframe').forEach(el=>{
+    if(el.tagName==='VIDEO'){el.pause();el.src='';el.load();}
+    el.remove();
+  });
 
   const wrap=$('vwrap');
   const reacts=wrap.querySelector('.reacts-wrap');
