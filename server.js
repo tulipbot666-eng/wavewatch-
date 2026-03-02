@@ -633,7 +633,7 @@ wss.on('connection', (ws) => {
 // ─────────────────────────────────────────
 // REST API
 // ─────────────────────────────────────────
-app.get('/api/room/new', requireAuth, (req, res) => {
+app.get('/api/room/new', (req, res) => {
   res.json({ roomId: generateRoomCode() });
 });
 
