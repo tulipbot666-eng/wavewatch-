@@ -147,6 +147,15 @@ app.get('/auth/google',
   passport.authenticate('google', { scope: ['profile', 'email', 'https://www.googleapis.com/auth/drive.readonly'] })
 );
 
+// Re-auth just to get Drive token (user already logged in)
+app.get('/auth/google/drive',
+  passport.authenticate('google', {
+    scope: ['profile', 'email', 'https://www.googleapis.com/auth/drive.readonly'],
+    accessType: 'offline',
+    prompt: 'consent'
+  })
+);
+
 app.get('/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/?error=auth' }),
   (req, res) => {
