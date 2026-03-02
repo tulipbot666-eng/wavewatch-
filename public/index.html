@@ -309,7 +309,7 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
 .pending-badge{background:var(--accent);color:#fff;font-size:.6rem;border-radius:10px;padding:.1rem .35rem;margin-left:.3rem;}
 
 /* MODAL */
-.overlay{display:none;position:fixed;inset:0;background:rgba(8,9,15,.85);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(8px);}
+.overlay{display:none;position:fixed;inset:0;background:rgba(8,9,15,.95);z-index:99999;align-items:center;justify-content:center;backdrop-filter:blur(10px);}
 .overlay.on{display:flex;}
 .modal{background:var(--s1);border:1px solid var(--border);border-radius:20px;padding:1.8rem;width:92%;max-width:520px;max-height:90vh;overflow-y:auto;animation:modalIn .25s ease;}
 @keyframes modalIn{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
@@ -835,10 +835,20 @@ let selectedCat = 'geral';
 let currentCatFilter = 'all';
 
 function openCreateModal() {
-  if (!loggedInUser) { showLErr('Faça login primeiro'); return; }
+  console.log("🔵 [DEBUG] openCreateModal INICIADA");
+  console.log("🔵 [DEBUG] loggedInUser:", loggedInUser);
+  
+  if (!loggedInUser) { 
+    console.error("🔴 [ERRO] Usuário não está logado!");
+    showLErr('Faça login primeiro'); 
+    return; 
+  }
+  
+  console.log("🔵 [DEBUG] Limpando campos do modal...");
   $('room-name-inp').value = '';
-  $('l-name').value = loggedInUser.name;
   $('create-modal').classList.add('on');
+  
+  console.log("✅ [OK] Modal aberto!");
 }
 
 function selectCat(el) {
@@ -929,22 +939,58 @@ function genRoomId() {
 }
 
 async function createRoom() {
-  if (!loggedInUser) { showLErr('Faça login para criar uma sala'); return; }
-  const name = $('l-name').value.trim();
+  console.log("🔵 [DEBUG] createRoom INICIADA");
+  console.log("🔵 [DEBUG] loggedInUser:", loggedInUser);
+  
+  if (!loggedInUser) { 
+    console.error("🔴 [ERRO] Usuário não logado!");
+    showLErr('Faça login para criar uma sala'); 
+    return; 
+  }
+  
+  const name = loggedInUser.name;
   const roomName = $('room-name-inp').value.trim();
-  if (!name) { $('create-err').textContent = 'Digite seu nome'; $('create-err').classList.add('on'); return; }
+  
+  console.log("🔵 [DEBUG] Nome do usuário:", name);
+  console.log("🔵 [DEBUG] Nome da sala:", roomName);
+  console.log("🔵 [DEBUG] Avatar selecionado:", selectedAvatar);
+  console.log("🔵 [DEBUG] Categoria:", selectedCat);
+  console.log("🔵 [DEBUG] Visibilidade:", selectedVis);
 
   let id;
   try {
-    const res = await fetch('/api/room/new');
+    console.log("🔵 [DEBUG] Fazendo fetch para /api/room/new...");
+    const res = await fetch('/api/room/new', { 
+      credentials: 'include',
+      method: 'GET'
+    });
+    
+    console.log("🔵 [DEBUG] Status da resposta:", res.status);
+    console.log("🔵 [DEBUG] Headers da resposta:", res.headers);
+    
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("🔴 [ERRO] Resposta não OK:", res.status, errText);
+      throw new Error(`HTTP ${res.status}: ${errText}`);
+    }
+    
     const data = await res.json();
+    console.log("🔵 [DEBUG] Dados recebidos:", data);
     id = data.roomId;
+    console.log("🔵 [DEBUG] ID da sala gerado:", id);
   } catch(e) {
+    console.error('🔴 [ERRO] Ao obter ID da sala:', e);
     id = genRoomId();
+    console.log("🔵 [DEBUG] Usando ID gerado localmente:", id);
   }
 
+  console.log("🔵 [DEBUG] Fechando modal...");
   closeModal('create-modal');
+  
+  console.log("🔵 [DEBUG] Entrando na sala com enterApp...");
   enterApp(id, name, roomName || `Sala de ${name}`, selectedVis === 'public', selectedCat);
+  
+  console.log("✅ [OK] createRoom completa!");
 }
 
 async function joinRoom() {
@@ -970,6 +1016,9 @@ function doLogout() {
 
 // ── APP ───────────────────────────────────────────────────
 function enterApp(id, name, roomName, isPublic, category) {
+  console.log("🔵 [DEBUG] enterApp INICIADA");
+  console.log("🔵 [DEBUG] Parâmetros:", {id, name, roomName, isPublic, category});
+  
   roomId = id;
   myUser = {
     id: null, name,
@@ -980,10 +1029,15 @@ function enterApp(id, name, roomName, isPublic, category) {
     _isPublic: isPublic,
     _category: category
   };
+  
+  console.log("🔵 [DEBUG] myUser setado:", myUser);
+  
   $('home-screen').classList.remove('visible');
   $('login-screen').style.display = 'none';
   $('app').style.display = 'flex';
   $('room-badge').textContent = '📋 ' + roomId;
+
+  console.log("🔵 [DEBUG] UI atualizada, conectando WebSocket...");
 
   // Show Google user in topbar
   if (loggedInUser) {
@@ -995,6 +1049,7 @@ function enterApp(id, name, roomName, isPublic, category) {
   }
 
   connectWS();
+  console.log("✅ [OK] enterApp completa!");
 }
 
 // ── WEBSOCKET ─────────────────────────────────────────────
