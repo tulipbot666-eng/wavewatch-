@@ -542,6 +542,7 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
       <div class="src-opt" data-s="twitch" onclick="selSrc(this,'twitch')"><span class="ico">🟣</span>Twitch</div>
       <div class="src-opt" data-s="direct" onclick="selSrc(this,'direct')"><span class="ico">🔗</span>URL direta</div>
       <div class="src-opt" data-s="gdrive" onclick="selSrc(this,'gdrive')"><span class="ico">📁</span>Google Drive</div>
+      <div class="src-opt" data-s="toky" onclick="selSrc(this,'toky')"><span class="ico">🎞️</span>TokyvVideo</div>
       <div class="src-opt" data-s="local" onclick="selSrc(this,'local')"><span class="ico">💾</span>Arquivo</div>
     </div>
     <div id="yt-section">
@@ -682,14 +683,6 @@ async function loadAuthState() {
     const res = await fetch('/auth/me');
     const { user } = await res.json();
     loggedInUser = user;
-
-    if (user?.googleAccessToken) {
-      fetch('/api/save-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: user.googleAccessToken })
-      });
-    }
 
     if (user) {
       // Hide auth screen, show room screen
@@ -998,15 +991,9 @@ function loadVideo(video,doBroadcast){
   const{src,url,title,author}=video;
   if(ytIframe){ytIframe=null;}
   ytReady=false;ytCurrentTime=0;ytPendingSeek=null;
-  if(nativeVid){nativeVid.pause();nativeVid.src='';nativeVid.load();nativeVid=null;}
+  if(nativeVid){nativeVid.pause();nativeVid=null;}
 
-  // Remove todos os elementos de vídeo e iframe existentes
   const wrap=$('vwrap');
-  wrap.querySelectorAll('video,iframe').forEach(el=>{
-    if(el.tagName==='VIDEO'){el.pause();el.src='';el.load();}
-    el.remove();
-  });
-
   const reacts=wrap.querySelector('.reacts-wrap');
   const vinfo=$('vinfo');
   wrap.innerHTML='';wrap.appendChild(reacts);wrap.appendChild(vinfo);
@@ -1049,11 +1036,10 @@ function loadVideo(video,doBroadcast){
   } else if(src==='gdrive'){
     $('src-badge').textContent='GD';
     const fileIdMatch = url.match(/\/d\/([a-zA-Z0-9_-]{10,})/)||url.match(/id=([a-zA-Z0-9_-]{10,})/);
-    if(!fileIdMatch && !video.fileId){ toast('URL do Google Drive inválida'); return; }
-    const fileId = (video.fileId || fileIdMatch[1]).replace(/[^a-zA-Z0-9_-]/g, '');
-    const token = loggedInUser?.googleAccessToken || '';
-    const tokenParam = token ? `token=${encodeURIComponent(token)}` : `roomId=${encodeURIComponent(roomId||'')}`;
-    const streamUrl = `/api/drive/stream/${fileId}?${tokenParam}`;
+    if(!fileIdMatch){ toast('URL do Google Drive inválida'); return; }
+    const fileId = fileIdMatch[1].replace(/[^a-zA-Z0-9_-]/g, '');
+    // Use our server proxy — bypasses CORS, supports seeking
+    const streamUrl = `/api/drive/stream/${fileId}`;
     const v=document.createElement('video');
     v.src=streamUrl;
     v.controls=false;
@@ -1242,7 +1228,7 @@ function renderQueue(queue){
   wrap.innerHTML='';
   localQueue.forEach((v,i)=>{
     const d=document.createElement('div');d.className='qi';
-    const thumb=v.thumb?`<img class="qi-thumb" src="${esc(v.thumb)}" onerror="this.style.display='none'">`:`<div class="qi-thumb">${v.src==='youtube'?'▶️':v.src==='vimeo'?'🎥':'🎬'}</div>`;
+    const thumb=v.thumb?`<img class="qi-thumb" src="${esc(v.thumb)}" onerror="this.style.display='none'">`:`<div class="qi-thumb">${v.src==='youtube'?'▶️':v.src==='vimeo'?'🎥':v.src==='toky'?'🎞️':'🎬'}</div>`;
     d.innerHTML=`${thumb}<div class="qi-info"><div class="qi-title">${esc(v.title||v.url)}</div><div class="qi-src">${esc(v.src||'')}</div></div>${amIHost?`<span class="qi-rm" onclick="removeQ(${i})">✕</span>`:''}`;
     d.onclick=(e)=>{if(!e.target.classList.contains('qi-rm')&&amIHost)loadVideo(v,true);};
     wrap.appendChild(d);
@@ -1282,16 +1268,17 @@ function updateLiveLbl(n){$('live-lbl').textContent=(n||1)+' online';}
 // ── MODAL ─────────────────────────────────────────────────
 function openAddModal(){$('add-modal').classList.add('on');}
 function closeModal(id){$(id).classList.remove('on');}
-const SRC_LABELS={vimeo:'URL do Vimeo',twitch:'Canal Twitch',direct:'URL do vídeo'};
-const SRC_PLACEHOLDERS={vimeo:'https://vimeo.com/...',twitch:'nome do canal',direct:'https://exemplo.com/video.mp4'};
+const SRC_LABELS={vimeo:'URL do Vimeo',twitch:'Canal Twitch',direct:'URL do vídeo',toky:'Link do TokyvVideo'};
+const SRC_PLACEHOLDERS={vimeo:'https://vimeo.com/...',twitch:'nome do canal',direct:'https://exemplo.com/video.mp4',toky:'https://www.tokyvideo.com/video/...'};
+
 
 function selSrc(el,src){
   document.querySelectorAll('.src-opt').forEach(e=>e.classList.remove('on'));el.classList.add('on');currentSrc=src;
   $('yt-section').style.display=src==='youtube'?'block':'none';
-  $('url-section').style.display=['vimeo','twitch','direct'].includes(src)?'block':'none';
+  $('url-section').style.display=['vimeo','twitch','direct','toky'].includes(src)?'block':'none';
   $('gdrive-section').style.display=src==='gdrive'?'block':'none';
   $('local-section').style.display=src==='local'?'block':'none';
-  if(['vimeo','twitch','direct'].includes(src)){$('url-mlabel').textContent=SRC_LABELS[src]||'URL';$('vurl').placeholder=SRC_PLACEHOLDERS[src]||'https://';}
+  if(['vimeo','twitch','direct','toky'].includes(src)){$('url-mlabel').textContent=SRC_LABELS[src]||'URL';$('vurl').placeholder=SRC_PLACEHOLDERS[src]||'https://';}
 }
 
 // ── GOOGLE DRIVE PICKER ───────────────────────────────────
@@ -1405,15 +1392,21 @@ async function addVideo(){
     }
     const url=`https://drive.google.com/file/d/${fileId}/view`;
     const thumb=`https://drive.google.com/thumbnail?id=${fileId}&sz=w320`;
-    video={src:'gdrive',url,title,thumb,fileId};
-    // Salva token do host na sala para outros usuários usarem
-    if(loggedInUser?.googleAccessToken && roomId) {
-      fetch(`/api/room/${roomId}/drive-token`, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({token: loggedInUser.googleAccessToken})
-      });
+    video={src:'gdrive',url,title,thumb};
+  }else if(currentSrc==='toky'){
+    const tokyUrl=$('vurl').value.trim();
+    if(!tokyUrl||!tokyUrl.includes('tokyvideo.com')){merr('Cole um link válido do TokyvVideo');return;}
+    merr('');
+    $('add-submit').textContent='Carregando...';
+    $('add-submit').disabled=true;
+    try {
+      const data = await fetch(`/api/toky/extract?url=${encodeURIComponent(tokyUrl)}`).then(r=>r.json());
+      if(data.error){merr('Erro: '+data.error);$('add-submit').textContent='Adicionar';$('add-submit').disabled=false;return;}
+      video={src:'direct',url:data.mp4,title:data.title||'TokyvVideo',thumb:data.thumb||''};
+    } catch(e) {
+      merr('Erro ao extrair vídeo');$('add-submit').textContent='Adicionar';$('add-submit').disabled=false;return;
     }
+    $('add-submit').textContent='Adicionar';$('add-submit').disabled=false;
   }else if(currentSrc==='local'){
     if(!pickedFile){merr('Selecione um arquivo');return;}
     const title=pickedFile.name;
