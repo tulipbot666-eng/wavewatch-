@@ -206,25 +206,32 @@ app.get('/api/config', (req, res) => {
 
 app.get('/api/drive/stream/:fileId', async (req, res) => {
   const { fileId } = req.params;
+  const token = req.session.googleAccessToken;
 
   try {
-    const driveUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
-    const fetchHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36'
-    };
-    if (req.headers.range) fetchHeaders['Range'] = req.headers.range;
+    let driveRes;
 
-    const driveRes = await fetch(driveUrl, { headers: fetchHeaders, redirect: 'follow' });
+    if (token) {
+      // Authenticated request via Drive API — works for owner's files
+      const driveUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`;
+      const fetchHeaders = { 'Authorization': `Bearer ${token}` };
+      if (req.headers.range) fetchHeaders['Range'] = req.headers.range;
+      driveRes = await fetch(driveUrl, { headers: fetchHeaders });
+    } else {
+      // Public file fallback
+      const driveUrl = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
+      const fetchHeaders = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36' };
+      if (req.headers.range) fetchHeaders['Range'] = req.headers.range;
+      driveRes = await fetch(driveUrl, { headers: fetchHeaders, redirect: 'follow' });
+    }
 
     if (!driveRes.ok) {
       return res.status(driveRes.status).json({ error: `Drive returned ${driveRes.status}` });
     }
 
     const contentType = driveRes.headers.get('content-type') || 'video/mp4';
-    
-    // If Drive returned HTML (confirmation page), it's a large file needing different approach
     if (contentType.includes('text/html')) {
-      return res.status(403).json({ error: 'File requires confirmation — make sure it is publicly shared' });
+      return res.status(403).json({ error: 'Drive returned HTML — file may be private or too large' });
     }
 
     res.setHeader('Access-Control-Allow-Origin', '*');
