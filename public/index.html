@@ -541,7 +541,7 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
       <div class="src-opt on" data-s="youtube" onclick="selSrc(this,'youtube')"><span class="ico">▶️</span>YouTube</div>
       <div class="src-opt" data-s="vimeo" onclick="selSrc(this,'vimeo')"><span class="ico">🎥</span>Vimeo</div>
       <div class="src-opt" data-s="twitch" onclick="selSrc(this,'twitch')"><span class="ico">🟣</span>Twitch</div>
-      <div class="src-opt" data-s="proxy" onclick="selSrc(this,'proxy')"><span class="ico">🌐</span>Qualquer site</div>
+      <div class="src-opt" data-s="extract" onclick="selSrc(this,'extract')"><span class="ico">🌐</span>Qualquer site</div>
       <div class="src-opt" data-s="direct" onclick="selSrc(this,'direct')"><span class="ico">🔗</span>URL direta</div>
       <div class="src-opt" data-s="gdrive" onclick="selSrc(this,'gdrive')"><span class="ico">📁</span>Google Drive</div>
       <div class="src-opt" data-s="local" onclick="selSrc(this,'local')"><span class="ico">💾</span>Arquivo</div>
@@ -1306,7 +1306,8 @@ const SRC_PLACEHOLDERS={vimeo:'https://vimeo.com/...',twitch:'nome do canal',dir
 function selSrc(el,src){
   document.querySelectorAll('.src-opt').forEach(e=>e.classList.remove('on'));el.classList.add('on');currentSrc=src;
   $('yt-section').style.display=src==='youtube'?'block':'none';
-  $('url-section').style.display=['vimeo','twitch','direct','proxy'].includes(src)?'block':'none';
+  $('url-section').style.display=['vimeo','twitch','direct','proxy','extract'].includes(src)?'block':'none';
+  if(src==='extract'){$('url-mlabel').textContent='URL da página (Tokyvideo, etc)';$('vurl').placeholder='https://www.tokyvideo.com/video/...';}else{$('url-mlabel').textContent='URL do vídeo';$('vurl').placeholder='https://...';}
   $('gdrive-section').style.display=src==='gdrive'?'block':'none';
   $('local-section').style.display=src==='local'?'block':'none';
   if(['vimeo','twitch','direct','proxy'].includes(src)){$('url-mlabel').textContent=SRC_LABELS[src]||'URL';$('vurl').placeholder=SRC_PLACEHOLDERS[src]||'https://';}
@@ -1399,7 +1400,52 @@ function filePick(inp){if(inp.files[0])setFile(inp.files[0]);}
 function setFile(f){pickedFile=f;$('dz').innerHTML=`<div class="dz-ico">✅</div><p><strong>${esc(f.name)}</strong><br><span style="font-size:.72rem">${(f.size/1024/1024).toFixed(1)} MB</span></p>`;}
 function merr(m){$('merr').textContent=m;}
 
+// ── EXTRATOR DE VÍDEO ────────────────────────────────────────
+async function extractAndAdd() {
+  const url = $('vurl').value.trim();
+  if (!url) { merr('Cole a URL da página'); return; }
+
+  const btn = document.querySelector('#add-modal .pill-btn.primary');
+  const origText = btn ? btn.textContent : '';
+  if (btn) { btn.textContent = '🔍 Extraindo vídeo...'; btn.disabled = true; }
+  merr('');
+
+  try {
+    const res = await fetch('/api/extract?url=' + encodeURIComponent(url));
+    const data = await res.json();
+
+    if (btn) { btn.textContent = origText; btn.disabled = false; }
+
+    if (data.error || !data.urls || !data.urls.length) {
+      merr(data.error || 'Nenhum vídeo encontrado nesta página');
+      return;
+    }
+
+    // Usa a primeira URL (mp4 tem prioridade)
+    const videoUrl = data.urls[0];
+    const video = {
+      src: videoUrl.includes('.m3u8') ? 'hls' : 'direct',
+      url: videoUrl,
+      title: data.title || url.split('/').pop() || 'Vídeo',
+      thumb: data.thumb || '',
+      author: new URL(url).hostname
+    };
+
+    localQueue.push(video);
+    send('QUEUE_UPDATE', { queue: localQueue.filter(q => q.src !== 'local') });
+    renderQueue(localQueue);
+    loadVideo(video, true);
+    closeModal('add-modal');
+    sysMsg('🎬 ' + (myUser?.name || 'Alguém') + ' adicionou: ' + video.title);
+
+  } catch(e) {
+    if (btn) { btn.textContent = origText; btn.disabled = false; }
+    merr('Erro ao extrair vídeo: ' + e.message);
+  }
+}
+
 async function addVideo(){
+  if(currentSrc==='extract'){await extractAndAdd();return;}
   let video=null;
   if(currentSrc==='youtube'){
     const previewWrap=$('yt-preview-wrap');let url=$('yt-q').value.trim();
