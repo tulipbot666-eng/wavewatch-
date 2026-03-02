@@ -204,21 +204,32 @@ app.get('/api/config', (req, res) => {
   res.json({ googleApiKey: process.env.GOOGLE_API_KEY || '' });
 });
 
-// ── SALVAR TOKEN DO DRIVE NA SALA ──
-app.post('/api/room/:roomId/drive-token', (req, res) => {
-  const room = rooms.get(req.params.roomId);
-  if (!room) return res.status(404).json({ error: 'Room not found' });
-  const token = req.body.token || req.session.googleAccessToken;
-  if (token) room.driveToken = token;
-  res.json({ ok: true });
-});
 
+// ── TOKY VIDEO EXTRACTOR ──
+app.get("/api/toky/extract", async (req, res) => {
+  const { url } = req.query;
+  if (!url || !url.includes("tokyvideo.com")) return res.status(400).json({ error: "Invalid URL" });
+  try {
+    const html = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "pt-BR,pt;q=0.9"
+      }
+    }).then(r => r.text());
+    const mp4Match = html.match(/https:\/\/cdnst[^"'\s]+\.mp4[^"'\s]*/);
+    if (!mp4Match) return res.status(404).json({ error: "MP4 not found" });
+    const titleMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/);
+    const title = titleMatch ? titleMatch[1].trim() : "TokyvVideo";
+    const thumbMatch = html.match(/https:\/\/img[^"'\s]+previews[^"'\s]+\.jpg/);
+    const thumb = thumbMatch ? thumbMatch[0] : "";
+    res.json({ mp4: mp4Match[0], title, thumb });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 app.get('/api/drive/stream/:fileId', async (req, res) => {
   const { fileId } = req.params;
-  // Token: query string > sessão > token da sala
-  const roomId = req.query.roomId;
-  const room = roomId ? rooms.get(roomId) : null;
-  const token = req.query.token || req.session.googleAccessToken || room?.driveToken;
+  const token = req.session.googleAccessToken;
 
   try {
     let driveRes;
@@ -254,8 +265,7 @@ app.get('/api/drive/stream/:fileId', async (req, res) => {
     if (contentLength) res.setHeader('Content-Length', contentLength);
     if (contentRange) res.setHeader('Content-Range', contentRange);
     res.status(driveRes.status);
-    const { Readable } = require('stream');
-    Readable.fromWeb(driveRes.body).pipe(res);
+    driveRes.body.pipe(res);
   } catch(e) {
     console.error('Drive proxy error:', e.message);
     res.status(500).json({ error: e.message });
@@ -374,8 +384,7 @@ function getOrCreateRoom(roomId) {
       currentTime: 0,
       wallClock: Date.now(),
       history: [],
-      createdAt: Date.now(),
-      driveToken: null
+      createdAt: Date.now()
     });
   }
   return rooms.get(roomId);
