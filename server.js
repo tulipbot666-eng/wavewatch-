@@ -214,7 +214,7 @@ app.get('/api/config', (req, res) => {
 
 app.get('/api/drive/stream/:fileId', async (req, res) => {
   const { fileId } = req.params;
-  const token = req.session.googleAccessToken;
+  const token = req.session.googleAccessToken || req.query.token;
 
   try {
     let driveRes;
