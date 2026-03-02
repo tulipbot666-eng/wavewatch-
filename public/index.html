@@ -1339,6 +1339,7 @@ function openDrivePicker() {
     .addView(view)
     .setOAuthToken(loggedInUser.googleAccessToken)
     .setDeveloperKey(window.GOOGLE_API_KEY || '')
+    .setOrigin(window.location.protocol + '//' + window.location.host)
     .setCallback(drivePickerCallback)
     .build();
   picker.setVisible(true);
