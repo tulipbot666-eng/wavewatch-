@@ -137,7 +137,7 @@ passport.use(new GoogleStrategy({
 // AUTH ROUTES
 // ─────────────────────────────────────────
 app.get('/auth/google',
-  passport.authenticate('google', { scope: ['profile', 'email', 'https://www.googleapis.com/auth/drive'] })
+  passport.authenticate('google', { scope: ['profile', 'email', 'https://www.googleapis.com/auth/drive.readonly'] })
 );
 
 app.get('/auth/google/callback',
@@ -154,14 +154,6 @@ app.get('/auth/google/callback',
 
 app.get('/auth/logout', (req, res) => {
   req.logout(() => res.redirect('/'));
-});
-
-// ── SALVAR TOKEN DO DRIVE NA SESSÃO ──
-app.post('/api/save-token', (req, res) => {
-  const { token } = req.body;
-  if (!req.user) return res.status(401).json({ error: 'Not logged in' });
-  if (token) req.session.googleAccessToken = token;
-  res.json({ ok: true });
 });
 
 // ── EMAIL/SENHA: CADASTRO ──
@@ -212,9 +204,21 @@ app.get('/api/config', (req, res) => {
   res.json({ googleApiKey: process.env.GOOGLE_API_KEY || '' });
 });
 
+// ── SALVAR TOKEN DO DRIVE NA SALA ──
+app.post('/api/room/:roomId/drive-token', (req, res) => {
+  const room = rooms.get(req.params.roomId);
+  if (!room) return res.status(404).json({ error: 'Room not found' });
+  const token = req.body.token || req.session.googleAccessToken;
+  if (token) room.driveToken = token;
+  res.json({ ok: true });
+});
+
 app.get('/api/drive/stream/:fileId', async (req, res) => {
   const { fileId } = req.params;
-  const token = req.session.googleAccessToken || req.query.token;
+  // Token: query string > sessão > token da sala
+  const roomId = req.query.roomId;
+  const room = roomId ? rooms.get(roomId) : null;
+  const token = req.query.token || req.session.googleAccessToken || room?.driveToken;
 
   try {
     let driveRes;
@@ -234,9 +238,7 @@ app.get('/api/drive/stream/:fileId', async (req, res) => {
     }
 
     if (!driveRes.ok) {
-      const errBody = await driveRes.text();
-      console.error('Drive error:', driveRes.status, errBody.substring(0, 500));
-      return res.status(driveRes.status).json({ error: `Drive returned ${driveRes.status}`, detail: errBody.substring(0, 200) });
+      return res.status(driveRes.status).json({ error: `Drive returned ${driveRes.status}` });
     }
 
     const contentType = driveRes.headers.get('content-type') || 'video/mp4';
@@ -252,8 +254,7 @@ app.get('/api/drive/stream/:fileId', async (req, res) => {
     if (contentLength) res.setHeader('Content-Length', contentLength);
     if (contentRange) res.setHeader('Content-Range', contentRange);
     res.status(driveRes.status);
-    const { Readable } = require('stream');
-    Readable.fromWeb(driveRes.body).pipe(res);
+    driveRes.body.pipe(res);
   } catch(e) {
     console.error('Drive proxy error:', e.message);
     res.status(500).json({ error: e.message });
@@ -372,7 +373,8 @@ function getOrCreateRoom(roomId) {
       currentTime: 0,
       wallClock: Date.now(),
       history: [],
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      driveToken: null
     });
   }
   return rooms.get(roomId);
