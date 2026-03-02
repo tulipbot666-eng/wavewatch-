@@ -1656,7 +1656,11 @@ function loadVideo(video,doBroadcast){
   const wrap=$('vwrap');
   const reacts=wrap.querySelector('.reacts-wrap');
   const vinfo=$('vinfo');
-  wrap.innerHTML='';wrap.appendChild(reacts);wrap.appendChild(vinfo);
+  const ctrl=$('ctrl');
+  wrap.innerHTML='';
+  if(reacts) wrap.appendChild(reacts);
+  if(vinfo) wrap.appendChild(vinfo);
+  if(ctrl) wrap.appendChild(ctrl);
 
   $('vph').style.display='none'; wrap.style.display='block'; $('ctrl').style.display='flex';
   $('vi-title').textContent=title||''; $('vi-sub').textContent=author||'';
