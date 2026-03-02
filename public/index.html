@@ -683,7 +683,6 @@ async function loadAuthState() {
     const { user } = await res.json();
     loggedInUser = user;
 
-    // Garante que o token está salvo na sessão do servidor
     if (user?.googleAccessToken) {
       fetch('/api/save-token', {
         method: 'POST',
@@ -1044,9 +1043,8 @@ function loadVideo(video,doBroadcast){
   } else if(src==='gdrive'){
     $('src-badge').textContent='GD';
     const fileIdMatch = url.match(/\/d\/([a-zA-Z0-9_-]{10,})/)||url.match(/id=([a-zA-Z0-9_-]{10,})/);
-    if(!fileIdMatch){ toast('URL do Google Drive inválida'); return; }
-    const fileId = fileIdMatch[1].replace(/[^a-zA-Z0-9_-]/g, '');
-    // Use our server proxy — bypasses CORS, supports seeking
+    if(!fileIdMatch && !video.fileId){ toast('URL do Google Drive inválida'); return; }
+    const fileId = (video.fileId || fileIdMatch[1]).replace(/[^a-zA-Z0-9_-]/g, '');
     const token = loggedInUser?.googleAccessToken || '';
     const streamUrl = `/api/drive/stream/${fileId}${token ? '?token='+encodeURIComponent(token) : ''}`;
     const v=document.createElement('video');
@@ -1400,7 +1398,7 @@ async function addVideo(){
     }
     const url=`https://drive.google.com/file/d/${fileId}/view`;
     const thumb=`https://drive.google.com/thumbnail?id=${fileId}&sz=w320`;
-    video={src:'gdrive',url,title,thumb};
+    video={src:'gdrive',url,title,thumb,fileId};
   }else if(currentSrc==='local'){
     if(!pickedFile){merr('Selecione um arquivo');return;}
     const title=pickedFile.name;
