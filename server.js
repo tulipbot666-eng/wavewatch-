@@ -164,6 +164,8 @@ app.post('/auth/register', async (req, res) => {
   try {
     const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
     if (existing.rows.length) return res.status(400).json({ error: 'Este email já está cadastrado' });
+    const nameTaken = await pool.query('SELECT id FROM users WHERE LOWER(name) = LOWER($1)', [name.trim()]);
+    if (nameTaken.rows.length) return res.status(400).json({ error: 'Este nome já está em uso. Escolha outro!' });
     const hash = await bcrypt.hash(password, 12);
     const { rows } = await pool.query(
       'INSERT INTO users (id, name, email, password_hash) VALUES ($1,$2,$3,$4) RETURNING *',
