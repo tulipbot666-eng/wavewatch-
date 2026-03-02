@@ -900,17 +900,31 @@ document.querySelectorAll('.av-opt').forEach(el => {
   };
 });
 
+function genRoomId() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let id = 'WAVE-';
+  for (let i = 0; i < 4; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  return id;
+}
+
 async function createRoom() {
   if (!loggedInUser) { showLErr('Faça login para criar uma sala'); return; }
   const name = $('l-name').value.trim();
   const roomName = $('room-name-inp').value.trim();
   if (!name) { $('create-err').textContent = 'Digite seu nome'; $('create-err').classList.add('on'); return; }
+
+  let id;
   try {
     const res = await fetch('/api/room/new');
-    const { roomId: id } = await res.json();
-    closeModal('create-modal');
-    enterApp(id, name, roomName || `Sala de ${name}`, selectedVis === 'public', selectedCat);
-  } catch(e) { $('create-err').textContent = 'Erro ao criar sala'; $('create-err').classList.add('on'); }
+    const data = await res.json();
+    id = data.roomId;
+  } catch(e) {
+    // Servidor indisponível — gera ID localmente
+    id = genRoomId();
+  }
+
+  closeModal('create-modal');
+  enterApp(id, name, roomName || `Sala de ${name}`, selectedVis === 'public', selectedCat);
 }
 
 async function joinRoom() {
