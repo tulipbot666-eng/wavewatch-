@@ -1402,7 +1402,8 @@ async function addVideo(){
     try {
       const data = await fetch(`/api/toky/extract?url=${encodeURIComponent(tokyUrl)}`).then(r=>r.json());
       if(data.error){merr('Erro: '+data.error);$('add-submit').textContent='Adicionar';$('add-submit').disabled=false;return;}
-      video={src:'direct',url:data.mp4,title:data.title||'TokyvVideo',thumb:data.thumb||''};
+      const proxyUrl = `/api/toky/stream?url=${encodeURIComponent(data.mp4)}`;
+      video={src:'direct',url:proxyUrl,title:data.title||'TokyvVideo',thumb:data.thumb||''};
     } catch(e) {
       merr('Erro ao extrair vídeo');$('add-submit').textContent='Adicionar';$('add-submit').disabled=false;return;
     }
