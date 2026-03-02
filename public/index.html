@@ -885,7 +885,8 @@ function connectWS() {
       user: myUser,
       roomName: myUser._roomName,
       isPublic: myUser._isPublic,
-      category: myUser._category
+      category: myUser._category,
+      driveToken: loggedInUser?.googleAccessToken || null
     });
     startPing();
   };
@@ -1064,8 +1065,8 @@ function loadVideo(video,doBroadcast){
     const fileIdMatch = url.match(/\/d\/([a-zA-Z0-9_-]{10,})/)||url.match(/id=([a-zA-Z0-9_-]{10,})/);
     if(!fileIdMatch){ toast('URL do Google Drive inválida'); return; }
     const fileId = fileIdMatch[1].replace(/[^a-zA-Z0-9_-]/g, '');
-    // Use our server proxy — bypasses CORS, supports seeking
-    const streamUrl = `/api/drive/stream/${fileId}`;
+    // Proxy com token do host da sala
+    const streamUrl = `/api/drive/stream/${fileId}?room=${roomId}`;
     const v=document.createElement('video');
     v.src=streamUrl;
     v.controls=false;
