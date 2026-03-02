@@ -234,7 +234,9 @@ app.get('/api/drive/stream/:fileId', async (req, res) => {
     }
 
     if (!driveRes.ok) {
-      return res.status(driveRes.status).json({ error: `Drive returned ${driveRes.status}` });
+      const errBody = await driveRes.text();
+      console.error('Drive error:', driveRes.status, errBody.substring(0, 500));
+      return res.status(driveRes.status).json({ error: `Drive returned ${driveRes.status}`, detail: errBody.substring(0, 200) });
     }
 
     const contentType = driveRes.headers.get('content-type') || 'video/mp4';
