@@ -633,7 +633,7 @@ wss.on('connection', (ws) => {
 // ─────────────────────────────────────────
 // REST API
 // ─────────────────────────────────────────
-app.get('/api/room/new', requireAuth, (req, res) => {
+app.get('/api/room/new', (req, res) => {
   res.json({ roomId: generateRoomCode() });
 });
 
@@ -705,4 +705,4 @@ setInterval(() => {
 }, 1500);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Wave
+server.listen(PORT, () => console.log(`WaveWatch running on port ${PORT}`));
