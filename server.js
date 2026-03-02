@@ -31,10 +31,17 @@ async function initDB() {
       email TEXT UNIQUE,
       password_hash TEXT,
       name TEXT NOT NULL,
+      username TEXT UNIQUE,
+      avatar_emoji TEXT DEFAULT '🎬',
       avatar_url TEXT,
+      profile_complete BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       last_seen TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_emoji TEXT DEFAULT '🎬';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_complete BOOLEAN DEFAULT FALSE;
+    CREATE UNIQUE INDEX IF NOT EXISTS users_username_lower_idx ON users (LOWER(username)) WHERE username IS NOT NULL;
 
     CREATE TABLE IF NOT EXISTS friendships (
       id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -168,7 +175,7 @@ app.post('/auth/register', async (req, res) => {
     if (nameTaken.rows.length) return res.status(400).json({ error: 'Este nome já está em uso. Escolha outro!' });
     const hash = await bcrypt.hash(password, 12);
     const { rows } = await pool.query(
-      'INSERT INTO users (id, name, email, password_hash) VALUES ($1,$2,$3,$4) RETURNING *',
+      'INSERT INTO users (id, name, email, password_hash, profile_complete) VALUES ($1,$2,$3,$4,FALSE) RETURNING *',
       [uuid(), name.trim(), email.toLowerCase(), hash]
     );
     req.login(rows[0], err => {
@@ -195,10 +202,53 @@ app.get('/auth/me', (req, res) => {
   res.json({ user: {
     id: req.user.id,
     name: req.user.name,
+    username: req.user.username || null,
+    avatarEmoji: req.user.avatar_emoji || '🎬',
     email: req.user.email,
     avatarUrl: req.user.avatar_url,
+    profileComplete: req.user.profile_complete || false,
     googleAccessToken: req.session.googleAccessToken || null
   }});
+});
+
+// ── CHECK USERNAME AVAILABILITY ──
+app.get('/api/users/check-username', async (req, res) => {
+  const { username } = req.query;
+  if (!username) return res.json({ available: false, error: 'Digite um username' });
+  const clean = username.trim().toLowerCase();
+  if (clean.length < 3) return res.json({ available: false, error: 'Mínimo 3 caracteres' });
+  if (clean.length > 20) return res.json({ available: false, error: 'Máximo 20 caracteres' });
+  if (!/^[a-z0-9._]+$/.test(clean)) return res.json({ available: false, error: 'Só letras, números, ponto e _' });
+  try {
+    const { rows } = await pool.query('SELECT id FROM users WHERE LOWER(username) = $1', [clean]);
+    res.json({ available: rows.length === 0 });
+  } catch(e) { res.status(500).json({ available: false, error: 'Erro interno' }); }
+});
+
+// ── SETUP PROFILE (onboarding) ──
+app.post('/auth/setup-profile', async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Não autenticado' });
+  const { username, avatarEmoji, displayName } = req.body;
+  if (!username) return res.status(400).json({ error: 'Username obrigatório' });
+  const clean = username.trim().toLowerCase();
+  if (clean.length < 3) return res.status(400).json({ error: 'Username muito curto' });
+  if (clean.length > 20) return res.status(400).json({ error: 'Username muito longo' });
+  if (!/^[a-z0-9._]+$/.test(clean)) return res.status(400).json({ error: 'Username inválido' });
+  try {
+    const taken = await pool.query('SELECT id FROM users WHERE LOWER(username) = $1 AND id != $2', [clean, req.user.id]);
+    if (taken.rows.length) return res.status(400).json({ error: 'Username já está em uso' });
+    const safeName = (displayName || '').trim() || req.user.name;
+    const emoji = avatarEmoji || '🎬';
+    const { rows } = await pool.query(
+      'UPDATE users SET username=$1, avatar_emoji=$2, name=$3, profile_complete=TRUE WHERE id=$4 RETURNING *',
+      [clean, emoji, safeName, req.user.id]
+    );
+    // Refresh session user
+    req.login(rows[0], err => {
+      if (err) return res.status(500).json({ error: 'Erro ao atualizar sessão' });
+      res.json({ ok: true });
+    });
+  } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
 });
 
 // ── GOOGLE DRIVE PROXY STREAM ──
