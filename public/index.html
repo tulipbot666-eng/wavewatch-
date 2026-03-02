@@ -540,6 +540,7 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
       <div class="src-opt on" data-s="youtube" onclick="selSrc(this,'youtube')"><span class="ico">▶️</span>YouTube</div>
       <div class="src-opt" data-s="vimeo" onclick="selSrc(this,'vimeo')"><span class="ico">🎥</span>Vimeo</div>
       <div class="src-opt" data-s="twitch" onclick="selSrc(this,'twitch')"><span class="ico">🟣</span>Twitch</div>
+      <div class="src-opt" data-s="proxy" onclick="selSrc(this,'proxy')"><span class="ico">🌐</span>Qualquer site</div>
       <div class="src-opt" data-s="direct" onclick="selSrc(this,'direct')"><span class="ico">🔗</span>URL direta</div>
       <div class="src-opt" data-s="gdrive" onclick="selSrc(this,'gdrive')"><span class="ico">📁</span>Google Drive</div>
       <div class="src-opt" data-s="local" onclick="selSrc(this,'local')"><span class="ico">💾</span>Arquivo</div>
@@ -587,7 +588,7 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
     <div class="merr" id="merr"></div>
     <div class="mbtns">
       <button class="pill-btn ghost" onclick="closeModal('add-modal')">Cancelar</button>
-      <button id="add-submit" class="pill-btn primary" onclick="addVideo()">▶ Adicionar</button>
+      <button class="pill-btn primary" onclick="addVideo()">▶ Adicionar</button>
     </div>
   </div>
 </div>
@@ -599,7 +600,20 @@ const WS_URL = location.protocol === 'https:' ? `wss://${location.host}` : `ws:/
 
 // ── STATE ─────────────────────────────────────────────────
 let ws = null, myUser = null, roomId = '', roomState = null;
-let ytIframe = null, nativeVid = null;
+let ytIframe = null, nativeVid = null, proxyIframe = null;
+
+function sendProxy(type, data={}) {
+  if(proxyIframe) proxyIframe.contentWindow.postMessage({type, ...data}, '*');
+}
+
+function onProxyMsg(e) {
+  if(!e.data || !e.data.type) return;
+  if(e.data.type==='WW_READY'){if(syncPlaying)sendProxy('WW_PLAY');}
+  if(e.data.type==='WW_PLAYING'){if(isSyncing)return;isPlaying=true;$('pbtn').textContent='⏸';if(amIHost)send('STATE',{playing:true,currentTime:e.data.time||0});}
+  if(e.data.type==='WW_PAUSED'){if(isSyncing)return;isPlaying=false;$('pbtn').textContent='▶';if(amIHost)send('STATE',{playing:false,currentTime:e.data.time||0});}
+  if(e.data.type==='WW_SEEKED'){if(isSyncing)return;if(amIHost)send('SEEK',{t:e.data.time||0});}
+  if(e.data.type==='WW_TIME'){if(nativeVid===null&&proxyIframe){const t=e.data.time||0;const d=e.data.duration||0;if(d>0){$('prog-fill').style.width=(t/d*100)+'%';$('tlbl-cur').textContent=fmt(t);$('tlbl-dur').textContent=fmt(d);}}}
+}
 let isPlaying = false, isSyncing = false;
 let currentSrc = 'youtube', pickedFile = null;
 let ytInfoCache = {}, selectedAvatar = '🎬';
@@ -990,7 +1004,8 @@ function loadVideo(video,doBroadcast){
   const{src,url,title,author}=video;
   if(ytIframe){ytIframe=null;}
   ytReady=false;ytCurrentTime=0;ytPendingSeek=null;
-  if(nativeVid){nativeVid.pause();nativeVid=null;}
+  if(nativeVid){nativeVid.pause();nativeVid.src='';nativeVid.load();nativeVid=null;}
+  if(proxyIframe){proxyIframe=null;window.removeEventListener('message',onProxyMsg);}
 
   const wrap=$('vwrap');
   const reacts=wrap.querySelector('.reacts-wrap');
@@ -1032,6 +1047,18 @@ function loadVideo(video,doBroadcast){
     iframe.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
     iframe.src=`https://player.twitch.tv/?channel=${ch}&parent=${location.hostname}`;
     iframe.allow='autoplay; fullscreen'; iframe.allowFullscreen=true; wrap.appendChild(iframe);
+  } else if(src==='proxy'){
+    $('src-badge').textContent='🌐';
+    const iframe=document.createElement('iframe');
+    iframe.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
+    iframe.src=url;
+    iframe.allow='autoplay; fullscreen; accelerometer; encrypted-media';
+    iframe.allowFullscreen=true;
+    wrap.appendChild(iframe);
+    proxyIframe=iframe;
+    // Escuta eventos do player dentro do iframe
+    window.removeEventListener('message', onProxyMsg);
+    window.addEventListener('message', onProxyMsg);
   } else if(src==='gdrive'){
     $('src-badge').textContent='GD';
     const fileIdMatch = url.match(/\/d\/([a-zA-Z0-9_-]{10,})/)||url.match(/id=([a-zA-Z0-9_-]{10,})/);
@@ -1112,9 +1139,9 @@ function updateYTOverlay(){const o=$('yt-overlay');if(o)o.style.cursor=amIHost?'
 function togglePlay(){if(!amIHost){toast('Apenas o host pode pausar/dar play ▶');return;}const n=!isPlaying;if(n)doPlay();else doPause();send('STATE',{playing:n,currentTime:curTime()});}
 function skip(s){if(!amIHost){toast('Apenas o host pode avançar/voltar ⏩');return;}const t=Math.max(0,curTime()+s);seekTo(t);send('SEEK',{t});}
 function seekClick(e){if(!amIHost)return;const dur=curDur();if(!dur&&!ytIframe)return;const r=$('prog').getBoundingClientRect();const t=Math.max(0,Math.min(dur||600,((e.clientX-r.left)/r.width)*(dur||600)));seekTo(t);send('SEEK',{t});}
-function doPlay(){isPlaying=true;$('pbtn').textContent='⏸';if(ytIframe&&ytReady)ytCmd('playVideo');if(nativeVid)nativeVid.play().catch(()=>{});}
-function doPause(){isPlaying=false;$('pbtn').textContent='▶';if(ytIframe&&ytReady)ytCmd('pauseVideo');if(nativeVid)nativeVid.pause();setRate(RATE_NORMAL);}
-function seekTo(t){if(ytIframe){if(ytReady)ytCmd('seekTo',[t,true]);else ytPendingSeek=t;}if(nativeVid)nativeVid.currentTime=t;}
+function doPlay(){isPlaying=true;$('pbtn').textContent='⏸';if(ytIframe&&ytReady)ytCmd('playVideo');if(nativeVid)nativeVid.play().catch(()=>{});if(proxyIframe)sendProxy('WW_PLAY');}
+function doPause(){isPlaying=false;$('pbtn').textContent='▶';if(ytIframe&&ytReady)ytCmd('pauseVideo');if(nativeVid)nativeVid.pause();setRate(RATE_NORMAL);if(proxyIframe)sendProxy('WW_PAUSE');}
+function seekTo(t){if(ytIframe){if(ytReady)ytCmd('seekTo',[t,true]);else ytPendingSeek=t;}if(nativeVid)nativeVid.currentTime=t;if(proxyIframe)sendProxy('WW_SEEK',{time:t});}
 function setVol(v){if(nativeVid)nativeVid.volume=v;ytCmd('setVolume',[v*100]);}
 function goFS(){const w=$('vwrap');if(!document.fullscreenElement)w.requestFullscreen&&w.requestFullscreen();else document.exitFullscreen&&document.exitFullscreen();}
 
@@ -1267,16 +1294,17 @@ function updateLiveLbl(n){$('live-lbl').textContent=(n||1)+' online';}
 // ── MODAL ─────────────────────────────────────────────────
 function openAddModal(){$('add-modal').classList.add('on');}
 function closeModal(id){$(id).classList.remove('on');}
-const SRC_LABELS={vimeo:'URL do Vimeo',twitch:'Canal Twitch',direct:'URL do vídeo'};
-const SRC_PLACEHOLDERS={vimeo:'https://vimeo.com/...',twitch:'nome do canal',direct:'https://exemplo.com/video.mp4'};
+const SRC_LABELS={vimeo:'URL do Vimeo',twitch:'Canal Twitch',direct:'URL do vídeo',proxy:'URL do site'};
+const SRC_PLACEHOLDERS={vimeo:'https://vimeo.com/...',twitch:'nome do canal',direct:'https://exemplo.com/video.mp4',proxy:'https://tokyvideo.com/video/...'};
+
 
 function selSrc(el,src){
   document.querySelectorAll('.src-opt').forEach(e=>e.classList.remove('on'));el.classList.add('on');currentSrc=src;
   $('yt-section').style.display=src==='youtube'?'block':'none';
-  $('url-section').style.display=['vimeo','twitch','direct'].includes(src)?'block':'none';
+  $('url-section').style.display=['vimeo','twitch','direct','proxy'].includes(src)?'block':'none';
   $('gdrive-section').style.display=src==='gdrive'?'block':'none';
   $('local-section').style.display=src==='local'?'block':'none';
-  if(['vimeo','twitch','direct'].includes(src)){$('url-mlabel').textContent=SRC_LABELS[src]||'URL';$('vurl').placeholder=SRC_PLACEHOLDERS[src]||'https://';}
+  if(['vimeo','twitch','direct','proxy'].includes(src)){$('url-mlabel').textContent=SRC_LABELS[src]||'URL';$('vurl').placeholder=SRC_PLACEHOLDERS[src]||'https://';}
 }
 
 // ── GOOGLE DRIVE PICKER ───────────────────────────────────
@@ -1391,6 +1419,12 @@ async function addVideo(){
     const url=`https://drive.google.com/file/d/${fileId}/view`;
     const thumb=`https://drive.google.com/thumbnail?id=${fileId}&sz=w320`;
     video={src:'gdrive',url,title,thumb};
+  }else if(currentSrc==='proxy'){
+    const proxyUrl=$('vurl').value.trim();
+    if(!proxyUrl){merr('Cole a URL do site');return;}
+    try { new URL(proxyUrl); } catch(e){ merr('URL inválida');return; }
+    const proxied = `/api/proxy?url=${encodeURIComponent(proxyUrl)}`;
+    video={src:'proxy',url:proxied,title:proxyUrl.split('/').pop()||'Vídeo',thumb:''};
   }else if(currentSrc==='local'){
     if(!pickedFile){merr('Selecione um arquivo');return;}
     const title=pickedFile.name;
@@ -1399,28 +1433,10 @@ async function addVideo(){
     reader.readAsDataURL(pickedFile);return;
   }else{
     const url=$('vurl').value.trim();if(!url){merr('Digite a URL');return;}
-    const isDirectVideo = /\.(mp4|webm|mkv|avi|mov|m3u8)(\?|$)/i.test(url);
-    if(!isDirectVideo && currentSrc==='direct'){
-      merr('');
-      $('add-submit').textContent='Extraindo...';
-      $('add-submit').disabled=true;
-      try {
-        const data = await fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json());
-        $('add-submit').textContent='Adicionar';
-        $('add-submit').disabled=false;
-        if(data.error){merr('Não foi possível extrair: '+data.error);return;}
-        video={src:'direct',url:data.url,title:data.title||'Vídeo',thumb:data.thumb||''};
-      } catch(e){
-        $('add-submit').textContent='Adicionar';
-        $('add-submit').disabled=false;
-        merr('Erro ao extrair vídeo');return;
-      }
-    } else {
-      let title=url.split('/').pop().split('?')[0]||url;
-      const srcLabels={vimeo:'Vimeo',twitch:'Twitch',direct:''};
-      if(srcLabels[currentSrc])title=srcLabels[currentSrc]+': '+title;
-      video={src:currentSrc,url,title,thumb:''};
-    }
+    let title=url.split('/').pop().split('?')[0]||url;
+    const srcLabels={vimeo:'Vimeo',twitch:'Twitch',direct:''};
+    if(srcLabels[currentSrc])title=srcLabels[currentSrc]+': '+title;
+    video={src:currentSrc,url,title,thumb:''};
   }
   localQueue.push(video);send('QUEUE_UPDATE',{queue:localQueue.filter(q=>q.src!=='local')});
   renderQueue(localQueue);loadVideo(video,true);closeModal('add-modal');
