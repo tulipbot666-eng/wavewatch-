@@ -358,24 +358,59 @@ app.get('/api/proxy', async (req, res) => {
     });
   });
 
-  // Observa inserção de elementos video no DOM dinamicamente
+  // Observa inserção de elementos video no DOM dinamicamente — inclui múltiplos videos (anúncio + principal)
   const observer = new MutationObserver(() => {
-    findVideo(attachVideo);
+    document.querySelectorAll('video').forEach(v => attachVideo(v));
+    document.querySelectorAll('*').forEach(el => {
+      if (el.shadowRoot) el.shadowRoot.querySelectorAll('video').forEach(v => attachVideo(v));
+    });
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
-  let attached = false;
+  // Rastreia todos os videos — anuncios e video principal
+  const videoSet = new Set();
+
   function attachVideo(v) {
-    if (attached) return; attached = true;
-    observer.disconnect();
-    v.addEventListener('play',    () => window.parent.postMessage({type:'WW_PLAYING', time: v.currentTime}, '*'));
-    v.addEventListener('pause',   () => window.parent.postMessage({type:'WW_PAUSED',  time: v.currentTime}, '*'));
-    v.addEventListener('seeked',  () => window.parent.postMessage({type:'WW_SEEKED',  time: v.currentTime}, '*'));
+    if (videoSet.has(v)) return;
+    videoSet.add(v);
+
+    // Detecta se é anúncio (curto, ou tem atributo de ad)
+    function isAd(vid) {
+      return (vid.duration > 0 && vid.duration < 120) ||
+             vid.closest && (vid.closest('[class*="ad"]') || vid.closest('[id*="ad"]') || vid.closest('[class*="vast"]'));
+    }
+
+    v.addEventListener('play', () => {
+      if (isAd(v)) return; // ignora anúncios
+      window.parent.postMessage({type:'WW_PLAYING', time: v.currentTime}, '*');
+    });
+    v.addEventListener('pause', () => {
+      if (isAd(v)) return;
+      window.parent.postMessage({type:'WW_PAUSED', time: v.currentTime}, '*');
+    });
+    v.addEventListener('seeked', () => {
+      if (isAd(v)) return;
+      window.parent.postMessage({type:'WW_SEEKED', time: v.currentTime}, '*');
+    });
     v.addEventListener('timeupdate', () => {
+      if (isAd(v)) return;
       if (Math.floor(v.currentTime) % 2 === 0)
         window.parent.postMessage({type:'WW_TIME', time: v.currentTime, duration: v.duration||0}, '*');
     });
-    window.parent.postMessage({type:'WW_READY'}, '*');
+
+    // Quando anúncio termina, notifica que está pronto
+    v.addEventListener('ended', () => {
+      if (isAd(v)) {
+        // Anúncio acabou — avisa WaveWatch pra se preparar
+        window.parent.postMessage({type:'WW_AD_ENDED'}, '*');
+        // Procura novo video que pode aparecer
+        setTimeout(() => findVideo(attachVideo, 0), 500);
+      }
+    });
+
+    if (!isAd(v)) {
+      window.parent.postMessage({type:'WW_READY'}, '*');
+    }
   }
 
   // Tenta logo e via observer
@@ -405,10 +440,25 @@ app.get('/api/proxy', async (req, res) => {
       res.setHeader('content-type', 'text/css; charset=utf-8');
       res.send(css);
 
+    } else if (contentType.includes('application/vnd.apple.mpegurl') || contentType.includes('application/x-mpegurl') || url.includes('.m3u8')) {
+      // Reescreve playlists HLS (.m3u8) para que os segmentos passem pelo proxy
+      let m3u8 = await response.text();
+      m3u8 = m3u8.split('\n').map(line => {
+        line = line.trim();
+        if (!line || line.startsWith('#')) return line;
+        // Reescreve URLs de segmentos e sub-playlists
+        return proxyBase + encodeURIComponent(rewriteUrl(line, target.origin, target.href, proxyBase).replace(proxyBase, '').split('?')[0] ? new URL(line, target.href).href : line);
+      }).join('\n');
+      res.removeHeader('content-security-policy');
+      res.setHeader('content-type', 'application/vnd.apple.mpegurl');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.send(m3u8);
+
     } else {
-      // Recursos binários (JS, imagens, vídeo, fontes) — proxy direto com streaming
+      // Recursos binários (JS, imagens, vídeo, fontes, segmentos HLS .ts) — proxy direto com streaming
       res.removeHeader('content-security-policy');
       res.removeHeader('x-frame-options');
+      res.setHeader('Access-Control-Allow-Origin', '*');
       const { Readable } = require('stream');
       Readable.fromWeb(response.body).pipe(res);
     }
