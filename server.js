@@ -227,6 +227,30 @@ app.get("/api/toky/extract", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// ── TOKY VIDEO PROXY STREAM ──
+app.get('/api/toky/stream', async (req, res) => {
+  const { url } = req.query;
+  if (!url || !url.includes('tokyvideo.com')) return res.status(400).json({ error: 'Invalid URL' });
+  try {
+    const headers = { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.tokyvideo.com/' };
+    if (req.headers.range) headers['Range'] = req.headers.range;
+    const videoRes = await fetch(url, { headers });
+    if (!videoRes.ok) return res.status(videoRes.status).json({ error: 'Stream failed' });
+    res.setHeader('Content-Type', videoRes.headers.get('content-type') || 'video/mp4');
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    const cl = videoRes.headers.get('content-length');
+    const cr = videoRes.headers.get('content-range');
+    if (cl) res.setHeader('Content-Length', cl);
+    if (cr) res.setHeader('Content-Range', cr);
+    res.status(videoRes.status);
+    const { Readable } = require('stream');
+    Readable.fromWeb(videoRes.body).pipe(res);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 app.get('/api/drive/stream/:fileId', async (req, res) => {
   const { fileId } = req.params;
   const token = req.session.googleAccessToken;
