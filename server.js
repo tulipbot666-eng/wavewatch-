@@ -335,7 +335,8 @@ app.get('/api/drive/stream/:fileId', async (req, res) => {
     if (contentLength) res.setHeader('Content-Length', contentLength);
     if (contentRange) res.setHeader('Content-Range', contentRange);
     res.status(driveRes.status);
-    driveRes.body.pipe(res);
+    const { Readable } = require('stream');
+    Readable.fromWeb(driveRes.body).pipe(res);
   } catch(e) {
     console.error('Drive proxy error:', e.message);
     res.status(500).json({ error: e.message });
