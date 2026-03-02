@@ -674,6 +674,36 @@ wss.on('connection', (ws) => {
       }
     }
 
+    // ── BOOKMARKLET SYNC ──
+    if (type === 'BM_JOIN') {
+      const { roomId, userId, url } = payload;
+      currentRoom = getOrCreateRoom(roomId);
+      currentUser = { id: wsId, name: 'Sync:' + userId, isBookmarklet: true };
+      currentRoom.members.set(wsId, { ws, user: currentUser, rtt: 80 });
+      broadcastAll(currentRoom, { type: 'BM_MEMBERS', payload: { count: currentRoom.members.size } });
+      ws.send(JSON.stringify({ type: 'BM_MEMBERS', payload: { count: currentRoom.members.size } }));
+    }
+
+    if (type === 'BM_PLAY' && currentRoom) {
+      broadcast(currentRoom, { type: 'BM_PLAY', payload }, wsId);
+      currentRoom.playing = true;
+      currentRoom.currentTime = payload.time || 0;
+      currentRoom.wallClock = Date.now();
+    }
+
+    if (type === 'BM_PAUSE' && currentRoom) {
+      broadcast(currentRoom, { type: 'BM_PAUSE', payload }, wsId);
+      currentRoom.playing = false;
+      currentRoom.currentTime = payload.time || 0;
+      currentRoom.wallClock = Date.now();
+    }
+
+    if (type === 'BM_SEEK' && currentRoom) {
+      broadcast(currentRoom, { type: 'BM_SEEK', payload }, wsId);
+      currentRoom.currentTime = payload.time || 0;
+      currentRoom.wallClock = Date.now();
+    }
+
     if (type === 'CHAT' && currentRoom) {
       broadcastAll(currentRoom, { type: 'CHAT', payload: { id: uuid(), user: currentUser, text: payload.text, ts: Date.now() } });
     }
@@ -777,6 +807,38 @@ app.get('/api/rooms/public', (req, res) => {
   // Sort by member count desc
   list.sort((a, b) => b.memberCount - a.memberCount);
   res.json({ rooms: list });
+});
+
+// ── BOOKMARKLET: serve o código já com o host correto ──
+app.get('/api/bm/code', (req, res) => {
+  const proto = req.headers['x-forwarded-proto'] || req.protocol;
+  const host = req.get('host');
+  const wsProto = proto === 'https' ? 'wss' : 'ws';
+
+  const code = `(function(){if(window.__ww_sync){window.__ww_sync.toggle();return;}const WW_HOST="${host}";const WS_URL="${wsProto}://${host}";const bar=document.createElement('div');bar.id='__ww_bar';bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:2147483647;height:40px;background:linear-gradient(135deg,#e84393,#7c5cfc);display:flex;align-items:center;padding:0 16px;gap:12px;font-family:system-ui,sans-serif;font-size:13px;color:#fff;box-shadow:0 2px 16px rgba(0,0,0,.4);transition:transform .3s ease';bar.innerHTML='<span style="font-weight:700;letter-spacing:-.3px">🌊 WaveWatch</span><span id="__ww_status" style="font-size:11px;opacity:.85;font-family:monospace">Conectando...</span><span id="__ww_room" style="font-size:11px;background:rgba(255,255,255,.2);padding:2px 8px;border-radius:20px;font-family:monospace"></span><span id="__ww_users" style="font-size:11px;opacity:.75"></span><span style="margin-left:auto;display:flex;gap:8px;align-items:center"><span id="__ww_dot" style="width:8px;height:8px;border-radius:50%;background:#fff;opacity:.4"></span><button id="__ww_close" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:14px;line-height:1">✕</button></span>';document.body.appendChild(bar);document.body.style.marginTop='40px';function ss(t,ok){document.getElementById('__ww_status').textContent=t;var d=document.getElementById('__ww_dot');d.style.background=ok?'#00d4aa':'#fff';d.style.opacity=ok?1:.4;if(ok)d.style.boxShadow='0 0 6px #00d4aa';else d.style.boxShadow='';}document.getElementById('__ww_close').onclick=function(){bar.style.transform='translateY(-100%)';document.body.style.marginTop='';setTimeout(function(){bar.remove();window.__ww_sync=null;},300);if(ws)ws.close();};var ws=null,roomId=null,video=null,syncing=false,myId='bm_'+Math.random().toString(36).slice(2,8);fetch('https://'+WW_HOST+'/api/bm/session',{credentials:'include'}).then(function(r){return r.json();}).then(function(d){if(!d.roomId){ss('Nenhuma sala ativa — entre no WaveWatch primeiro',false);return;}roomId=d.roomId;document.getElementById('__ww_room').textContent=roomId;connect();}).catch(function(){ss('Erro ao conectar',false);});function connect(){ws=new WebSocket(WS_URL);ws.onopen=function(){ss('Sincronizando',true);ws.send(JSON.stringify({type:'BM_JOIN',payload:{roomId:roomId,userId:myId,url:location.href}}));attachVideo();};ws.onmessage=function(e){var m=JSON.parse(e.data);if(m.type==='BM_MEMBERS')document.getElementById('__ww_users').textContent='👥 '+m.payload.count;if(m.type==='BM_PLAY')apply('play',m.payload.time);if(m.type==='BM_PAUSE')apply('pause',m.payload.time);if(m.type==='BM_SEEK')apply('seek',m.payload.time);};ws.onclose=function(){ss('Desconectado',false);};ws.onerror=function(){ss('Erro',false);};}function fv(){var v=document.querySelector('video');if(v)return v;for(var el of document.querySelectorAll('*')){if(el.shadowRoot){var sv=el.shadowRoot.querySelector('video');if(sv)return sv;}}return null;}function attachVideo(){video=fv();if(!video){ss('Aguardando player...',true);var obs=new MutationObserver(function(){var v=fv();if(v){obs.disconnect();video=v;hook();}});obs.observe(document.documentElement,{childList:true,subtree:true});return;}hook();}function hook(){ss('Sincronizando',true);video.addEventListener('play',function(){if(syncing)return;send('BM_PLAY',{time:video.currentTime});});video.addEventListener('pause',function(){if(syncing)return;send('BM_PAUSE',{time:video.currentTime});});video.addEventListener('seeked',function(){if(syncing)return;send('BM_SEEK',{time:video.currentTime});});}function apply(a,t){if(!video){video=fv();if(!video)return;}syncing=true;if(Math.abs(video.currentTime-t)>1)video.currentTime=t;if(a==='play')video.play().catch(function(){});if(a==='pause')video.pause();setTimeout(function(){syncing=false;},300);}function send(type,payload){if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:type,payload:Object.assign({},payload,{roomId:roomId})}));}window.__ww_sync={toggle:function(){var h=bar.style.transform==='translateY(-100%)';bar.style.transform=h?'':'translateY(-100%)';document.body.style.marginTop=h?'40px':'';}}; })();`;
+
+  res.setHeader('Content-Type', 'application/javascript');
+  res.send(`javascript:${encodeURIComponent(code)}`);
+});
+
+// ── BOOKMARKLET: salva sala ativa do usuário ──
+app.post('/api/bm/session', requireAuth, (req, res) => {
+  const { roomId } = req.body;
+  if (!roomId) return res.status(400).json({ error: 'roomId required' });
+  req.session.bmRoom = roomId;
+  req.session.save();
+  res.json({ ok: true });
+});
+
+// ── BOOKMARKLET: retorna sala ativa + host do WS ──
+app.get('/api/bm/session', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  const roomId = req.session?.bmRoom || null;
+  const wsHost = req.get('host');
+  const proto = req.headers['x-forwarded-proto'] || req.protocol;
+  const wsUrl = (proto === 'https' ? 'wss' : 'ws') + '://' + wsHost;
+  res.json({ roomId, wsUrl, host: wsHost });
 });
 
 app.get('/api/yt/search', async (req, res) => {
