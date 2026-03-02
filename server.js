@@ -205,93 +205,31 @@ app.get('/api/config', (req, res) => {
 });
 
 // ── PROXY REVERSO PARA IFRAME (remove X-Frame-Options) ──
-const BLOCKED_HEADERS = new Set([
-  'x-frame-options','content-security-policy','x-content-type-options',
-  'strict-transport-security','permissions-policy','cross-origin-opener-policy',
-  'cross-origin-embedder-policy','cross-origin-resource-policy'
-]);
-
-function buildProxyBase(req) {
-  const proto = req.headers['x-forwarded-proto'] || req.protocol;
-  return `${proto}://${req.get('host')}/api/proxy?url=`;
-}
-
-function rewriteUrl(rawUrl, targetOrigin, targetHref, proxyBase) {
-  if (!rawUrl || rawUrl.startsWith('data:') || rawUrl.startsWith('blob:') || rawUrl.startsWith('javascript:') || rawUrl.startsWith('#')) return rawUrl;
-  try {
-    const abs = new URL(rawUrl, targetHref).href;
-    return proxyBase + encodeURIComponent(abs);
-  } catch { return rawUrl; }
-}
-
-function rewriteHtml(html, target, proxyBase) {
-  const origin = target.origin;
-  const href = target.href;
-
-  // Rewrite src/href/action attributes (single and double quotes)
-  html = html.replace(/(\b(?:src|href|action|data-src|data-href)\s*=\s*)(['"])(.*?)\2/gi, (match, attr, quote, url) => {
-    return attr + quote + rewriteUrl(url, origin, href, proxyBase) + quote;
-  });
-
-  // Rewrite srcset attributes
-  html = html.replace(/(\bsrcset\s*=\s*)(['"])(.*?)\2/gi, (match, attr, quote, srcset) => {
-    const rewritten = srcset.replace(/([^\s,]+)(\s*(?:\s+\d+[wx])?)/g, (m, url, desc) => {
-      return rewriteUrl(url.trim(), origin, href, proxyBase) + desc;
-    });
-    return attr + quote + rewritten + quote;
-  });
-
-  // Rewrite CSS url() in style attributes and <style> blocks
-  html = html.replace(/url\(\s*(['"]?)(.*?)\1\s*\)/gi, (match, quote, url) => {
-    return `url(${quote}${rewriteUrl(url, origin, href, proxyBase)}${quote})`;
-  });
-
-  // Rewrite window.location / fetch / XHR URLs em scripts inline (heurística)
-  // Substitui strings absolutas que apontam para o domínio alvo
-  html = html.replace(new RegExp(`(['"])${origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^'"]*?)\\1`, 'g'), (match, quote, path) => {
-    return quote + proxyBase + encodeURIComponent(origin + path) + quote;
-  });
-
-  return html;
-}
-
-function rewriteCss(css, target, proxyBase) {
-  return css.replace(/url\(\s*(['"]?)(.*?)\1\s*\)/gi, (match, quote, url) => {
-    return `url(${quote}${rewriteUrl(url, target.origin, target.href, proxyBase)}${quote})`;
-  });
-}
-
 app.get('/api/proxy', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).send('URL required');
 
-  let target;
-  try { target = new URL(url); } catch { return res.status(400).send('URL inválida'); }
-
-  const proxyBase = buildProxyBase(req);
-
   try {
+    const target = new URL(url);
+    const proxyBase = `${req.protocol}://${req.get('host')}/api/proxy?url=`;
+
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
         'Accept-Encoding': 'identity',
-        'Referer': target.origin + '/',
-        'Origin': target.origin,
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'same-origin',
-        'Upgrade-Insecure-Requests': '1'
+        'Referer': target.origin
       },
       redirect: 'follow'
     });
 
-    // Filtra headers problemáticos
+    // Remove headers que bloqueiam iframe
+    const headers = {};
     response.headers.forEach((val, key) => {
       const lower = key.toLowerCase();
-      if (!BLOCKED_HEADERS.has(lower) && lower !== 'set-cookie' && lower !== 'transfer-encoding') {
-        try { res.setHeader(key, val); } catch {}
+      if (!['x-frame-options','content-security-policy','x-content-type-options'].includes(lower)) {
+        headers[key] = val;
       }
     });
 
@@ -299,179 +237,63 @@ app.get('/api/proxy', async (req, res) => {
 
     if (contentType.includes('text/html')) {
       let html = await response.text();
-      html = rewriteHtml(html, target, proxyBase);
 
-      // Injeta script de controle do player + intercepta fetch/XHR
+      // Reescreve links relativos para absolutos
+      html = html
+        .replace(/(href|src|action)="\/(?!\/)/g, `$1="${target.origin}/`)
+        .replace(/(href|src|action)='\/(?!\/)/g, `$1='${target.origin}/`);
+
+      // Injeta script de controle do player
       const controlScript = `
 <script>
 (function() {
-  const PROXY = ${JSON.stringify(proxyBase)};
-  const ORIGIN = ${JSON.stringify(target.origin)};
-
-  // Intercepta fetch para reescrever URLs relativas/absolutas do site alvo
-  const _fetch = window.fetch;
-  window.fetch = function(input, init) {
-    try {
-      let u = typeof input === 'string' ? input : (input.url || input);
-      if (typeof u === 'string' && !u.startsWith('blob:') && !u.startsWith('data:')) {
-        const abs = new URL(u, ORIGIN).href;
-        if (abs.startsWith(ORIGIN)) u = PROXY + encodeURIComponent(abs);
-        input = typeof input === 'string' ? u : new Request(u, input);
-      }
-    } catch {}
-    return _fetch.apply(this, [input, init]);
-  };
-
-  // Intercepta XMLHttpRequest
-  const _open = XMLHttpRequest.prototype.open;
-  XMLHttpRequest.prototype.open = function(method, url, ...rest) {
-    try {
-      const abs = new URL(url, ORIGIN).href;
-      if (abs.startsWith(ORIGIN)) url = PROXY + encodeURIComponent(abs);
-    } catch {}
-    return _open.call(this, method, url, ...rest);
-  };
-
-  // Encontra o elemento <video> — espera até 30s
-  function findVideo(cb, attempts) {
-    attempts = attempts || 0;
-    const v = document.querySelector('video:not([data-ww])');
-    if (v) { v.dataset.ww = '1'; cb(v); return; }
-    // Também procura em shadow roots
-    const all = document.querySelectorAll('*');
-    for (const el of all) {
-      if (el.shadowRoot) {
-        const sv = el.shadowRoot.querySelector('video:not([data-ww])');
-        if (sv) { sv.dataset.ww = '1'; cb(sv); return; }
-      }
-    }
-    if (attempts < 60) setTimeout(() => findVideo(cb, attempts + 1), 500);
+  function findVideo() {
+    return document.querySelector('video');
   }
 
-  // Escuta comandos do WaveWatch (play/pause/seek)
+  // Escuta comandos do WaveWatch
   window.addEventListener('message', function(e) {
-    if (!e.data || !e.data.type) return;
-    findVideo(function(v) {
-      if (e.data.type === 'WW_PLAY') { v.play().catch(()=>{}); }
-      if (e.data.type === 'WW_PAUSE') { v.pause(); }
-      if (e.data.type === 'WW_SEEK') { v.currentTime = e.data.time; }
-    });
+    const v = findVideo();
+    if (!v) return;
+    if (e.data.type === 'WW_PLAY') v.play();
+    if (e.data.type === 'WW_PAUSE') v.pause();
+    if (e.data.type === 'WW_SEEK') v.currentTime = e.data.time;
   });
 
-  // Observa inserção de elementos video no DOM dinamicamente — inclui múltiplos videos (anúncio + principal)
-  const observer = new MutationObserver(() => {
-    document.querySelectorAll('video').forEach(v => attachVideo(v));
-    document.querySelectorAll('*').forEach(el => {
-      if (el.shadowRoot) el.shadowRoot.querySelectorAll('video').forEach(v => attachVideo(v));
-    });
-  });
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-
-  // Rastreia todos os videos — anuncios e video principal
-  const videoSet = new Set();
-
-  function attachVideo(v) {
-    if (videoSet.has(v)) return;
-    videoSet.add(v);
-
-    // Detecta se é anúncio (curto, ou tem atributo de ad)
-    function isAd(vid) {
-      return (vid.duration > 0 && vid.duration < 120) ||
-             vid.closest && (vid.closest('[class*="ad"]') || vid.closest('[id*="ad"]') || vid.closest('[class*="vast"]'));
-    }
-
-    v.addEventListener('play', () => {
-      if (isAd(v)) return; // ignora anúncios
-      window.parent.postMessage({type:'WW_PLAYING', time: v.currentTime}, '*');
-    });
-    v.addEventListener('pause', () => {
-      if (isAd(v)) return;
-      window.parent.postMessage({type:'WW_PAUSED', time: v.currentTime}, '*');
-    });
-    v.addEventListener('seeked', () => {
-      if (isAd(v)) return;
-      window.parent.postMessage({type:'WW_SEEKED', time: v.currentTime}, '*');
-    });
+  // Envia eventos de volta para o WaveWatch
+  function watch() {
+    const v = findVideo();
+    if (!v) { setTimeout(watch, 500); return; }
+    v.addEventListener('play', () => window.parent.postMessage({type:'WW_PLAYING', time: v.currentTime}, '*'));
+    v.addEventListener('pause', () => window.parent.postMessage({type:'WW_PAUSED', time: v.currentTime}, '*'));
+    v.addEventListener('seeked', () => window.parent.postMessage({type:'WW_SEEKED', time: v.currentTime}, '*'));
     v.addEventListener('timeupdate', () => {
-      if (isAd(v)) return;
       if (Math.floor(v.currentTime) % 2 === 0)
-        window.parent.postMessage({type:'WW_TIME', time: v.currentTime, duration: v.duration||0}, '*');
+        window.parent.postMessage({type:'WW_TIME', time: v.currentTime, duration: v.duration}, '*');
     });
-
-    // Quando anúncio termina, notifica que está pronto
-    v.addEventListener('ended', () => {
-      if (isAd(v)) {
-        // Anúncio acabou — avisa WaveWatch pra se preparar
-        window.parent.postMessage({type:'WW_AD_ENDED'}, '*');
-        // Procura novo video que pode aparecer
-        setTimeout(() => findVideo(attachVideo, 0), 500);
-      }
-    });
-
-    if (!isAd(v)) {
-      window.parent.postMessage({type:'WW_READY'}, '*');
-    }
+    window.parent.postMessage({type:'WW_READY'}, '*');
   }
-
-  // Tenta logo e via observer
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => findVideo(attachVideo));
-  else findVideo(attachVideo);
+  
+  if (document.readyState === 'complete') watch();
+  else window.addEventListener('load', watch);
 })();
 </script>`;
 
-      // Injeta no <head> para rodar antes de scripts do site
-      if (html.includes('<head>')) {
-        html = html.replace('<head>', '<head>' + controlScript);
-      } else if (html.includes('<body')) {
-        html = html.replace('<body', controlScript + '<body');
-      } else {
-        html = controlScript + html;
-      }
-
+      html = html.replace('</body>', controlScript + '</body>');
+      
+      Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
       res.removeHeader('x-frame-options');
       res.removeHeader('content-security-policy');
       res.setHeader('content-type', 'text/html; charset=utf-8');
       res.send(html);
-
-    } else if (contentType.includes('text/css')) {
-      let css = await response.text();
-      css = rewriteCss(css, target, proxyBase);
-      res.removeHeader('content-security-policy');
-      res.setHeader('content-type', 'text/css; charset=utf-8');
-      res.send(css);
-
-    } else if (contentType.includes('application/vnd.apple.mpegurl') || contentType.includes('application/x-mpegurl') || url.includes('.m3u8')) {
-      // Reescreve playlists HLS (.m3u8) para que os segmentos passem pelo proxy
-      let m3u8 = await response.text();
-      m3u8 = m3u8.split('\n').map(line => {
-        line = line.trim();
-        if (!line || line.startsWith('#')) return line;
-        // Reescreve URLs de segmentos e sub-playlists
-        return proxyBase + encodeURIComponent(rewriteUrl(line, target.origin, target.href, proxyBase).replace(proxyBase, '').split('?')[0] ? new URL(line, target.href).href : line);
-      }).join('\n');
-      res.removeHeader('content-security-policy');
-      res.setHeader('content-type', 'application/vnd.apple.mpegurl');
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.send(m3u8);
-
     } else {
-      // Recursos binários (JS, imagens, vídeo, fontes, segmentos HLS .ts) — proxy direto com streaming
-      res.removeHeader('content-security-policy');
-      res.removeHeader('x-frame-options');
-      res.setHeader('Access-Control-Allow-Origin', '*');
+      // Para recursos não-HTML (JS, CSS, imagens), faz proxy direto
+      Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
       const { Readable } = require('stream');
       Readable.fromWeb(response.body).pipe(res);
     }
-
   } catch(e) {
-    console.error('Proxy error:', e.message);
-    res.status(500).send(`
-      <html><body style="background:#08090f;color:#f0f0ff;font-family:sans-serif;padding:2rem;text-align:center">
-        <h2>⚠️ Proxy não conseguiu carregar este site</h2>
-        <p style="color:#8b8ea8">Erro: ${e.message}</p>
-        <p style="color:#8b8ea8;font-size:.85rem">Alguns sites bloqueiam ativamente proxies. Tente copiar a URL direta do vídeo (MP4/M3U8).</p>
-      </body></html>
-    `);
+    res.status(500).send('Proxy error: ' + e.message);
   }
 });
 
@@ -724,36 +546,6 @@ wss.on('connection', (ws) => {
       }
     }
 
-    // ── BOOKMARKLET SYNC ──
-    if (type === 'BM_JOIN') {
-      const { roomId, userId, url } = payload;
-      currentRoom = getOrCreateRoom(roomId);
-      currentUser = { id: wsId, name: 'Sync:' + userId, isBookmarklet: true };
-      currentRoom.members.set(wsId, { ws, user: currentUser, rtt: 80 });
-      broadcastAll(currentRoom, { type: 'BM_MEMBERS', payload: { count: currentRoom.members.size } });
-      ws.send(JSON.stringify({ type: 'BM_MEMBERS', payload: { count: currentRoom.members.size } }));
-    }
-
-    if (type === 'BM_PLAY' && currentRoom) {
-      broadcast(currentRoom, { type: 'BM_PLAY', payload }, wsId);
-      currentRoom.playing = true;
-      currentRoom.currentTime = payload.time || 0;
-      currentRoom.wallClock = Date.now();
-    }
-
-    if (type === 'BM_PAUSE' && currentRoom) {
-      broadcast(currentRoom, { type: 'BM_PAUSE', payload }, wsId);
-      currentRoom.playing = false;
-      currentRoom.currentTime = payload.time || 0;
-      currentRoom.wallClock = Date.now();
-    }
-
-    if (type === 'BM_SEEK' && currentRoom) {
-      broadcast(currentRoom, { type: 'BM_SEEK', payload }, wsId);
-      currentRoom.currentTime = payload.time || 0;
-      currentRoom.wallClock = Date.now();
-    }
-
     if (type === 'CHAT' && currentRoom) {
       broadcastAll(currentRoom, { type: 'CHAT', payload: { id: uuid(), user: currentUser, text: payload.text, ts: Date.now() } });
     }
@@ -859,37 +651,6 @@ app.get('/api/rooms/public', (req, res) => {
   res.json({ rooms: list });
 });
 
-// ── BOOKMARKLET: serve o código já com o host correto ──
-app.get('/api/bm/code', (req, res) => {
-  const proto = req.headers['x-forwarded-proto'] || req.protocol;
-  const host = req.get('host');
-  const wsProto = proto === 'https' ? 'wss' : 'ws';
-
-  const code = `(function(){if(window.__ww_sync){window.__ww_sync.toggle();return;}const WW_HOST="${host}";const WS_URL="${wsProto}://${host}";const bar=document.createElement('div');bar.id='__ww_bar';bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:2147483647;height:40px;background:linear-gradient(135deg,#e84393,#7c5cfc);display:flex;align-items:center;padding:0 16px;gap:12px;font-family:system-ui,sans-serif;font-size:13px;color:#fff;box-shadow:0 2px 16px rgba(0,0,0,.4);transition:transform .3s ease';bar.innerHTML='<span style="font-weight:700;letter-spacing:-.3px">🌊 WaveWatch</span><span id="__ww_status" style="font-size:11px;opacity:.85;font-family:monospace">Conectando...</span><span id="__ww_room" style="font-size:11px;background:rgba(255,255,255,.2);padding:2px 8px;border-radius:20px;font-family:monospace"></span><span id="__ww_users" style="font-size:11px;opacity:.75"></span><span style="margin-left:auto;display:flex;gap:8px;align-items:center"><span id="__ww_dot" style="width:8px;height:8px;border-radius:50%;background:#fff;opacity:.4"></span><button id="__ww_close" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:14px;line-height:1">✕</button></span>';document.body.appendChild(bar);document.body.style.marginTop='40px';function ss(t,ok){document.getElementById('__ww_status').textContent=t;var d=document.getElementById('__ww_dot');d.style.background=ok?'#00d4aa':'#fff';d.style.opacity=ok?1:.4;if(ok)d.style.boxShadow='0 0 6px #00d4aa';else d.style.boxShadow='';}document.getElementById('__ww_close').onclick=function(){bar.style.transform='translateY(-100%)';document.body.style.marginTop='';setTimeout(function(){bar.remove();window.__ww_sync=null;},300);if(ws)ws.close();};var ws=null,roomId=null,video=null,syncing=false,myId='bm_'+Math.random().toString(36).slice(2,8);fetch('https://'+WW_HOST+'/api/bm/session',{credentials:'include'}).then(function(r){return r.json();}).then(function(d){if(!d.roomId){ss('Nenhuma sala ativa — entre no WaveWatch primeiro',false);return;}roomId=d.roomId;document.getElementById('__ww_room').textContent=roomId;connect();}).catch(function(){ss('Erro ao conectar',false);});function connect(){ws=new WebSocket(WS_URL);ws.onopen=function(){ss('Sincronizando',true);ws.send(JSON.stringify({type:'BM_JOIN',payload:{roomId:roomId,userId:myId,url:location.href}}));attachVideo();};ws.onmessage=function(e){var m=JSON.parse(e.data);if(m.type==='BM_MEMBERS')document.getElementById('__ww_users').textContent='👥 '+m.payload.count;if(m.type==='BM_PLAY')apply('play',m.payload.time);if(m.type==='BM_PAUSE')apply('pause',m.payload.time);if(m.type==='BM_SEEK')apply('seek',m.payload.time);};ws.onclose=function(){ss('Desconectado',false);};ws.onerror=function(){ss('Erro',false);};}function fv(){var v=document.querySelector('video');if(v)return v;for(var el of document.querySelectorAll('*')){if(el.shadowRoot){var sv=el.shadowRoot.querySelector('video');if(sv)return sv;}}return null;}function attachVideo(){video=fv();if(!video){ss('Aguardando player...',true);var obs=new MutationObserver(function(){var v=fv();if(v){obs.disconnect();video=v;hook();}});obs.observe(document.documentElement,{childList:true,subtree:true});return;}hook();}function hook(){ss('Sincronizando',true);video.addEventListener('play',function(){if(syncing)return;send('BM_PLAY',{time:video.currentTime});});video.addEventListener('pause',function(){if(syncing)return;send('BM_PAUSE',{time:video.currentTime});});video.addEventListener('seeked',function(){if(syncing)return;send('BM_SEEK',{time:video.currentTime});});}function apply(a,t){if(!video){video=fv();if(!video)return;}syncing=true;if(Math.abs(video.currentTime-t)>1)video.currentTime=t;if(a==='play')video.play().catch(function(){});if(a==='pause')video.pause();setTimeout(function(){syncing=false;},300);}function send(type,payload){if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:type,payload:Object.assign({},payload,{roomId:roomId})}));}window.__ww_sync={toggle:function(){var h=bar.style.transform==='translateY(-100%)';bar.style.transform=h?'':'translateY(-100%)';document.body.style.marginTop=h?'40px':'';}}; })();`;
-
-  res.setHeader('Content-Type', 'application/javascript');
-  res.send(`javascript:${encodeURIComponent(code)}`);
-});
-
-// ── BOOKMARKLET: salva sala ativa do usuário ──
-app.post('/api/bm/session', requireAuth, (req, res) => {
-  const { roomId } = req.body;
-  if (!roomId) return res.status(400).json({ error: 'roomId required' });
-  req.session.bmRoom = roomId;
-  req.session.save();
-  res.json({ ok: true });
-});
-
-// ── BOOKMARKLET: retorna sala ativa + host do WS ──
-app.get('/api/bm/session', (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  const roomId = req.session?.bmRoom || null;
-  const wsHost = req.get('host');
-  const proto = req.headers['x-forwarded-proto'] || req.protocol;
-  const wsUrl = (proto === 'https' ? 'wss' : 'ws') + '://' + wsHost;
-  res.json({ roomId, wsUrl, host: wsHost });
-});
 
 // ── EXTRATOR DE URL DIRETA DE VÍDEO ──────────────────────────
 // Lê o HTML público da página e extrai a URL do vídeo.
@@ -910,35 +671,26 @@ app.get('/api/extract', async (req, res) => {
     });
 
     const html = await response.text();
-
     const found = new Set();
 
-    // 1. MP4/WebM URLs diretas
+    // MP4/WebM diretos
     const directPattern = /https?:\/\/[^\s"'<>]+\.(?:mp4|webm|ogv|ogg)(?:\?[^\s"'<>]*)?/gi;
     let m;
-    while ((m = directPattern.exec(html)) !== null) {
-      found.add(m[0]);
-    }
+    while ((m = directPattern.exec(html)) !== null) found.add(m[0]);
 
-    // 2. M3U8 (HLS)
+    // M3U8 (HLS)
     const hlsPattern = /https?:\/\/[^\s"'<>]+\.m3u8(?:\?[^\s"'<>]*)?/gi;
-    while ((m = hlsPattern.exec(html)) !== null) {
-      found.add(m[0]);
-    }
+    while ((m = hlsPattern.exec(html)) !== null) found.add(m[0]);
 
-    // 3. JSON fields comuns de players
+    // JSON fields de players
     const jsonPattern = /"(?:src|url|file|videoUrl|mp4|stream|source|hls|video_url)"\s*:\s*"(https?:[^"]+)"/gi;
-    while ((m = jsonPattern.exec(html)) !== null) {
-      found.add(m[1]);
-    }
+    while ((m = jsonPattern.exec(html)) !== null) found.add(m[1]);
 
-    // 4. Atributos HTML
+    // Atributos HTML
     const attrPattern = /(?:src|href|data-src|data-url)\s*=\s*['"]([^'"]+\.(?:mp4|webm|m3u8|ogv)[^'"]*)['"]/gi;
-    while ((m = attrPattern.exec(html)) !== null) {
-      found.add(m[1]);
-    }
+    while ((m = attrPattern.exec(html)) !== null) found.add(m[1]);
 
-    // Filtra lixo
+    // Filtra anúncios e lixo
     const blocked = ['googlesyndication','doubleclick','ads.','/ad/','adserver','googleads'];
     const urls = [...found].filter(u => {
       if (u.length < 15) return false;
@@ -947,7 +699,7 @@ app.get('/api/extract', async (req, res) => {
       return true;
     });
 
-    // Ordena: mp4 primeiro, depois m3u8
+    // MP4 primeiro, depois m3u8
     urls.sort((a, b) => {
       const score = u => u.includes('.mp4') ? 2 : u.includes('.m3u8') ? 1 : 0;
       return score(b) - score(a);
@@ -957,11 +709,9 @@ app.get('/api/extract', async (req, res) => {
       return res.json({ error: 'Nenhum vídeo encontrado. O site pode proteger as URLs.', urls: [] });
     }
 
-    // Tenta buscar título da página
     const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
     const title = titleMatch ? titleMatch[1].replace(/\s*[-|].*$/, '').trim() : url.split('/').pop();
 
-    // Tenta buscar thumbnail
     const thumbMatch = html.match(/(?:og:image|twitter:image)[^>]*content="([^"]+)"/i) ||
                        html.match(/content="([^"]+)"[^>]*(?:og:image|twitter:image)/i);
     const thumb = thumbMatch ? thumbMatch[1] : '';
