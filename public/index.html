@@ -1036,7 +1036,7 @@ function loadVideo(video,doBroadcast){
     $('src-badge').textContent='GD';
     const fileIdMatch = url.match(/\/d\/([a-zA-Z0-9_-]{10,})/)||url.match(/id=([a-zA-Z0-9_-]{10,})/);
     if(!fileIdMatch){ toast('URL do Google Drive inválida'); return; }
-    const fileId = fileIdMatch[1];
+    const fileId = fileIdMatch[1].replace(/[^a-zA-Z0-9_-]/g, '');
     // Use our server proxy — bypasses CORS, supports seeking
     const streamUrl = `/api/drive/stream/${fileId}`;
     const v=document.createElement('video');
