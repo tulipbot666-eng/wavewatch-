@@ -432,7 +432,7 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
     <div class="home-topbar-right">
       <div class="home-user-av" id="home-user-av"><img id="home-user-img" src="" onerror="this.style.display='none'"></div>
       <span class="home-user-name" id="home-user-name"></span>
-      <a href="/auth/logout" class="home-logout">Sair</a>
+      <a href="#" class="home-logout" onclick="doLogout();return false;">Sair</a>
     </div>
   </div>
 
@@ -744,6 +744,28 @@ function showAuthErr(id, msg) {
   setTimeout(() => el.classList.remove('on'), 4000);
 }
 
+function setLoggedInUser(user) {
+  loggedInUser = user;
+  // persist locally so page refresh keeps session
+  try { localStorage.setItem('ww_user', JSON.stringify(user)); } catch(e) {}
+
+  $('login-screen').style.display = 'none';
+  $('home-screen').classList.add('visible');
+
+  const img = $('home-user-img');
+  if (user.avatarUrl) { img.src = user.avatarUrl; img.style.display = ''; }
+  else img.style.display = 'none';
+  $('home-user-name').textContent = user.name;
+
+  if($('l-name')) $('l-name').value = user.name;
+  if($('j-name')) $('j-name').value = user.name;
+
+  loadPublicRooms();
+  if(window._roomRefresh) clearInterval(window._roomRefresh);
+  window._roomRefresh = setInterval(loadPublicRooms, 15000);
+  if(user.googleAccessToken) loadPickerAPI();
+}
+
 async function doLogin() {
   const email = $('login-email').value.trim();
   const pass  = $('login-pass').value;
@@ -754,7 +776,12 @@ async function doLogin() {
     const data = await res.json();
     if (!res.ok) { showAuthErr('login-err', data.error || 'Erro ao entrar'); btn.textContent = 'Entrar →'; btn.disabled = false; return; }
     await loadAuthState();
-  } catch(e) { showAuthErr('login-err', 'Erro de conexão'); btn.textContent = 'Entrar →'; btn.disabled = false; }
+  } catch(e) {
+    // Servidor offline — login local pelo email como nome
+    const name = email.split('@')[0];
+    setLoggedInUser({ id: 'local_' + Date.now(), name, email, avatarUrl: null });
+    btn.textContent = 'Entrar →'; btn.disabled = false;
+  }
 }
 
 async function doRegister() {
@@ -768,44 +795,38 @@ async function doRegister() {
     const data = await res.json();
     if (!res.ok) { showAuthErr('reg-err', data.error || 'Erro ao cadastrar'); btn.textContent = 'Criar conta →'; btn.disabled = false; return; }
     await loadAuthState();
-  } catch(e) { showAuthErr('reg-err', 'Erro de conexão'); btn.textContent = 'Criar conta →'; btn.disabled = false; }
+  } catch(e) {
+    // Servidor offline — cadastro local
+    setLoggedInUser({ id: 'local_' + Date.now(), name, email, avatarUrl: null });
+    btn.textContent = 'Criar conta →'; btn.disabled = false;
+  }
 }
 
 // ── GOOGLE AUTH / AUTH STATE ───────────────────────────────
 async function loadAuthState() {
+  // Primeiro tenta restaurar sessão local (caso servidor offline)
+  try {
+    const saved = localStorage.getItem('ww_user');
+    if (saved) {
+      const user = JSON.parse(saved);
+      if (user && user.id) { setLoggedInUser(user); return; }
+    }
+  } catch(e) {}
+
   try {
     const res = await fetch('/auth/me');
     const { user } = await res.json();
-    loggedInUser = user;
-
     if (user) {
-      // Hide login screen, show home screen
-      $('login-screen').style.display = 'none';
-      $('home-screen').classList.add('visible');
-
-      // Update home topbar user info
-      const img = $('home-user-img');
-      if (user.avatarUrl) { img.src = user.avatarUrl; img.style.display = ''; }
-      else img.style.display = 'none';
-      $('home-user-name').textContent = user.name;
-
-      // Pre-fill name
-      if($('l-name')) $('l-name').value = user.name;
-      if($('j-name')) $('j-name').value = user.name;
-
-      // Load public rooms
-      loadPublicRooms();
-      // Auto-refresh every 15s
-      if(window._roomRefresh) clearInterval(window._roomRefresh);
-      window._roomRefresh = setInterval(loadPublicRooms, 15000);
-      // Pre-load Google Picker if logged in with Google
-      if(user.googleAccessToken) loadPickerAPI();
+      setLoggedInUser(user);
     } else {
-      // Not logged in — show login screen, hide home screen
       $('login-screen').style.display = 'flex';
       $('home-screen').classList.remove('visible');
     }
-  } catch(e) {}
+  } catch(e) {
+    // Servidor offline — mostra tela de login normalmente
+    $('login-screen').style.display = 'flex';
+    $('home-screen').classList.remove('visible');
+  }
 }
 
 // ── LOBBY JS ──────────────────────────────────────────────
@@ -919,7 +940,6 @@ async function createRoom() {
     const data = await res.json();
     id = data.roomId;
   } catch(e) {
-    // Servidor indisponível — gera ID localmente
     id = genRoomId();
   }
 
@@ -940,6 +960,13 @@ async function joinRoom() {
 }
 
 function showLErr(m) { const el=$('lerr'); el.textContent = m; el.classList.add('on'); setTimeout(()=>el.classList.remove('on'), 3500); }
+function doLogout() {
+  try { localStorage.removeItem('ww_user'); } catch(e) {}
+  loggedInUser = null;
+  fetch('/auth/logout').catch(()=>{});
+  $('home-screen').classList.remove('visible');
+  $('login-screen').style.display = 'flex';
+}
 
 // ── APP ───────────────────────────────────────────────────
 function enterApp(id, name, roomName, isPublic, category) {
