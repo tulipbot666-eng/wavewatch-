@@ -1801,7 +1801,7 @@ setInterval(()=>{
 // ── CHAT ──────────────────────────────────────────────────
 let chatPendingImg = null; // {dataUrl, type: 'image'|'gif', url?}
 let gifSearchTimer = null;
-const TENOR_KEY = 'AIzaSyAyimkuYQYF_FXVKlC2vS4dDY-vQJzq5bc'; // demo key
+const TENOR_KEY = 'LIVDSRZULELA'; // Tenor official demo key
 
 function sendChat() {
   const inp = $('chat-inp');
@@ -1861,7 +1861,7 @@ async function loadTrendingGifs() {
   const grid = $('gif-grid');
   grid.innerHTML = '<div class="gif-empty">Carregando... ⏳</div>';
   try {
-    const r = await fetch(`https://tenor.googleapis.com/v2/featured?key=${TENOR_KEY}&limit=12&media_filter=gif`);
+    const r = await fetch(`https://g.tenor.com/v1/trending?key=${TENOR_KEY}&limit=16&media_filter=minimal`);
     const data = await r.json();
     renderGifs(data.results || []);
   } catch(e) { grid.innerHTML = '<div class="gif-empty">Erro ao carregar 😢</div>'; }
@@ -1874,7 +1874,7 @@ function gifSearch(q) {
     const grid = $('gif-grid');
     grid.innerHTML = '<div class="gif-empty">Buscando...</div>';
     try {
-      const r = await fetch(`https://tenor.googleapis.com/v2/search?key=${TENOR_KEY}&q=${encodeURIComponent(q)}&limit=12&media_filter=gif`);
+      const r = await fetch(`https://g.tenor.com/v1/search?key=${TENOR_KEY}&q=${encodeURIComponent(q)}&limit=16&media_filter=minimal`);
       const data = await r.json();
       renderGifs(data.results || []);
     } catch(e) { grid.innerHTML = '<div class="gif-empty">Erro na busca 😢</div>'; }
@@ -1886,13 +1886,14 @@ function renderGifs(results) {
   if (!results.length) { grid.innerHTML = '<div class="gif-empty">Nenhum GIF encontrado 👀</div>'; return; }
   grid.innerHTML = '';
   results.forEach(r => {
-    const url = r.media_formats?.gif?.url || r.media_formats?.tinygif?.url;
-    const preview = r.media_formats?.tinygif?.url || url;
+    const gif = r.media?.[0];
+    const url = gif?.gif?.url || gif?.mediumgif?.url;
+    const preview = gif?.tinygif?.url || gif?.nanogif?.url || url;
     if (!url) return;
     const item = document.createElement('div');
     item.className = 'gif-item';
     item.innerHTML = `<img src="${esc(preview)}" loading="lazy">`;
-    item.onclick = () => sendGif(url, r.content_description || 'GIF');
+    item.onclick = () => sendGif(url);
     grid.appendChild(item);
   });
 }
