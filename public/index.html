@@ -33,13 +33,13 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 #lobby::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 40% at 50% 0%,rgba(232,67,147,.1) 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 80% 100%,rgba(124,92,252,.08) 0%,transparent 60%);pointer-events:none;z-index:0;}
 
 /* ── LOBBY TOPBAR ── */
-.lobby-topbar{height:56px;background:rgba(15,16,24,.9);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 1.5rem;gap:1rem;flex-shrink:0;position:relative;z-index:2;backdrop-filter:blur(12px);}
-.brand-logo{font-size:1.3rem;font-weight:800;letter-spacing:-.5px;line-height:1;}
+.lobby-topbar{height:48px;background:rgba(15,16,24,.95);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 1.2rem;gap:.8rem;flex-shrink:0;position:relative;z-index:2;backdrop-filter:blur(12px);}
+.brand-logo{font-size:1.2rem;font-weight:800;letter-spacing:-.5px;line-height:1;}
 .brand-logo span{background:linear-gradient(135deg,var(--accent),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-.lobby-topbar-right{margin-left:auto;display:flex;align-items:center;gap:.6rem;}
-.lobby-user-av{width:32px;height:32px;border-radius:50%;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;}
+.lobby-topbar-right{margin-left:auto;display:flex;align-items:center;gap:.5rem;}
+.lobby-user-av{width:28px;height:28px;border-radius:50%;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0;}
 .lobby-user-av img{width:100%;height:100%;object-fit:cover;}
-.lobby-user-name{font-size:.82rem;font-weight:600;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lobby-user-name{font-size:.78rem;font-weight:600;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
 /* ── AUTH OVERLAY (modal centralizado) ── */
 .auth-overlay{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(8,9,15,.8);backdrop-filter:blur(12px);}
@@ -51,45 +51,51 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 .auth-brand-sub{color:var(--sub);font-size:.72rem;margin-top:.3rem;font-family:'DM Mono',monospace;letter-spacing:1px;}
 
 /* ── MAIN LOBBY AREA ── */
-.lobby-body{flex:1;overflow-y:auto;padding:1.2rem 1.5rem;position:relative;z-index:1;}
-.lobby-actions{display:flex;gap:.7rem;margin-bottom:1.2rem;}
-.lobby-actions .pill-btn{flex:1;padding:.75rem;}
+.lobby-body{flex:1;overflow-y:auto;padding:.9rem 1.2rem;position:relative;z-index:1;}
 
 /* join code inline */
-.join-inline{display:none;background:var(--s2);border:1px solid var(--border);border-radius:14px;padding:1rem;margin-bottom:1.2rem;animation:msgIn .2s ease;}
-.join-inline.on{display:flex;gap:.6rem;align-items:flex-end;}
+.join-inline{display:none;background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:.75rem;margin-bottom:.8rem;animation:msgIn .2s ease;}
+.join-inline.on{display:flex;gap:.5rem;align-items:flex-end;}
 .join-inline .field{flex:1;margin:0;}
 
+/* cat filter - tighter */
+.cat-filter{display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.7rem;}
+.cat-btn{background:var(--s2);border:1px solid var(--border);border-radius:20px;padding:.25rem .6rem;color:var(--sub);font-size:.7rem;font-family:'DM Mono',monospace;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.cat-btn.on,.cat-btn:hover{background:rgba(232,67,147,.12);border-color:var(--accent);color:var(--accent);}
+
 /* rooms header */
-.rooms-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;}
-.rooms-title{font-size:.78rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1.2px;color:var(--sub);display:flex;align-items:center;gap:.5rem;}
-.rooms-title::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite;}
-.refresh-btn{background:none;border:none;color:var(--sub);cursor:pointer;font-size:.75rem;font-family:'DM Mono',monospace;transition:color .2s;padding:.2rem .5rem;border-radius:6px;}
+.rooms-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem;}
+.rooms-title{font-size:.68rem;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1.2px;color:var(--sub);display:flex;align-items:center;gap:.4rem;}
+.rooms-title::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite;flex-shrink:0;}
+.refresh-btn{background:none;border:none;color:var(--sub);cursor:pointer;font-size:.68rem;font-family:'DM Mono',monospace;transition:color .2s;padding:.15rem .4rem;border-radius:6px;}
 .refresh-btn:hover{color:var(--accent);}
 
-/* rooms grid - 2 columns like Rave */
-.rooms-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.8rem;}
-.room-card{background:var(--s2);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s;animation:msgIn .2s ease;display:flex;flex-direction:column;}
-.room-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 6px 24px rgba(232,67,147,.18);}
-.room-card-thumb{width:100%;aspect-ratio:16/9;background:var(--s3);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:2.2rem;}
+/* rooms grid */
+.rooms-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.65rem;}
+.room-card{background:var(--s2);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;transition:all .2s;animation:msgIn .2s ease;display:flex;flex-direction:column;}
+.room-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 6px 20px rgba(232,67,147,.15);}
+.room-card-thumb{width:100%;aspect-ratio:16/9;background:var(--s3);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:2rem;}
 .room-card-thumb img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;}
-.room-card-src-badge{position:absolute;top:.4rem;left:.4rem;background:rgba(8,9,15,.8);border:1px solid rgba(255,255,255,.12);border-radius:6px;font-size:.58rem;font-family:'DM Mono',monospace;padding:.15rem .4rem;color:var(--text);backdrop-filter:blur(4px);}
-.room-card-live-badge{position:absolute;bottom:.4rem;right:.4rem;background:rgba(0,212,170,.15);border:1px solid rgba(0,212,170,.3);border-radius:6px;font-size:.58rem;font-family:'DM Mono',monospace;padding:.15rem .4rem;color:var(--ok);display:flex;align-items:center;gap:.3rem;}
-.room-card-live-badge::before{content:'';width:4px;height:4px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite;}
-.room-card-body{padding:.65rem .75rem;}
-.room-card-name{font-weight:700;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.2rem;}
-.room-card-video{font-size:.68rem;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'DM Mono',monospace;margin-bottom:.3rem;}
-.room-card-meta{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;}
-.room-card-cat{font-size:.58rem;font-family:'DM Mono',monospace;padding:.12rem .35rem;border-radius:5px;background:rgba(124,92,252,.15);color:var(--a2);border:1px solid rgba(124,92,252,.2);}
-.room-card-members{font-size:.62rem;color:var(--sub);font-family:'DM Mono',monospace;}
-/* member avatars row on card */
-.room-card-avs{display:flex;align-items:center;margin-top:.4rem;}
-.room-card-av{width:20px;height:20px;border-radius:50%;background:var(--s3);border:2px solid var(--s2);margin-left:-5px;font-size:.65rem;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;}
+.room-card-src-badge{position:absolute;top:.35rem;left:.35rem;background:rgba(8,9,15,.8);border:1px solid rgba(255,255,255,.1);border-radius:5px;font-size:.55rem;font-family:'DM Mono',monospace;padding:.1rem .35rem;color:var(--text);backdrop-filter:blur(4px);}
+.room-card-live-badge{position:absolute;bottom:.35rem;right:.35rem;background:rgba(0,212,170,.15);border:1px solid rgba(0,212,170,.3);border-radius:5px;font-size:.55rem;font-family:'DM Mono',monospace;padding:.1rem .35rem;color:var(--ok);display:flex;align-items:center;gap:.25rem;}
+.room-card-live-badge::before{content:'';width:4px;height:4px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite;flex-shrink:0;}
+.room-card-body{padding:.5rem .6rem;}
+.room-card-name{font-weight:700;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.15rem;}
+.room-card-video{font-size:.62rem;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'DM Mono',monospace;margin-bottom:.25rem;}
+.room-card-meta{display:flex;align-items:center;gap:.35rem;}
+.room-card-cat{font-size:.55rem;font-family:'DM Mono',monospace;padding:.1rem .3rem;border-radius:4px;background:rgba(124,92,252,.15);color:var(--a2);border:1px solid rgba(124,92,252,.2);}
+/* member avatars */
+.room-card-avs{display:flex;align-items:center;margin-top:.3rem;}
+.room-card-av{width:18px;height:18px;border-radius:50%;background:var(--s3);border:2px solid var(--s2);margin-left:-4px;font-size:.55rem;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-weight:700;color:#fff;}
 .room-card-av:first-child{margin-left:0;}
 .room-card-av img{width:100%;height:100%;object-fit:cover;}
-.room-card-more{font-size:.62rem;color:var(--sub);font-family:'DM Mono',monospace;margin-left:.35rem;}
+.room-card-more{font-size:.58rem;color:var(--sub);font-family:'DM Mono',monospace;margin-left:.3rem;}
 
-.rooms-empty{color:var(--sub);font-size:.8rem;text-align:center;padding:3rem 0;font-family:'DM Mono',monospace;grid-column:1/-1;}
+/* empty state */
+.rooms-empty{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2.5rem 1rem;gap:.5rem;color:var(--sub);}
+.rooms-empty-icon{font-size:2rem;opacity:.4;}
+.rooms-empty-txt{font-size:.8rem;font-family:'DM Mono',monospace;}
+.rooms-empty-sub{font-size:.7rem;color:var(--border);font-family:'DM Mono',monospace;}
 
 @media(max-width:520px){.rooms-grid{grid-template-columns:1fr;}}
 
@@ -458,12 +464,12 @@ input[type=range]{width:60px;accent-color:var(--accent);cursor:pointer;}
   <div class="lobby-topbar" id="lobby-topbar" style="display:none">
     <div class="brand-logo">Wave<span>Watch</span></div>
     <div class="lobby-topbar-right">
-      <button class="pill-btn ghost" style="padding:.4rem 1rem;font-size:.82rem" onclick="showJoinPanel()">🔑 Entrar com código</button>
-      <button class="pill-btn primary" style="padding:.4rem 1rem;font-size:.82rem" onclick="openCreateModal()">🎬 Criar Sala</button>
-      <div style="display:flex;align-items:center;gap:.5rem;padding:.3rem .6rem;border-radius:10px;border:1px solid var(--border);background:var(--s2);cursor:pointer;" onclick="window.location='/auth/logout'" title="Sair">
+      <button class="tb-btn" onclick="showJoinPanel()">🔑 Entrar com código</button>
+      <button class="pill-btn primary" style="padding:.38rem .9rem;font-size:.8rem;font-weight:700" onclick="openCreateModal()">+ Criar Sala</button>
+      <div style="display:flex;align-items:center;gap:.4rem;padding:.25rem .5rem;border-radius:8px;border:1px solid var(--border);background:var(--s2);cursor:pointer;" onclick="window.location='/auth/logout'" title="Sair">
         <div class="lobby-user-av" id="lobby-user-av">👤</div>
         <span class="lobby-user-name" id="lobby-user-name"></span>
-        <span style="font-size:.65rem;color:var(--sub);font-family:'DM Mono',monospace">sair</span>
+        <span style="font-size:.6rem;color:var(--sub);font-family:'DM Mono',monospace">↩</span>
       </div>
     </div>
   </div>
@@ -1061,7 +1067,7 @@ async function loadPublicRooms() {
   try {
     const res = await fetch(`/api/rooms/public?category=${currentCatFilter}`);
     const { rooms } = await res.json();
-    if (!rooms.length) { list.innerHTML = '<div class="rooms-empty">Nenhuma sala pública no momento 👀</div>'; return; }
+    if (!rooms.length) { list.innerHTML = '<div class="rooms-empty"><div class="rooms-empty-icon">📡</div><div class="rooms-empty-txt">Nenhuma sala pública agora</div><div class="rooms-empty-sub">Crie uma e chame seus amigos!</div></div>'; return; }
     list.innerHTML = '';
     rooms.forEach(room => {
       const card = document.createElement('div');
