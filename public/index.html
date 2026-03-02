@@ -1090,7 +1090,7 @@ async function loadAuthState() {
       // Hide auth overlay, show main lobby
       $('auth-overlay').classList.add('hidden');
       $('lobby-topbar').style.display = 'flex';
-      $('lobby-body').style.display = 'block';
+      $('lobby-body').style.display = 'flex';
 
       // Render user info in topbar
       const avEl = $('lobby-user-av');
@@ -2006,7 +2006,7 @@ async function addVideo(){
 
 function sTab(t,el){document.querySelectorAll('.stab').forEach(s=>s.classList.remove('on'));el.classList.add('on');['chat','queue','history','members','friends'].forEach(p=>{const panel=$('p-'+p);if(panel)panel.classList.toggle('on',p===t);});}
 function copyCode(){navigator.clipboard.writeText(roomId).then(()=>toast('Código copiado: '+roomId));}
-function leaveRoom(){if(ws)ws.close();$('app').style.display='none';$('lobby').style.display='flex';roomId='';rendered=new Set();if(loggedInUser){$('auth-overlay').classList.add('hidden');$('lobby-topbar').style.display='flex';$('lobby-body').style.display='block';}loadPublicRooms();}
+function leaveRoom(){if(ws)ws.close();$('app').style.display='none';$('lobby').style.display='flex';roomId='';rendered=new Set();if(loggedInUser){$('auth-overlay').classList.add('hidden');$('lobby-topbar').style.display='flex';$('lobby-body').style.display='flex';}loadPublicRooms();}
 
 // ── FRIENDS SIDEBAR ───────────────────────────────────────
 let fsView = 'list'; // 'list' | 'search'
