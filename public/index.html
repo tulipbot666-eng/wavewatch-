@@ -683,6 +683,15 @@ async function loadAuthState() {
     const { user } = await res.json();
     loggedInUser = user;
 
+    // Garante que o token está salvo na sessão do servidor
+    if (user?.googleAccessToken) {
+      fetch('/api/save-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: user.googleAccessToken })
+      });
+    }
+
     if (user) {
       // Hide auth screen, show room screen
       $('auth-screen').style.display = 'none';
