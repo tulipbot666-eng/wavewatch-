@@ -5,6 +5,50 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WaveWatch</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.10.0/video-js.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@videojs/themes@1/dist/city/index.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.10.0/video.min.js"></script>
+<style>
+/* ── Video.js City Theme Overrides ── */
+.vjs-city .vjs-control-bar {
+  background: linear-gradient(180deg, transparent 0%, rgba(5,5,8,0.95) 100%);
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+.vjs-city .vjs-play-progress,
+.vjs-city .vjs-volume-level {
+  background: linear-gradient(90deg, var(--accent), var(--a2));
+}
+.vjs-city .vjs-play-progress:before {
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px rgba(255,45,120,.7));
+}
+.vjs-city.video-js {
+  width: 100% !important;
+  height: 100% !important;
+  position: absolute !important;
+  top: 0; left: 0;
+  background: #050508;
+  font-family: 'JetBrains Mono', monospace;
+}
+.vjs-city .vjs-big-play-button {
+  background: linear-gradient(135deg, var(--accent), var(--a2));
+  border: none;
+  border-radius: 50%;
+  width: 64px;
+  height: 64px;
+  line-height: 64px;
+  box-shadow: 0 8px 32px rgba(255,45,120,.45);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+}
+.vjs-city .vjs-big-play-button:hover {
+  background: linear-gradient(135deg, var(--a2), var(--accent));
+  box-shadow: 0 12px 48px rgba(255,45,120,.6);
+}
+/* Hide default controls when we're non-host */
+.vjs-city.ww-spectator .vjs-control-bar { pointer-events: none; opacity: 0.4; }
+</style>
 <style>
 :root {
   --bg: #050508;
@@ -1708,7 +1752,8 @@ function startSoftSync(){
 }
 
 function setRate(r){
-  if(nativeVid&&nativeVid.playbackRate!==r)nativeVid.playbackRate=r;
+  if(nativeVid&&nativeVid._vjsInstance){if(nativeVid._vjsInstance.playbackRate()!==r)nativeVid._vjsInstance.playbackRate(r);}
+  else if(nativeVid&&nativeVid.playbackRate!==r)nativeVid.playbackRate=r;
   if(ytIframe&&ytReady)ytCmd('setPlaybackRate',[r]);
 }
 
@@ -1717,7 +1762,7 @@ function loadVideo(video,doBroadcast){
   const{src,url,title,author}=video;
   if(ytIframe){ytIframe=null;}
   ytReady=false;ytCurrentTime=0;ytPendingSeek=null;
-  if(nativeVid){nativeVid.pause();nativeVid.src='';nativeVid.load();nativeVid=null;}
+  if(nativeVid){nativeVid.pause();if(vjsPlayer){try{vjsPlayer.dispose();}catch(e){}vjsPlayer=null;}nativeVid=null;}
   if(proxyIframe){proxyIframe=null;window.removeEventListener('message',onProxyMsg);}
 
   const wrap=$('vwrap');
@@ -1783,34 +1828,119 @@ function loadVideo(video,doBroadcast){
     const fileIdMatch = url.match(/\/d\/([a-zA-Z0-9_-]{10,})/)||url.match(/id=([a-zA-Z0-9_-]{10,})/);
     if(!fileIdMatch){ toast('URL do Google Drive inválida'); return; }
     const fileId = fileIdMatch[1].replace(/[^a-zA-Z0-9_-]/g, '');
-    // Proxy com token do host da sala
     const streamUrl = `/api/drive/stream/${fileId}?room=${roomId}`;
-    const v=document.createElement('video');
-    v.src=streamUrl;
-    v.controls=false;
-    v.preload='metadata';
-    v.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;';
-    v.volume=parseFloat($('vol').value);
-    wrap.appendChild(v); nativeVid=v;
-    v.addEventListener('play',()=>{if(isSyncing)return;isPlaying=true;$('pbtn').textContent='⏸';if(amIHost)send('STATE',{playing:true,currentTime:v.currentTime});});
-    v.addEventListener('pause',()=>{if(isSyncing)return;isPlaying=false;$('pbtn').textContent='▶';if(amIHost)send('STATE',{playing:false,currentTime:v.currentTime});});
-    v.addEventListener('seeked',()=>{if(isSyncing)return;if(amIHost)send('SEEK',{t:v.currentTime});});
-    v.addEventListener('error',()=>toast('Erro ao carregar Drive. O arquivo é público? 📁'));
-    v.addEventListener('loadedmetadata',()=>{const t=expectedNow();if(t>0)v.currentTime=t;if(syncPlaying)v.play().catch(()=>{});}); 
+    nativeVid = _createVjsPlayer(wrap, streamUrl, 'GD');
+    nativeVid.addEventListener('error',()=>toast('Erro ao carregar Drive. O arquivo é público? 📁'));
   } else {
     const ext=src==='local'?'LOCAL':(url.split('.').pop().split('?')[0].toUpperCase().substring(0,4)||'VID');
     $('src-badge').textContent=ext;
-    const v=document.createElement('video');
-    v.src=url;v.controls=false;v.preload='metadata';
-    v.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;';
-    v.volume=parseFloat($('vol').value); wrap.appendChild(v); nativeVid=v;
-    v.addEventListener('play',()=>{if(isSyncing)return;isPlaying=true;$('pbtn').textContent='⏸';if(amIHost)send('STATE',{playing:true,currentTime:v.currentTime});});
-    v.addEventListener('pause',()=>{if(isSyncing)return;isPlaying=false;$('pbtn').textContent='▶';if(amIHost)send('STATE',{playing:false,currentTime:v.currentTime});});
-    v.addEventListener('seeked',()=>{if(isSyncing)return;if(amIHost)send('SEEK',{t:v.currentTime});});
-    v.addEventListener('error',()=>toast('Erro ao carregar vídeo'));
-    v.addEventListener('loadedmetadata',()=>{const t=expectedNow();if(t>0)v.currentTime=t;if(syncPlaying)v.play().catch(()=>{});});
+    nativeVid = _createVjsPlayer(wrap, url, ext);
+    nativeVid.addEventListener('error',()=>toast('Erro ao carregar vídeo'));
   }
   if(doBroadcast)send('VIDEO',{video});
+}
+
+// ── VIDEO.JS PLAYER FACTORY ────────────────────────────────
+let vjsPlayer = null; // Video.js instance
+
+function _createVjsPlayer(wrap, src, badge) {
+  // Destroy previous vjs instance if exists
+  if(vjsPlayer) { try { vjsPlayer.dispose(); } catch(e){} vjsPlayer = null; }
+
+  const videoEl = document.createElement('video');
+  videoEl.className = 'video-js vjs-city';
+  videoEl.setAttribute('playsinline', '');
+  videoEl.preload = 'metadata';
+  videoEl.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;';
+  wrap.appendChild(videoEl);
+
+  vjsPlayer = videojs(videoEl, {
+    autoplay: false,
+    controls: true,
+    fluid: false,
+    responsive: false,
+    preload: 'metadata',
+    html5: { vhs: { overrideNative: true } },
+    sources: [{ src, type: _guessType(src) }]
+  });
+
+  // Sync Video.js controls with WaveWatch host permissions
+  function updateVjsPermissions() {
+    if(amIHost) {
+      videoEl.classList.remove('ww-spectator');
+    } else {
+      videoEl.classList.add('ww-spectator');
+    }
+  }
+  setTimeout(updateVjsPermissions, 100);
+
+  // Expose a native-video-like interface for compatibility
+  // We proxy events from vjsPlayer to the raw element
+  vjsPlayer.on('play', () => {
+    if(isSyncing) return;
+    isPlaying = true; $('pbtn').textContent = '⏸';
+    if(amIHost) send('STATE', {playing: true, currentTime: vjsPlayer.currentTime()});
+  });
+  vjsPlayer.on('pause', () => {
+    if(isSyncing) return;
+    isPlaying = false; $('pbtn').textContent = '▶';
+    if(amIHost) send('STATE', {playing: false, currentTime: vjsPlayer.currentTime()});
+  });
+  vjsPlayer.on('seeked', () => {
+    if(isSyncing) return;
+    if(amIHost) send('SEEK', {t: vjsPlayer.currentTime()});
+  });
+  vjsPlayer.on('loadedmetadata', () => {
+    const t = expectedNow();
+    if(t > 0) vjsPlayer.currentTime(t);
+    if(syncPlaying) vjsPlayer.play().catch(()=>{});
+    updateVjsPermissions();
+  });
+
+  // Video.js intercepts big-play-button — respect host-only control
+  vjsPlayer.on('click', () => {
+    if(!amIHost) { toast('Apenas o host pode controlar o vídeo ▶'); return; }
+  });
+
+  // Block non-host from using vjs controls (seek bar click)
+  vjsPlayer.controlBar.progressControl.on('mousedown', (e) => {
+    if(!amIHost) { e.stopImmediatePropagation(); toast('Apenas o host pode avançar ⏩'); }
+  });
+  vjsPlayer.controlBar.playToggle.on('click', (e) => {
+    if(!amIHost) { e.stopImmediatePropagation(); toast('Apenas o host pode pausar/dar play ▶'); }
+  });
+
+  vjsPlayer.volume(parseFloat($('vol').value));
+
+  // Return a proxy that mimics HTMLVideoElement for compatibility
+  const proxy = {
+    get currentTime() { return vjsPlayer.currentTime(); },
+    set currentTime(t) { vjsPlayer.currentTime(t); },
+    get duration() { return vjsPlayer.duration() || 0; },
+    get volume() { return vjsPlayer.volume(); },
+    set volume(v) { vjsPlayer.volume(v); },
+    get playbackRate() { return vjsPlayer.playbackRate(); },
+    set playbackRate(r) { vjsPlayer.playbackRate(r); },
+    play() { return vjsPlayer.play(); },
+    pause() { vjsPlayer.pause(); },
+    addEventListener(ev, fn) { vjsPlayer.on(ev, fn); },
+    removeEventListener(ev, fn) { vjsPlayer.off(ev, fn); },
+    src: src,
+    _vjsInstance: vjsPlayer
+  };
+  return proxy;
+}
+
+function _guessType(url) {
+  const u = url.toLowerCase().split('?')[0];
+  if(u.endsWith('.mp4')) return 'video/mp4';
+  if(u.endsWith('.webm')) return 'video/webm';
+  if(u.endsWith('.ogg') || u.endsWith('.ogv')) return 'video/ogg';
+  if(u.endsWith('.m3u8')) return 'application/x-mpegURL';
+  if(u.endsWith('.mpd')) return 'application/dash+xml';
+  if(u.endsWith('.mov')) return 'video/quicktime';
+  if(u.endsWith('.mkv')) return 'video/x-matroska';
+  return 'video/mp4'; // default fallback
 }
 
 // ── YOUTUBE API ───────────────────────────────────────────
@@ -1850,6 +1980,8 @@ function updateHostUI(){
   $('ctrl').querySelectorAll('.c-btn,#vol').forEach(b=>{b.style.opacity=amIHost?'':'0.35';b.style.pointerEvents=amIHost?'':'none';});
   $('prog').style.pointerEvents=amIHost?'auto':'none';
   $('prog').style.cursor=amIHost?'pointer':'default';
+  // Video.js spectator mode
+  if(vjsPlayer){const el=vjsPlayer.el();if(el){if(amIHost)el.classList.remove('ww-spectator');else el.classList.add('ww-spectator');}}
   updateYTOverlay();
 }
 function updateYTOverlay(){const o=$('yt-overlay');if(o)o.style.cursor=amIHost?'default':'not-allowed';}
@@ -1861,7 +1993,7 @@ function seekClick(e){if(!amIHost)return;const dur=curDur();if(!dur&&!ytIframe)r
 function doPlay(){isPlaying=true;$('pbtn').textContent='⏸';if(ytIframe&&ytReady)ytCmd('playVideo');if(nativeVid)nativeVid.play().catch(()=>{});if(proxyIframe)sendProxy('WW_PLAY');}
 function doPause(){isPlaying=false;$('pbtn').textContent='▶';if(ytIframe&&ytReady)ytCmd('pauseVideo');if(nativeVid)nativeVid.pause();setRate(RATE_NORMAL);if(proxyIframe)sendProxy('WW_PAUSE');}
 function seekTo(t){if(ytIframe){if(ytReady)ytCmd('seekTo',[t,true]);else ytPendingSeek=t;}if(nativeVid)nativeVid.currentTime=t;if(proxyIframe)sendProxy('WW_SEEK',{time:t});}
-function setVol(v){if(nativeVid)nativeVid.volume=v;ytCmd('setVolume',[v*100]);}
+function setVol(v){if(nativeVid){if(nativeVid._vjsInstance)nativeVid._vjsInstance.volume(v);else nativeVid.volume=v;}ytCmd('setVolume',[v*100]);}
 function goFS(){const w=$('vwrap');if(!document.fullscreenElement)w.requestFullscreen&&w.requestFullscreen();else document.exitFullscreen&&document.exitFullscreen();}
 
 setInterval(()=>{
