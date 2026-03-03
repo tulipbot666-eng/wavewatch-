@@ -919,6 +919,30 @@ wss.on('connection', (ws) => {
     }
   });
 
+    // ── WebRTC SCREEN SHARE SIGNALING ──────────────────────
+    // These messages just relay between specific peers
+
+    if (type === 'SCREEN_SHARE_START' && currentRoom) {
+      currentRoom.screenShareHost = wsId;
+      broadcast(currentRoom, { type: 'SCREEN_SHARE_START', payload: { by: currentUser } }, wsId);
+    }
+
+    if (type === 'SCREEN_SHARE_STOP' && currentRoom) {
+      currentRoom.screenShareHost = null;
+      broadcastAll(currentRoom, { type: 'SCREEN_SHARE_STOP', payload: {} });
+    }
+
+    // Targeted relay: host → specific viewer or viewer → host
+    if ((type === 'WR_OFFER' || type === 'WR_ANSWER' || type === 'WR_ICE') && currentRoom) {
+      const target = currentRoom.members.get(payload.targetId);
+      if (target && target.ws.readyState === 1) {
+        target.ws.send(JSON.stringify({
+          type,
+          payload: { ...payload, fromId: wsId }
+        }));
+      }
+    }
+
   ws.on('close', () => {
     if (!currentRoom) return;
     currentRoom.members.delete(wsId);
