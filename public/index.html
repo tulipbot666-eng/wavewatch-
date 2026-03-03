@@ -1436,6 +1436,8 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
         </div>
       </div>
       <div id="vwrap">
+        <!-- Overlay que bloqueia interação com o proxy iframe para não-hosts -->
+        <div id="proxy-block-overlay" style="display:none;position:absolute;inset:0;z-index:10;cursor:not-allowed;" title="Só o host pode controlar o site"></div>
         <div class="vinfo" id="vinfo"><div class="vi-title" id="vi-title"></div><div class="vi-sub" id="vi-sub"></div></div>
         <div class="reacts-wrap">
           <button class="r-btn" onclick="react('❤️')">❤️</button>
@@ -2675,6 +2677,9 @@ function loadVideo(video,doBroadcast){
     iframe.allowFullscreen=true;
     wrap.appendChild(iframe);
     proxyIframe=iframe;
+    // Bloqueia interação para não-hosts
+    const blockOverlay = $('proxy-block-overlay');
+    if(blockOverlay) blockOverlay.style.display = amIHost ? 'none' : 'block';
     // Escuta eventos do player dentro do iframe
     window.removeEventListener('message', onProxyMsg);
     window.addEventListener('message', onProxyMsg);
@@ -2954,6 +2959,9 @@ function updateHostUI(){
   if(!badge){badge=document.createElement('span');badge.id='host-badge';badge.style.cssText='font-size:.65rem;font-family:"DM Mono",monospace;padding:.15rem .45rem;border-radius:5px;background:rgba(232,67,147,.2);color:var(--accent);border:1px solid rgba(232,67,147,.3);';$('tb-right').prepend(badge);}
   badge.textContent=amIHost?'👑 host':'👤 membro';
   const ssBtn=$('screenshare-btn');if(ssBtn)ssBtn.style.display=amIHost?'flex':'none';
+  // Atualiza overlay do proxy iframe
+  const blockOverlay=$('proxy-block-overlay');
+  if(blockOverlay && proxyIframe) blockOverlay.style.display=amIHost?'none':'block';
   $('ctrl').querySelectorAll('.c-btn,#vol').forEach(b=>{b.style.opacity=amIHost?'':'0.35';b.style.pointerEvents=amIHost?'':'none';});
   $('prog').style.pointerEvents=amIHost?'auto':'none';
   $('prog').style.cursor=amIHost?'pointer':'default';
@@ -3837,46 +3845,24 @@ async function loadLobbyFeed() {
 }
 function copyCode(){navigator.clipboard.writeText(roomId).then(()=>toast('Código copiado: '+roomId));}
 // ── SCREEN SHARE ─────────────────────────────────────────
-
-// ICE config com STUN + TURN públicos gratuitos (openrelay.metered.ca)
-// TURN é essencial para funcionar em redes domésticas/mobile com NAT
-const SS_ICE = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:openrelay.metered.ca:80' },
-    {
-      urls: 'turn:openrelay.metered.ca:80',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    },
-    {
-      urls: 'turn:openrelay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    },
-    {
-      urls: 'turns:openrelay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    }
-  ],
-  iceCandidatePoolSize: 10
-};
-
-// Bitrate alvo em bits/s para o vídeo do screen share
-const SS_VIDEO_BITRATE = 3_000_000; // 3 Mbps — bom equilíbrio qualidade/lag
+const SS_ICE = { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' }
+]};
 
 async function toggleScreenShare() {
-  if (ssActive) ssStopSharing();
-  else await ssStartSharing();
+  if (ssActive) {
+    ssStopSharing();
+  } else {
+    await ssStartSharing();
+  }
 }
 
 async function ssStartSharing() {
   try {
     ssStream = await navigator.mediaDevices.getDisplayMedia({
-      video: { frameRate: { ideal: 30, max: 30 }, cursor: 'always', width: { ideal: 1920 }, height: { ideal: 1080 } },
-      audio: { echoCancellation: false, noiseSuppression: false, sampleRate: 44100 }
+      video: { frameRate: 30, cursor: 'always' },
+      audio: true
     });
   } catch(e) {
     if (e.name !== 'NotAllowedError') toast('Erro ao capturar tela: ' + e.message);
@@ -3888,10 +3874,13 @@ async function ssStartSharing() {
   btn.classList.add('ss-active');
   $('ss-lbl').textContent = 'Parar';
 
+  // When user stops via browser button
   ssStream.getVideoTracks()[0].onended = () => ssStopSharing();
 
+  // Notify all viewers
   send('SCREEN_SHARE_START', { by: myUser });
 
+  // Create peer connection for each current member
   if (currentRoomMembers) {
     currentRoomMembers.forEach(member => {
       if (member.id !== myWsId) ssCreateHostPeer(member.id);
@@ -3899,53 +3888,23 @@ async function ssStartSharing() {
   }
 }
 
-async function ssCreateHostPeer(viewerId) {
-  // Fecha conexão anterior com este viewer se existir
-  if (ssPeers[viewerId]) { try { ssPeers[viewerId].close(); } catch(e){} }
-
+function ssCreateHostPeer(viewerId) {
   const pc = new RTCPeerConnection(SS_ICE);
   ssPeers[viewerId] = pc;
 
+  // Add all tracks from screen stream
   ssStream.getTracks().forEach(track => pc.addTrack(track, ssStream));
 
-  // Monitora estado da conexão — reconecta se cair
-  pc.onconnectionstatechange = () => {
-    const st = pc.connectionState;
-    console.log(`[SS] viewer ${viewerId} state: ${st}`);
-    if (st === 'connected') {
-      // Aplica bitrate máximo nos senders de vídeo
-      pc.getSenders().forEach(async sender => {
-        if (sender.track?.kind !== 'video') return;
-        const params = sender.getParameters();
-        if (!params.encodings?.length) params.encodings = [{}];
-        params.encodings[0].maxBitrate = SS_VIDEO_BITRATE;
-        params.encodings[0].maxFramerate = 30;
-        await sender.setParameters(params).catch(()=>{});
-      });
-    }
-    if (st === 'failed' || st === 'disconnected') {
-      // Tenta reconectar automaticamente após 2s
-      setTimeout(() => {
-        if (ssActive && ssPeers[viewerId]) ssCreateHostPeer(viewerId);
-      }, 2000);
-    }
-  };
-
+  // Send ICE candidates to this viewer
   pc.onicecandidate = e => {
     if (e.candidate) send('WR_ICE', { targetId: viewerId, candidate: e.candidate });
   };
 
-  pc.onicegatheringstatechange = () => {
-    console.log(`[SS] ICE gathering (host→${viewerId}): ${pc.iceGatheringState}`);
-  };
-
-  try {
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    send('WR_OFFER', { targetId: viewerId, sdp: pc.localDescription });
-  } catch(e) {
-    console.error('[SS] Erro ao criar offer:', e);
-  }
+  // Create and send offer
+  pc.createOffer().then(offer => {
+    pc.setLocalDescription(offer);
+    send('WR_OFFER', { targetId: viewerId, sdp: offer });
+  }).catch(console.error);
 }
 
 function ssStopSharing() {
@@ -3959,10 +3918,10 @@ function ssStopSharing() {
 }
 
 // ── VIEWER SIDE ──────────────────────────────────────────
-let currentRoomMembers = null;
+let currentRoomMembers = null; // kept updated from ROOM_STATE
 
 function ssViewerConnect(hostWsId) {
-  // Aguarda offer do host — nada a fazer aqui
+  // Nothing to do here — wait for the offer from host
 }
 
 async function ssHandleOffer(payload) {
@@ -3973,32 +3932,16 @@ async function ssHandleOffer(payload) {
     if (e.candidate) send('WR_ICE', { targetId: payload.fromId, candidate: e.candidate });
   };
 
-  ssViewerPc.onconnectionstatechange = () => {
-    const st = ssViewerPc?.connectionState;
-    console.log(`[SS] viewer connection state: ${st}`);
-    if (st === 'failed' || st === 'closed') {
-      ssCleanupViewer();
-      toast('Screen share desconectado. Aguardando reconexão...');
-    }
-  };
-
   ssViewerPc.ontrack = e => {
     const vid = $('ss-video');
-    if (!vid) return;
     vid.srcObject = e.streams[0];
-    vid.play().catch(() => {});
     $('ss-overlay').style.display = 'flex';
   };
 
-  try {
-    await ssViewerPc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-    const answer = await ssViewerPc.createAnswer();
-    await ssViewerPc.setLocalDescription(answer);
-    send('WR_ANSWER', { targetId: payload.fromId, sdp: ssViewerPc.localDescription });
-  } catch(e) {
-    console.error('[SS] Erro ao processar offer:', e);
-    ssCleanupViewer();
-  }
+  await ssViewerPc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+  const answer = await ssViewerPc.createAnswer();
+  await ssViewerPc.setLocalDescription(answer);
+  send('WR_ANSWER', { targetId: payload.fromId, sdp: answer });
 }
 
 function ssCleanupViewer() {
