@@ -439,18 +439,6 @@ app.get('/api/config', (req, res) => {
 });
 
 // ── PROXY REVERSO PARA IFRAME (remove X-Frame-Options) ──
-// ── WORKER PROXY URL (set via env var WORKER_PROXY_URL) ──
-// Se definido, todas as requests do proxy passam pelo Cloudflare Worker
-// em vez de sair direto do servidor (evita bloqueio de IP de datacenter)
-const WORKER_PROXY_URL = process.env.WORKER_PROXY_URL || null;
-
-function buildFetchUrl(targetUrl) {
-  if (WORKER_PROXY_URL) {
-    return `${WORKER_PROXY_URL}?url=${encodeURIComponent(targetUrl)}`;
-  }
-  return targetUrl;
-}
-
 app.get('/api/proxy', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).send('URL required');
@@ -459,27 +447,14 @@ app.get('/api/proxy', async (req, res) => {
     const target = new URL(url);
     const proxyBase = `${req.protocol}://${req.get('host')}/api/proxy?url=`;
 
-    const fetchUrl = buildFetchUrl(url);
-    const fetchHeaders = WORKER_PROXY_URL
-      ? { 'Range': req.headers.range || '' } // worker já monta os headers realistas
-      : {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-          'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-          'Accept-Encoding': 'identity',
-          'Referer': target.origin + '/',
-          'Origin': target.origin,
-          'Sec-Fetch-Dest': 'document',
-          'Sec-Fetch-Mode': 'navigate',
-          'Sec-Fetch-Site': 'none',
-          'Upgrade-Insecure-Requests': '1',
-          'Cache-Control': 'no-cache',
-        };
-
-    if (req.headers.range) fetchHeaders['Range'] = req.headers.range;
-
-    const response = await fetch(fetchUrl, {
-      headers: fetchHeaders,
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'identity',
+        'Referer': target.origin
+      },
       redirect: 'follow'
     });
 
@@ -1042,6 +1017,96 @@ app.get('/api/yt/info', async (req, res) => {
     const data = await r.json();
     res.json({ title: data.title, thumb: data.thumbnail_url, author: data.author_name });
   } catch (e) { res.status(404).json({ error: 'Video not found' }); }
+});
+
+// ─────────────────────────────────────────
+// YT-DLP EXTRACT
+// ─────────────────────────────────────────
+const { exec } = require('child_process');
+const fs = require('fs');
+
+// Instala yt-dlp automaticamente se não existir
+async function ensureYtDlp() {
+  return new Promise((resolve) => {
+    exec('yt-dlp --version', (err) => {
+      if (!err) return resolve(true);
+      console.log('📦 Instalando yt-dlp...');
+      // Tenta instalar via pip
+      exec('pip3 install yt-dlp --break-system-packages 2>&1 || pip install yt-dlp 2>&1', (err2, stdout) => {
+        if (!err2) { console.log('✅ yt-dlp instalado via pip'); return resolve(true); }
+        // Fallback: baixa binário direto
+        exec('curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && chmod +x /usr/local/bin/yt-dlp', (err3) => {
+          if (!err3) { console.log('✅ yt-dlp instalado via binário'); return resolve(true); }
+          console.log('⚠️  yt-dlp não pôde ser instalado:', err3?.message);
+          resolve(false);
+        });
+      });
+    });
+  });
+}
+
+ensureYtDlp();
+
+// Extrai URL direta do stream usando yt-dlp
+app.get('/api/extract', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: 'URL obrigatória' });
+
+  // Timeout de 20s pra não travar
+  const timeout = setTimeout(() => {
+    res.status(504).json({ error: 'Timeout ao extrair vídeo' });
+  }, 20000);
+
+  const cmd = [
+    'yt-dlp',
+    '--no-playlist',
+    '--format', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+    '--get-url',
+    '--get-title',
+    '--get-thumbnail',
+    '--no-warnings',
+    '--socket-timeout', '10',
+    `"${url.replace(/"/g, '')}"`
+  ].join(' ');
+
+  exec(cmd, { timeout: 18000 }, (err, stdout, stderr) => {
+    clearTimeout(timeout);
+    if (res.headersSent) return;
+
+    if (err) {
+      console.log('[yt-dlp] erro:', stderr?.slice(0, 200));
+      return res.status(422).json({ error: 'Não foi possível extrair o vídeo deste site' });
+    }
+
+    const lines = stdout.trim().split('
+').filter(Boolean);
+    if (!lines.length) return res.status(422).json({ error: 'Nenhuma URL encontrada' });
+
+    // yt-dlp com --get-url --get-title --get-thumbnail retorna:
+    // título, thumbnail, url(s) — ou apenas url(s) dependendo do site
+    let title = '', thumb = '', streamUrl = '';
+
+    // Se tiver 3+ linhas: title, thumb, url
+    if (lines.length >= 3) {
+      title = lines[0];
+      thumb = lines[1];
+      streamUrl = lines[2];
+    } else if (lines.length === 2) {
+      title = lines[0];
+      streamUrl = lines[1];
+    } else {
+      streamUrl = lines[0];
+    }
+
+    // Valida que é uma URL
+    try { new URL(streamUrl); } catch {
+      // Tenta achar a URL nas linhas
+      streamUrl = lines.find(l => l.startsWith('http')) || '';
+      if (!streamUrl) return res.status(422).json({ error: 'URL extraída inválida' });
+    }
+
+    res.json({ ok: true, url: streamUrl, title, thumb });
+  });
 });
 
 function generateRoomCode() {
