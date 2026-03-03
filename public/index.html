@@ -803,6 +803,9 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
 .feed-post-body{padding:.6rem .85rem .75rem;}
 .feed-post-title{font-size:.9rem;font-weight:600;margin-bottom:.15rem;line-height:1.4;}
 .feed-post-sub{font-size:.72rem;color:var(--sub);font-family:'JetBrains Mono',monospace;}
+.feed-post-text{font-size:.9rem;color:var(--text);line-height:1.55;white-space:pre-wrap;word-break:break-word;}
+.feed-post-delete{margin-left:auto;background:none;border:none;color:rgba(255,255,255,.25);cursor:pointer;font-size:.82rem;padding:.2rem .45rem;border-radius:6px;transition:all .15s;}
+.feed-post-delete:hover{color:#ff2d78;background:rgba(255,45,120,.1);}
 </style>
 </head>
 <body>
@@ -985,7 +988,10 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
       <div class="feed-composer" id="feed-composer" style="display:none">
         <div class="feed-composer-row">
           <div class="feed-composer-av" id="feed-composer-av">👤</div>
-          <textarea class="feed-composer-textarea" id="feed-composer-textarea" placeholder="No que você está pensando?" rows="1" oninput="this.style.height='';this.style.height=this.scrollHeight+'px'"></textarea>
+          <textarea class="feed-composer-textarea" id="feed-composer-textarea" placeholder="No que você está pensando?" rows="1" oninput="this.style.height='';this.style.height=this.scrollHeight+'px';feedComposerInput(this)"></textarea>
+        </div>
+        <div id="feed-publish-row" style="display:none;justify-content:flex-end;padding:.4rem 0 0">
+          <button class="pill-btn primary" style="padding:.4rem 1.2rem;font-size:.82rem;width:auto" onclick="submitFeedPost()">Publicar</button>
         </div>
         <div class="feed-composer-actions">
           <button class="feed-act-btn" onclick="feedShareVideo()">
@@ -1674,33 +1680,98 @@ async function loadProfileFeed(dbId) {
     } else { composer.style.display = 'none'; }
   }
   try {
-    const res = await fetch(`/api/users/${dbId}/history`);
-    const data = await res.json();
-    if(!data.history?.length) { list.innerHTML = '<div class="prof-empty" style="padding:2rem;text-align:center;opacity:.5">Nenhum vídeo assistido ainda 🎬</div>'; return; }
+    const [histRes, postsRes] = await Promise.all([
+      fetch(`/api/users/${dbId}/history`),
+      fetch(`/api/users/${dbId}/posts`)
+    ]);
+    const { history = [] } = await histRes.json();
+    const { posts = [] } = await postsRes.json();
     const u = _currentProfileUser || loggedInUser;
     const avHtml = (u?.avatarUrl || u?.avatar_url)
       ? `<img src="${esc(u.avatarUrl||u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
       : (u?.avatarEmoji || u?.avatar_emoji || '🎬');
     const srcL = {youtube:'YT',gdrive:'Drive',vimeo:'Vimeo',twitch:'Twitch',direct:'URL',proxy:'Web',local:'Local'};
-    list.innerHTML = data.history.map(h => {
-      const srcBadge = h.video_src ? `<span class="feed-post-src-badge">${srcL[h.video_src]||h.video_src}</span>` : '';
-      const dt = new Date(h.watched_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
-      return `<div class="feed-post">
-        <div class="feed-post-header">
-          <div class="feed-post-av">${avHtml}</div>
-          <div class="feed-post-meta">
-            <div class="feed-post-name">${esc(u?.name||'?')}</div>
-            <div class="feed-post-date">${dt}</div>
-          </div>${srcBadge}
-        </div>
-        ${h.video_thumb ? `<img class="feed-post-thumb" src="${esc(h.video_thumb)}" loading="lazy" onerror="this.outerHTML='<div class=feed-post-thumb-empty>🎬</div>'">` : `<div class="feed-post-thumb-empty">🎬</div>`}
-        <div class="feed-post-body">
-          <div class="feed-post-title">${esc(h.video_title||h.video_url||'Vídeo')}</div>
-          <div class="feed-post-sub">assistiu a este vídeo</div>
-        </div>
-      </div>`;
+    const items = [
+      ...posts.map(p => ({ type:'post', ts: new Date(p.created_at), data: p })),
+      ...history.map(h => ({ type:'video', ts: new Date(h.watched_at), data: h }))
+    ].sort((a,b) => b.ts - a.ts);
+    if(!items.length) {
+      list.innerHTML = '<div class="prof-empty" style="padding:2rem;text-align:center;opacity:.5">Nenhuma atividade ainda 👀</div>';
+      return;
+    }
+    list.innerHTML = items.map(item => {
+      const dt = item.ts.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
+      const avSrc = (item.type==='post' && item.data.avatar_url)
+        ? `<img src="${esc(item.data.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : avHtml;
+      const uname = item.type==='post' ? esc(item.data.name||u?.name||'?') : esc(u?.name||'?');
+      if(item.type === 'post') {
+        const h = item.data;
+        return `<div class="feed-post" id="feed-post-${h.id}">
+          <div class="feed-post-header">
+            <div class="feed-post-av">${avSrc}</div>
+            <div class="feed-post-meta"><div class="feed-post-name">${uname}</div><div class="feed-post-date">${dt}</div></div>
+            ${isMyProfile ? `<button class="feed-post-delete" onclick="deleteFeedPost('${h.id}')" title="Remover">✕</button>` : ''}
+          </div>
+          <div class="feed-post-body" style="padding:.75rem 1rem 1rem">
+            <div class="feed-post-text">${esc(h.content)}</div>
+          </div>
+        </div>`;
+      } else {
+        const h = item.data;
+        const srcBadge = h.video_src ? `<span class="feed-post-src-badge">${srcL[h.video_src]||h.video_src}</span>` : '';
+        return `<div class="feed-post">
+          <div class="feed-post-header">
+            <div class="feed-post-av">${avSrc}</div>
+            <div class="feed-post-meta"><div class="feed-post-name">${uname}</div><div class="feed-post-date">${dt}</div></div>${srcBadge}
+          </div>
+          ${h.video_thumb ? `<img class="feed-post-thumb" src="${esc(h.video_thumb)}" loading="lazy" onerror="this.outerHTML='<div class=feed-post-thumb-empty>🎬</div>'">` : `<div class="feed-post-thumb-empty">🎬</div>`}
+          <div class="feed-post-body">
+            <div class="feed-post-title">${esc(h.video_title||h.video_url||'Vídeo')}</div>
+            <div class="feed-post-sub">assistiu a este vídeo</div>
+          </div>
+        </div>`;
+      }
     }).join('');
   } catch(e) { list.innerHTML = '<div class="prof-empty">Erro ao carregar</div>'; }
+}
+
+function feedComposerInput(ta) {
+  const row = $('feed-publish-row');
+  if(row) row.style.display = ta.value.trim() ? 'flex' : 'none';
+}
+
+async function submitFeedPost() {
+  const ta = $('feed-composer-textarea');
+  const text = ta?.value.trim();
+  if(!text) return;
+  const btn = document.querySelector('#feed-publish-row button');
+  if(btn) { btn.textContent = 'Publicando...'; btn.disabled = true; }
+  try {
+    const res = await fetch('/api/posts', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ content: text })
+    });
+    if(res.ok) {
+      ta.value = ''; ta.style.height = '';
+      if($('feed-publish-row')) $('feed-publish-row').style.display = 'none';
+      toast('Publicado! 🎉');
+      if(loggedInUser) loadProfileFeed(loggedInUser.id);
+    } else {
+      const d = await res.json();
+      toast(d.error || 'Erro ao publicar');
+    }
+  } catch { toast('Erro ao publicar :('); }
+  finally { if(btn) { btn.textContent = 'Publicar'; btn.disabled = false; } }
+}
+
+async function deleteFeedPost(id) {
+  try {
+    await fetch('/api/posts/' + id, { method: 'DELETE' });
+    const el = document.getElementById('feed-post-' + id);
+    if(el) { el.style.opacity='0'; el.style.transition='opacity .2s'; setTimeout(()=>el.remove(),200); }
+    toast('Post removido');
+  } catch { toast('Erro ao remover'); }
 }
 
 function feedShareVideo() {
