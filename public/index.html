@@ -429,6 +429,36 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
 .msg-text{color:rgba(255,255,255,.85);font-size:.88rem;line-height:1.5;word-break:break-word;}
 .msg-img{max-width:100%;max-height:200px;border-radius:8px;display:block;margin-top:.3rem;}
 
+/* own messages — right side */
+.msg.me {
+  flex-direction: row-reverse;
+}
+.msg.me .msg-body {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+}
+.msg.me .msg-head {
+  flex-direction: row-reverse;
+}
+.msg.me .msg-name {
+  color: var(--accent) !important;
+}
+.msg.me .msg-text {
+  background: rgba(255,45,120,.12);
+  border: 1px solid rgba(255,45,120,.18);
+  border-radius: 16px 4px 16px 16px;
+  padding: .35rem .65rem;
+  display: inline-block;
+  max-width: 100%;
+}
+.msg.me.grouped {
+  flex-direction: row-reverse;
+}
+.msg.me .msg-img {
+  border-radius: 12px 4px 12px 12px;
+}
+
 /* grouped messages (same user) */
 .msg.grouped{padding-top:.06rem;}
 .msg.grouped .msg-av-col{visibility:hidden;}
@@ -2229,7 +2259,7 @@ function renderChatMsg(payload) {
   lastMsgUserId = userId;
 
   const div = document.createElement('div');
-  div.className = 'msg' + (grouped ? ' grouped' : '');
+  div.className = 'msg' + (isMe ? ' me' : '') + (grouped ? ' grouped' : '');
 
   const ts = new Date(payload.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
