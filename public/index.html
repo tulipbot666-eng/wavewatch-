@@ -323,7 +323,7 @@ body::after{content:'';position:fixed;inset:0;
 .tb-user-name{font-size:.72rem;font-weight:600;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
 /* ── MAIN LAYOUT ── */
-.main{display:flex;flex:1;overflow:hidden;min-height:0;}
+#view-stream{display:flex;flex:1;overflow:hidden;min-height:0;}
 .varea{flex:1;display:flex;flex-direction:column;min-width:0;background:#000;position:relative;}
 
 /* ── PLACEHOLDER ── */
@@ -393,6 +393,81 @@ body::after{content:'';position:fixed;inset:0;
 .vol-icon{font-size:.85rem;color:rgba(255,255,255,.65);cursor:pointer;}
 input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointer;border-radius:10px;}
 .src-badge{font-family:'JetBrains Mono',monospace;font-size:.55rem;padding:.12rem .38rem;border-radius:5px;background:rgba(255,45,120,.15);border:1px solid rgba(255,45,120,.25);color:var(--accent);text-transform:uppercase;flex-shrink:0;letter-spacing:1px;}
+
+/* ── APP MAIN TABS ── */
+.app-tabs{display:flex;align-items:center;gap:.15rem;background:rgba(5,5,8,.95);border-bottom:1px solid var(--border);padding:0 1.1rem;height:44px;flex-shrink:0;z-index:40;}
+.app-tab{display:flex;align-items:center;gap:.45rem;padding:.45rem 1rem;border:none;background:none;color:rgba(255,255,255,.3);font-family:'Space Grotesk',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;margin-bottom:-1px;}
+.app-tab svg{width:15px;height:15px;stroke:currentColor;fill:none;flex-shrink:0;}
+.app-tab:hover{color:rgba(255,255,255,.65);}
+.app-tab.on{color:#fff;border-bottom-color:var(--accent);}
+.app-tab.on svg{filter:drop-shadow(0 0 5px rgba(255,45,120,.6));}
+.app-tab-badge{font-size:.55rem;font-family:'JetBrains Mono',monospace;background:linear-gradient(135deg,var(--accent),var(--a2));color:#fff;border-radius:20px;padding:.1rem .38rem;margin-left:.1rem;}
+
+/* ── VIEWS ── */
+#view-stream{display:flex;flex:1;overflow:hidden;min-height:0;}
+#view-feed{display:none;flex:1;overflow:hidden;min-height:0;flex-direction:column;background:var(--bg);}
+
+/* ── FEED ── */
+.feed-tabs{display:flex;gap:2px;padding:.65rem 1rem .45rem;border-bottom:1px solid var(--border);background:rgba(5,5,8,.7);flex-shrink:0;}
+.feed-tab{flex:1;max-width:140px;padding:.42rem .8rem;border:none;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:8px;color:rgba(255,255,255,.35);font-family:'Space Grotesk',sans-serif;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:.4rem;}
+.feed-tab svg{width:13px;height:13px;stroke:currentColor;fill:none;}
+.feed-tab.on{background:rgba(255,45,120,.1);border-color:rgba(255,45,120,.3);color:#fff;}
+.feed-body{flex:1;overflow-y:auto;padding:.85rem 1rem;}
+.feed-content{display:none;flex-direction:column;gap:.75rem;}
+.feed-content.on{display:flex;}
+
+/* ── POST COMPOSER ── */
+.post-composer{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:.9rem 1rem;margin-bottom:.85rem;display:flex;flex-direction:column;gap:.7rem;}
+.post-composer-top{display:flex;gap:.75rem;align-items:flex-start;}
+.composer-av{width:36px;height:36px;border-radius:50%;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem;overflow:hidden;}
+.composer-av img{width:100%;height:100%;object-fit:cover;}
+.composer-box{flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:.65rem .85rem;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:.85rem;outline:none;resize:none;min-height:70px;transition:border-color .2s;}
+.composer-box::placeholder{color:rgba(255,255,255,.2);}
+.composer-box:focus{border-color:rgba(255,45,120,.35);}
+.post-composer-foot{display:flex;align-items:center;gap:.5rem;}
+.composer-attach-btn{display:flex;align-items:center;gap:.35rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:.32rem .7rem;color:rgba(255,255,255,.4);font-size:.72rem;cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all .2s;}
+.composer-attach-btn:hover{color:rgba(255,255,255,.75);border-color:rgba(255,255,255,.15);}
+.composer-attach-btn svg{width:13px;height:13px;stroke:currentColor;fill:none;}
+.composer-vis{display:flex;align-items:center;gap:.3rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:.32rem .7rem;cursor:pointer;transition:all .2s;position:relative;}
+.composer-vis:hover{border-color:rgba(255,255,255,.15);}
+.composer-vis-lbl{font-size:.72rem;color:rgba(255,255,255,.5);font-family:'JetBrains Mono',monospace;}
+.composer-vis svg{width:13px;height:13px;stroke:currentColor;fill:none;color:rgba(255,255,255,.4);}
+.composer-vis.pub{border-color:rgba(0,229,192,.25);background:rgba(0,229,192,.05);}
+.composer-vis.pub .composer-vis-lbl{color:var(--ok);}
+.composer-vis.pub svg{color:var(--ok);}
+.vis-dropdown{position:absolute;top:calc(100% + 6px);left:0;background:var(--s2);border:1px solid var(--border);border-radius:11px;padding:.35rem;min-width:160px;z-index:100;box-shadow:0 8px 32px rgba(0,0,0,.5);display:none;}
+.vis-dropdown.open{display:block;}
+.vis-opt{display:flex;align-items:center;gap:.6rem;padding:.5rem .7rem;border-radius:8px;cursor:pointer;font-size:.8rem;transition:background .15s;}
+.vis-opt:hover{background:rgba(255,255,255,.06);}
+.vis-opt svg{width:14px;height:14px;stroke:currentColor;fill:none;flex-shrink:0;}
+.vis-opt span{color:var(--sub);font-size:.7rem;font-family:'JetBrains Mono',monospace;}
+.composer-send{margin-left:auto;display:flex;align-items:center;gap:.4rem;background:linear-gradient(135deg,var(--accent),var(--a2));color:#fff;border:none;border-radius:10px;padding:.4rem 1rem;font-family:'Space Grotesk',sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 2px 14px rgba(255,45,120,.25);}
+.composer-send:hover{box-shadow:0 4px 22px rgba(255,45,120,.45);transform:translateY(-1px);}
+.composer-img-preview{display:none;position:relative;margin-top:.35rem;}
+.composer-img-preview img{max-height:120px;border-radius:10px;border:1px solid rgba(255,255,255,.1);}
+.composer-img-rm{position:absolute;top:-5px;right:-5px;background:var(--danger);border:none;border-radius:50%;width:18px;height:18px;color:#fff;font-size:.6rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+
+/* ── FEED POST CARD ── */
+.feed-post{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:16px;overflow:hidden;transition:border-color .2s;animation:msgIn .2s ease;}
+.feed-post:hover{border-color:rgba(255,255,255,.1);}
+.post-header{display:flex;align-items:center;gap:.65rem;padding:.8rem 1rem .55rem;}
+.post-av{width:36px;height:36px;border-radius:50%;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem;overflow:hidden;}
+.post-av img{width:100%;height:100%;object-fit:cover;}
+.post-meta{flex:1;min-width:0;}
+.post-name{font-size:.85rem;font-weight:600;}
+.post-time{font-size:.65rem;color:var(--sub);font-family:'JetBrains Mono',monospace;margin-top:.05rem;display:flex;align-items:center;gap:.35rem;}
+.post-vis-tag{font-size:.58rem;padding:.08rem .35rem;border-radius:20px;font-family:'JetBrains Mono',monospace;}
+.post-vis-tag.pub{background:rgba(0,229,192,.08);border:1px solid rgba(0,229,192,.2);color:var(--ok);}
+.post-vis-tag.prv{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.3);}
+.post-text{padding:.1rem 1rem .8rem;font-size:.87rem;line-height:1.6;color:rgba(255,255,255,.85);}
+.post-img{width:100%;display:block;max-height:380px;object-fit:cover;}
+.post-footer{display:flex;align-items:center;gap:.3rem;padding:.55rem .75rem;border-top:1px solid rgba(255,255,255,.04);}
+.post-act{display:flex;align-items:center;gap:.35rem;background:none;border:none;color:rgba(255,255,255,.3);font-size:.75rem;font-family:'JetBrains Mono',monospace;cursor:pointer;padding:.3rem .55rem;border-radius:8px;transition:all .15s;}
+.post-act svg{width:14px;height:14px;stroke:currentColor;fill:none;}
+.post-act:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.75);}
+.post-act.liked{color:var(--accent);}
+.feed-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 1rem;gap:.55rem;color:var(--sub);font-size:.85rem;text-align:center;}
+.feed-empty-icon{font-size:2.5rem;margin-bottom:.3rem;}
 
 /* ── SIDEBAR ── */
 .sidebar{width:320px;background:#1a1a2e;border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
@@ -550,7 +625,7 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
 .send-btn:hover{box-shadow:0 4px 18px rgba(255,45,120,.5);transform:scale(1.1);}
 .msg-img{max-width:100%;max-height:220px;border-radius:10px;display:block;margin-top:.4rem;cursor:pointer;}
 .msg-img:hover{opacity:.9;}
-.chat-form{position:relative;padding:.6rem;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:.35rem;background:rgba(5,5,8,.5);flex-shrink:0;}
+.chat-form{position:relative;padding:.6rem;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:.35rem;background:rgba(5,5,8,.5);}
 .chat-row{display:flex;gap:.35rem;align-items:flex-end;}
 .chat-img-preview{position:relative;display:inline-flex;align-items:flex-start;}
 .chat-img-preview img{height:56px;border-radius:8px;border:2px solid var(--accent);display:block;}
@@ -1183,7 +1258,21 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
       <button class="tb-btn tb-leave" onclick="leaveRoom()">Sair</button>
     </div>
   </div>
-  <div class="main">
+  <!-- ── APP MAIN TABS ── -->
+  <div class="app-tabs">
+    <button class="app-tab on" id="app-tab-stream" onclick="switchAppTab('stream')">
+      <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M8 8l5 2.5L8 13V8z" fill="currentColor"/></svg>
+      Stream
+      <span class="app-tab-badge">AO VIVO</span>
+    </button>
+    <button class="app-tab" id="app-tab-feed" onclick="switchAppTab('feed')">
+      <svg viewBox="0 0 20 20" fill="none"><path d="M2 5h16M2 10h10M2 15h13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      Feed
+    </button>
+  </div>
+
+  <!-- ── STREAM VIEW ── -->
+  <div id="view-stream">
     <div class="varea">
       <div id="vph">
         <div class="vph-bg"></div>
@@ -1313,10 +1402,82 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
         </div>
       </div>
     </div>
-  </div>
+  </div><!-- /view-stream -->
+
+  <!-- ── FEED VIEW ── -->
+  <div id="view-feed">
+    <div class="feed-tabs">
+      <button class="feed-tab on" id="feed-tab-friends" onclick="switchFeedTab('friends')">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M13 11c2.5 0 5 1.2 5 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="13" cy="6" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M2 17c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="7" r="3" stroke="currentColor" stroke-width="1.6"/></svg>
+        Amigos
+      </button>
+      <button class="feed-tab" id="feed-tab-public" onclick="switchFeedTab('public')">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.6"/><path d="M2 10h16M10 2c-2 2.5-3 5-3 8s1 5.5 3 8M10 2c2 2.5 3 5 3 8s-1 5.5-3 8" stroke="currentColor" stroke-width="1.3"/></svg>
+        Público
+      </button>
+    </div>
+    <div class="feed-body">
+      <!-- Composer -->
+      <div class="post-composer" id="post-composer">
+        <div class="post-composer-top">
+          <div class="composer-av" id="composer-av">👤</div>
+          <textarea class="composer-box" id="composer-text" placeholder="O que você quer compartilhar?" rows="3"></textarea>
+        </div>
+        <div id="composer-img-preview" class="composer-img-preview">
+          <img id="composer-img-thumb" src="">
+          <button class="composer-img-rm" onclick="clearComposerImg()">✕</button>
+        </div>
+        <div class="post-composer-foot">
+          <button class="composer-attach-btn" onclick="document.getElementById('composer-img-input').click()" title="Imagem">
+            <svg viewBox="0 0 20 20"><rect x="2" y="4" width="16" height="12" rx="2" stroke-width="1.5"/><circle cx="7" cy="8.5" r="1.5" fill="currentColor" opacity=".6" stroke="none"/><path d="M2 14l4-4 3 3 3-4 6 5" stroke-width="1.3" stroke-linejoin="round" opacity=".7"/></svg>
+            Foto
+          </button>
+          <input type="file" id="composer-img-input" accept="image/*" style="display:none" onchange="handleComposerImg(this)">
+          <div class="composer-vis pub" id="composer-vis" onclick="toggleVisDropdown(event)">
+            <svg id="composer-vis-icon" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" stroke-width="1.5"/><path d="M2 10h16M10 2c-2 2.5-3 5-3 8s1 5.5 3 8M10 2c2 2.5 3 5 3 8s-1 5.5-3 8" stroke-width="1.2"/></svg>
+            <span class="composer-vis-lbl" id="composer-vis-lbl">Público</span>
+            <div class="vis-dropdown" id="vis-dropdown">
+              <div class="vis-opt" onclick="setVisibility('public',event)">
+                <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" stroke-width="1.5"/><path d="M2 10h16M10 2c-2 2.5-3 5-3 8s1 5.5 3 8M10 2c2 2.5 3 5 3 8s-1 5.5-3 8" stroke-width="1.2"/></svg>
+                <div><div>Público</div><span>Visível para todos</span></div>
+              </div>
+              <div class="vis-opt" onclick="setVisibility('friends',event)">
+                <svg viewBox="0 0 20 20"><path d="M13 11c2.5 0 5 1.2 5 4" stroke-width="1.6" stroke-linecap="round"/><circle cx="13" cy="6" r="3" stroke-width="1.6"/><path d="M2 17c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="7" r="3" stroke-width="1.6"/></svg>
+                <div><div>Amigos</div><span>Só seus amigos veem</span></div>
+              </div>
+            </div>
+          </div>
+          <button class="composer-send" onclick="publishPost()">
+            <svg viewBox="0 0 20 20" fill="currentColor" style="width:13px;height:13px"><path d="M17 10L3 4l3 6-3 6 14-6z"/></svg>
+            Publicar
+          </button>
+        </div>
+      </div>
+
+      <!-- Friends feed -->
+      <div class="feed-content on" id="feed-friends">
+        <div class="feed-empty">
+          <div class="feed-empty-icon">👥</div>
+          <div>Nenhuma postagem dos seus amigos ainda.</div>
+          <div style="font-size:.75rem;color:var(--sub)">Adicione amigos e fique ligado no que estão assistindo!</div>
+        </div>
+      </div>
+
+      <!-- Public feed -->
+      <div class="feed-content" id="feed-public">
+        <div class="feed-empty">
+          <div class="feed-empty-icon">🌎</div>
+          <div>O feed público está vazio.</div>
+          <div style="font-size:.75rem;color:var(--sub)">Seja o primeiro a postar algo!</div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /view-feed -->
+
 </div>
 
 <!-- ADD VIDEO MODAL -->
+<div class="overlay" id="add-modal">
 <div class="overlay" id="add-modal">
   <div class="modal">
     <div class="modal-title">🎬 Adicionar Vídeo<button class="modal-close" onclick="closeModal('add-modal')">✕</button></div>
@@ -3043,6 +3204,151 @@ async function addVideo(){
 }
 
 function sTab(t,el){document.querySelectorAll('.stab').forEach(s=>s.classList.remove('on'));el.classList.add('on');['chat','queue','members','friends'].forEach(p=>{const panel=$('p-'+p);if(panel)panel.classList.toggle('on',p===t);});}
+
+// ── APP TAB SWITCHING ──
+function switchAppTab(tab) {
+  const stream = $('view-stream'), feed = $('view-feed');
+  const ts = $('app-tab-stream'), tf = $('app-tab-feed');
+  if (tab === 'stream') {
+    stream.style.display = 'flex'; feed.style.display = 'none';
+    ts.classList.add('on'); tf.classList.remove('on');
+  } else {
+    stream.style.display = 'none'; feed.style.display = 'flex';
+    ts.classList.remove('on'); tf.classList.add('on');
+    updateComposerAvatar();
+  }
+}
+
+function switchFeedTab(tab) {
+  ['friends','public'].forEach(t => {
+    $('feed-tab-'+t).classList.toggle('on', t===tab);
+    $('feed-'+t).classList.toggle('on', t===tab);
+  });
+}
+
+// ── POST COMPOSER ──
+let composerImgData = null;
+let postVisibility = 'public';
+const feedPosts = { friends: [], public: [] };
+
+function updateComposerAvatar() {
+  const av = $('composer-av');
+  if (!av) return;
+  if (loggedInUser) {
+    av.innerHTML = loggedInUser.avatarUrl
+      ? '<img src="' + loggedInUser.avatarUrl + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'
+      : (loggedInUser.avatar || '👤');
+  }
+}
+
+function setVisibility(v, e) {
+  e && e.stopPropagation();
+  postVisibility = v;
+  const lbl = $('composer-vis-lbl');
+  const icon = $('composer-vis-icon');
+  const vis = $('composer-vis');
+  $('vis-dropdown').classList.remove('open');
+  if (v === 'public') {
+    lbl.textContent = 'Público';
+    vis.className = 'composer-vis pub';
+    icon.innerHTML = '<circle cx="10" cy="10" r="8" stroke-width="1.5"/><path d="M2 10h16M10 2c-2 2.5-3 5-3 8s1 5.5 3 8M10 2c2 2.5 3 5 3 8s-1 5.5-3 8" stroke-width="1.2"/>';
+  } else {
+    lbl.textContent = 'Amigos';
+    vis.className = 'composer-vis';
+    icon.innerHTML = '<path d="M13 11c2.5 0 5 1.2 5 4" stroke-width="1.6" stroke-linecap="round"/><circle cx="13" cy="6" r="3" stroke-width="1.6"/><path d="M2 17c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="7" r="3" stroke-width="1.6"/>';
+  }
+}
+
+function toggleVisDropdown(e) {
+  e.stopPropagation();
+  $('vis-dropdown').classList.toggle('open');
+}
+document.addEventListener('click', () => { const d=$('vis-dropdown'); if(d) d.classList.remove('open'); });
+
+function handleComposerImg(input) {
+  const file = input.files[0]; if (!file) return;
+  const r = new FileReader();
+  r.onload = e => {
+    composerImgData = e.target.result;
+    $('composer-img-thumb').src = composerImgData;
+    $('composer-img-preview').style.display = 'block';
+  };
+  r.readAsDataURL(file);
+  input.value = '';
+}
+
+function clearComposerImg() {
+  composerImgData = null;
+  $('composer-img-preview').style.display = 'none';
+  $('composer-img-thumb').src = '';
+}
+
+function publishPost() {
+  const text = ($('composer-text').value || '').trim();
+  if (!text && !composerImgData) return;
+  const user = loggedInUser || { avatar: '👤', name: 'Você' };
+  const post = {
+    id: Date.now(),
+    name: user.displayName || user.name || 'Você',
+    avatar: user.avatarUrl || user.avatar || '👤',
+    text, imgData: composerImgData,
+    visibility: postVisibility,
+    time: new Date(), likes: 0, liked: false, comments: 0
+  };
+  feedPosts.friends.unshift(post);
+  if (postVisibility === 'public') feedPosts.public.unshift(post);
+  renderFeeds();
+  $('composer-text').value = '';
+  clearComposerImg();
+}
+
+function renderFeeds() {
+  ['friends','public'].forEach(tab => {
+    const el = $('feed-'+tab);
+    const posts = feedPosts[tab];
+    if (!posts.length) {
+      el.innerHTML = tab === 'friends'
+        ? '<div class="feed-empty"><div class="feed-empty-icon">👥</div><div>Nenhuma postagem dos seus amigos ainda.</div><div style="font-size:.75rem;color:var(--sub)">Adicione amigos e fique ligado!</div></div>'
+        : '<div class="feed-empty"><div class="feed-empty-icon">🌎</div><div>O feed público está vazio.</div><div style="font-size:.75rem;color:var(--sub)">Seja o primeiro a postar algo!</div></div>';
+      return;
+    }
+    el.innerHTML = posts.map(p => {
+      const avHtml = (p.avatar && p.avatar.startsWith('data:')) ? '<img src="'+p.avatar+'">' : p.avatar;
+      return '<div class="feed-post">' +
+        '<div class="post-header">' +
+          '<div class="post-av">'+avHtml+'</div>' +
+          '<div class="post-meta">' +
+            '<div class="post-name">'+p.name+'</div>' +
+            '<div class="post-time">'+fmtTime(p.time)+
+              '<span class="post-vis-tag '+(p.visibility==='public'?'pub':'prv')+'">'+
+              (p.visibility==='public'?'🌎 Público':'👥 Amigos')+'</span></div>' +
+          '</div></div>' +
+        (p.text ? '<div class="post-text">'+p.text+'</div>' : '') +
+        (p.imgData ? '<img class="post-img" src="'+p.imgData+'" loading="lazy">' : '') +
+        '<div class="post-footer">' +
+          '<button class="post-act '+(p.liked?'liked':'')+'" onclick="likePost(\''+tab+'\','+p.id+')">' +
+            '<svg viewBox="0 0 20 20"><path d="M10 17s-7-4.35-7-9a4 4 0 018 0 4 4 0 018 0c0 4.65-7 9-7 9z" stroke="currentColor" stroke-width="1.5" '+(p.liked?'fill="currentColor"':'fill="none"')+'/></svg> '+p.likes+'</button>' +
+          '<button class="post-act"><svg viewBox="0 0 20 20"><path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2H6l-4 3V5z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg> '+p.comments+'</button>' +
+        '</div></div>';
+    }).join('');
+  });
+}
+
+function likePost(tab, id) {
+  ['friends','public'].forEach(t => {
+    const p = feedPosts[t].find(x => x.id === id);
+    if (p) { p.liked = !p.liked; p.likes += p.liked ? 1 : -1; }
+  });
+  renderFeeds();
+}
+
+function fmtTime(d) {
+  const diff = Math.floor((Date.now() - new Date(d)) / 1000);
+  if (diff < 60) return 'agora mesmo';
+  if (diff < 3600) return Math.floor(diff/60) + 'min atrás';
+  if (diff < 86400) return Math.floor(diff/3600) + 'h atrás';
+  return new Date(d).toLocaleDateString('pt-BR');
+}
 function copyCode(){navigator.clipboard.writeText(roomId).then(()=>toast('Código copiado: '+roomId));}
 function leaveRoom(){if(ws)ws.close();$('app').style.display='none';$('lobby').style.display='flex';roomId='';rendered=new Set();if(loggedInUser){$('auth-overlay').classList.add('hidden');$('lobby-topbar').style.display='flex';$('lobby-body').style.display='flex';}loadPublicRooms();}
 
