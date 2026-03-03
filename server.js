@@ -634,10 +634,10 @@ wss.on('connection', (ws) => {
     }
 
     if (type === 'CHAT' && currentRoom) {
-      // Limit image size (base64 ~5MB → ~6.7MB string)
       const imgData = payload.imgData && payload.imgData.length < 7_000_000 ? payload.imgData : null;
       const gifUrl = payload.gifUrl || null;
-      broadcastAll(currentRoom, { type: 'CHAT', payload: { id: uuid(), localId: payload.localId||null, user: currentUser, text: payload.text || '', gifUrl, imgData, ts: Date.now() } });
+      // Manda pra todos EXCETO o remetente (ele já renderizou localmente)
+      broadcast(currentRoom, { type: 'CHAT', payload: { id: uuid(), user: currentUser, text: payload.text || '', gifUrl, imgData, ts: Date.now() } }, wsId);
     }
 
     if (type === 'REACTION' && currentRoom) {
