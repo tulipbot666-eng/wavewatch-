@@ -316,7 +316,7 @@ app.get('/api/users/check-username', async (req, res) => {
 // ── SETUP PROFILE (onboarding + profile edit) ──
 app.post('/auth/setup-profile', async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Não autenticado' });
-  const { username, avatarEmoji, displayName, avatarData, removeAvatar } = req.body;
+  const { username, avatarEmoji, displayName, avatarData, removeAvatar, bannerData } = req.body;
 
   const existingUsername = req.user.username;
   let finalUsername = existingUsername;
