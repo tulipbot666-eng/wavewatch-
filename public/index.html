@@ -475,11 +475,11 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
 .cpp-av img{width:100%;height:100%;object-fit:cover;}
 .cpp-name{font-size:.95rem;font-weight:700;text-align:center;margin-bottom:.15rem;}
 .cpp-user{font-size:.7rem;color:var(--sub);text-align:center;font-family:'JetBrains Mono',monospace;margin-bottom:.85rem;}
-.cpp-actions{display:flex;gap:.4rem;}
-.cpp-btn{flex:1;padding:.45rem;border-radius:9px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:.72rem;font-family:'Space Grotesk',sans-serif;cursor:pointer;transition:all .15s;text-align:center;}
-.cpp-btn:hover{border-color:rgba(255,45,120,.35);color:var(--accent);background:rgba(255,45,120,.07);}
-.cpp-btn.primary{background:rgba(255,45,120,.1);border-color:rgba(255,45,120,.3);color:var(--accent);}
-.cpp-btn.primary:hover{background:rgba(255,45,120,.2);}
+.cpp-actions{display:flex;gap:.5rem;}
+.cpp-btn{flex:1;padding:.5rem .7rem;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);color:rgba(255,255,255,.7);font-size:.78rem;font-family:'Space Grotesk',sans-serif;font-weight:600;cursor:pointer;transition:all .15s;text-align:center;white-space:nowrap;}
+.cpp-btn:hover{border-color:rgba(255,45,120,.4);color:var(--accent);background:rgba(255,45,120,.08);}
+.cpp-btn.primary{background:rgba(255,45,120,.12);border-color:rgba(255,45,120,.35);color:var(--accent);}
+.cpp-btn.primary:hover{background:rgba(255,45,120,.22);}
 
 /* grouped messages (same user) */
 .msg.grouped{padding-top:.06rem;}
@@ -938,12 +938,26 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
       <!-- Edit mode -->
       <div class="profile-edit" id="prof-edit">
         <div style="font-size:.82rem;font-weight:700;margin-bottom:1rem;display:flex;align-items:center;gap:.4rem">✏️ Editar perfil</div>
+
+        <!-- Upload de foto -->
+        <div class="profile-edit-field">
+          <label>Foto de perfil</label>
+          <div style="display:flex;align-items:center;gap:.8rem;margin-top:.3rem">
+            <div id="prof-photo-preview" style="width:56px;height:56px;border-radius:50%;overflow:hidden;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0"></div>
+            <div style="display:flex;flex-direction:column;gap:.4rem">
+              <button class="pill-btn ghost" style="font-size:.75rem;padding:.4rem .9rem" onclick="$('prof-photo-input').click()">📷 Escolher foto</button>
+              <button class="pill-btn ghost" style="font-size:.75rem;padding:.4rem .9rem;opacity:.6" onclick="removeProfilePhoto()">🗑 Remover foto</button>
+            </div>
+          </div>
+          <input type="file" id="prof-photo-input" accept="image/*" style="display:none" onchange="handleProfilePhoto(this)">
+        </div>
+
         <div class="profile-edit-field">
           <label>Nome de exibição</label>
           <input class="profile-edit-inp" id="prof-edit-name" maxlength="30" placeholder="Seu nome">
         </div>
         <div class="profile-edit-field">
-          <label>Avatar</label>
+          <label>Avatar (emoji)</label>
           <div class="profile-av-grid" id="prof-av-grid">
             <div class="profile-av-opt on" data-av="🎬" onclick="selectProfAv(this)">🎬</div>
             <div class="profile-av-opt" data-av="🦊" onclick="selectProfAv(this)">🦊</div>
@@ -1461,16 +1475,47 @@ async function loadAuthState() {
 // ── PROFILE MODAL ─────────────────────────────────────────
 let profEditAvatar = null;
 
+let profPhotoData = null; // base64 da nova foto
+
+function handleProfilePhoto(input) {
+  const file = input.files[0]; if(!file) return;
+  if(file.size > 5 * 1024 * 1024) { toast('Foto muito grande (máx 5MB)'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    profPhotoData = e.target.result;
+    const preview = $('prof-photo-preview');
+    preview.innerHTML = `<img src="${profPhotoData}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+    // Atualiza preview do avatar grande também
+    const avInner = $('prof-av-inner');
+    if(avInner) avInner.outerHTML = `<img id="prof-av-inner" src="${profPhotoData}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeProfilePhoto() {
+  profPhotoData = 'remove';
+  $('prof-photo-preview').innerHTML = `<span style="font-size:1.6rem">${loggedInUser?.avatarEmoji||'🎬'}</span>`;
+  const avInner = $('prof-av-inner');
+  if(avInner) avInner.outerHTML = `<span id="prof-av-inner">${loggedInUser?.avatarEmoji||'🎬'}</span>`;
+}
+
 function openProfileModal() {
   if(!loggedInUser) return;
+  profPhotoData = null;
   const u = loggedInUser;
-  // Avatar
   const av = u.avatarEmoji || '🎬';
   const avEl = $('prof-av-inner');
   if(u.avatarUrl) {
     avEl.outerHTML = `<img id="prof-av-inner" src="${esc(u.avatarUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.outerHTML='<span id=prof-av-inner>${esc(av)}</span>'">`;
   } else {
     avEl.textContent = av;
+  }
+  // Popular preview da foto atual
+  const preview = $('prof-photo-preview');
+  if(preview) {
+    preview.innerHTML = u.avatarUrl
+      ? `<img src="${esc(u.avatarUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+      : `<span style="font-size:1.6rem">${esc(av)}</span>`;
   }
   // Info
   $('prof-name').textContent = u.name;
@@ -1514,15 +1559,19 @@ async function saveProfile() {
   if(!name) { const e=$('prof-err'); e.textContent='Nome não pode ficar vazio'; e.classList.add('on'); return; }
   const btn = $('prof-save-btn'); btn.textContent='Salvando...'; btn.disabled=true;
   try {
+    const body = { username: loggedInUser.username || '', avatarEmoji: profEditAvatar, displayName: name };
+    if(profPhotoData && profPhotoData !== 'remove') body.avatarData = profPhotoData;
+    if(profPhotoData === 'remove') body.removeAvatar = true;
     const res = await fetch('/auth/setup-profile', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ username: loggedInUser.username || '', avatarEmoji: profEditAvatar, displayName: name })
+      body: JSON.stringify(body)
     });
     const data = await res.json();
     if(!res.ok) {
       const e=$('prof-err'); e.textContent=data.error||'Erro ao salvar'; e.classList.add('on');
       btn.textContent='Salvar →'; btn.disabled=false; return;
     }
+    profPhotoData = null;
     await loadAuthState();
     closeProfileModal();
     toast('Perfil atualizado! ✨');
