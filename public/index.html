@@ -325,6 +325,9 @@ body::after{content:'';position:fixed;inset:0;
 .tb-btn.hot{background:linear-gradient(135deg,var(--accent),var(--a2));color:#fff;border-color:transparent;box-shadow:0 2px 16px rgba(255,45,120,.28);font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:.74rem;padding:.32rem .8rem;}
 .tb-btn.hot:hover{box-shadow:0 4px 28px rgba(255,45,120,.45);transform:translateY(-1px);}
 .tb-leave{color:rgba(255,255,255,.3);}
+.tb-btn.ss-active{background:rgba(255,45,120,.12);border-color:rgba(255,45,120,.4);color:#ff2d78;}
+.tb-btn.ss-active:hover{background:rgba(255,45,120,.2);}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
 .tb-leave:hover{color:var(--danger) !important;border-color:rgba(255,51,85,.3) !important;background:rgba(255,51,85,.06) !important;}
 .tb-user{display:flex;align-items:center;gap:.45rem;cursor:pointer;padding:.25rem .55rem;border-radius:9px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.03);transition:all .2s;}
 .tb-user:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.12);}
@@ -1399,6 +1402,10 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
         <svg viewBox="0 0 20 20" fill="none" style="width:13px;height:13px;margin-right:4px"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
         Vídeo
       </button>
+      <button class="tb-btn" id="screenshare-btn" onclick="toggleScreenShare()" style="display:none;gap:.35rem;">
+        <svg id="ss-icon" viewBox="0 0 20 20" fill="none" style="width:13px;height:13px"><rect x="2" y="4" width="16" height="11" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M7 18h6M10 15v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span id="ss-lbl">Tela</span>
+      </button>
       <button class="tb-btn tb-leave" onclick="leaveRoom()">Sair</button>
     </div>
   </div>
@@ -1616,6 +1623,19 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
 
 <div class="toast" id="toast"></div>
 
+<!-- Screen Share Viewer Overlay -->
+<div id="ss-overlay" style="display:none;position:fixed;inset:0;z-index:500;background:#000;flex-direction:column;">
+  <div style="display:flex;align-items:center;justify-content:between;padding:.5rem .85rem;background:rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.06);gap:.75rem;">
+    <div style="display:flex;align-items:center;gap:.5rem;flex:1;">
+      <div style="width:8px;height:8px;border-radius:50%;background:#ff2d78;animation:pulse 1.5s infinite;flex-shrink:0;"></div>
+      <span style="font-size:.8rem;font-weight:600;" id="ss-host-name">Host</span>
+      <span style="font-size:.75rem;color:var(--sub);">está compartilhando a tela</span>
+    </div>
+    <button onclick="closeScreenShareOverlay()" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:rgba(255,255,255,.6);padding:.3rem .7rem;font-size:.75rem;cursor:pointer;">✕ Fechar</button>
+  </div>
+  <video id="ss-video" autoplay playsinline style="flex:1;width:100%;object-fit:contain;background:#000;"></video>
+</div>
+
 <script>
 const WS_URL = location.protocol === 'https:' ? `wss://${location.host}` : `ws://${location.host}`;
 
@@ -1639,6 +1659,13 @@ let isPlaying = false, isSyncing = false;
 let currentSrc = 'youtube', pickedFile = null;
 let ytInfoCache = {}, selectedAvatar = '🎬';
 let amIHost = false, localQueue = [], rendered = new Set();
+
+// ── SCREEN SHARE STATE ────────────────────────────────────
+let ssStream = null;          // MediaStream from getDisplayMedia
+let ssPeers = {};             // { wsId: RTCPeerConnection } for host
+let ssViewerPc = null;        // RTCPeerConnection for viewer
+let ssActive = false;         // Is host currently sharing?
+let myWsId = null;            // Our WebSocket ID (from ROOM_STATE)
 let loggedInUser = null; // Google account data
 let vjsPlayer = null; // Video.js instance
 
@@ -2467,6 +2494,8 @@ function handle(msg) {
   if(type==='ROOM_STATE'){
     roomState=payload;
     myUser.id = payload.myWsId || payload.members.find(m=>m.name===myUser.name)?.id || myUser.id;
+    myWsId = payload.myWsId || myUser.id;
+    currentRoomMembers = payload.members || [];
     amIHost=payload.host===myUser.id;
     updateHostUI(); renderMembers(payload.members);
     renderQueue(payload.queue); renderHistory(payload.history);
@@ -2476,8 +2505,45 @@ function handle(msg) {
     startSoftSync();
   }
 
-  if(type==='USER_JOINED'){sysMsg(`${payload.user.avatar||'👤'} ${payload.user.name} entrou na sala`);updateLiveLbl(payload.memberCount);}
+  if(type==='USER_JOINED'){
+    sysMsg(`${payload.user.avatar||'👤'} ${payload.user.name} entrou na sala`);
+    updateLiveLbl(payload.memberCount);
+    if(currentRoomMembers && !currentRoomMembers.find(m=>m.id===payload.user.id)) currentRoomMembers.push(payload.user);
+    // If host is sharing, create a peer for the new viewer
+    if(amIHost && ssActive && payload.user.id !== myWsId) ssCreateHostPeer(payload.user.id);
+  }
   if(type==='HOST_CHANGED'){amIHost=payload.hostId===myUser.id;updateHostUI();updateYTOverlay();if(amIHost)sysMsg('👑 Você agora é o host da sala');}
+
+  // ── WebRTC SCREEN SHARE ──────────────────────────────────
+  if(type==='SCREEN_SHARE_START'){
+    const name = payload.by?.name || 'Host';
+    $('ss-host-name').textContent = name;
+    sysMsg('📺 '+name+' está compartilhando a tela');
+    if(!amIHost) ssViewerConnect(payload.by?.id || myUser.id);
+  }
+
+  if(type==='SCREEN_SHARE_STOP'){
+    sysMsg('📺 Compartilhamento de tela encerrado');
+    ssCleanupViewer();
+  }
+
+  if(type==='WR_OFFER' && !amIHost){
+    ssHandleOffer(payload);
+  }
+
+  if(type==='WR_ANSWER' && amIHost){
+    const pc = ssPeers[payload.fromId];
+    if(pc) pc.setRemoteDescription(new RTCSessionDescription(payload.sdp)).catch(console.error);
+  }
+
+  if(type==='WR_ICE'){
+    if(amIHost){
+      const pc = ssPeers[payload.fromId];
+      if(pc && payload.candidate) pc.addIceCandidate(new RTCIceCandidate(payload.candidate)).catch(()=>{});
+    } else if(ssViewerPc && payload.candidate){
+      ssViewerPc.addIceCandidate(new RTCIceCandidate(payload.candidate)).catch(()=>{});
+    }
+  }
   if(type==='USER_LEFT'){sysMsg(`${payload.user?.avatar||'👤'} ${payload.user?.name||'Alguém'} saiu`);updateLiveLbl(payload.memberCount);}
   if(type==='PONG'){const m=Date.now()-payload.ts;rtt=Math.round(rtt*0.7+m*0.3);}
   if(type==='CHAT'){renderChatMsg(payload);}
@@ -2620,18 +2686,17 @@ function loadVideo(video,doBroadcast){
     const streamUrl = `/api/drive/stream/${fileId}?room=${roomId}`;
     _loadVjs(wrap, streamUrl);
     $('ctrl').style.display='none';
-  } else {
-    const ext=src==='local'?'LOCAL':(url.split('.').pop().split('?')[0].toUpperCase().substring(0,4)||'VID');
-    $('src-badge').textContent=ext;
-    _loadVjs(wrap, url);
-    $('ctrl').style.display='none';
-  }
-  if(src==='torrent'){
+  } else if(src==='torrent'){
     $('src-badge').textContent='🧲';
     $('ctrl').style.display='flex';
     loadTorrent(url, wrap);
     if(doBroadcast)send('VIDEO',{video});
     return;
+  } else {
+    const ext=src==='local'?'LOCAL':(url.split('.').pop().split('?')[0].toUpperCase().substring(0,4)||'VID');
+    $('src-badge').textContent=ext;
+    _loadVjs(wrap, url);
+    $('ctrl').style.display='none';
   }
   if(doBroadcast)send('VIDEO',{video});
 }
@@ -2644,6 +2709,18 @@ function loadTorrent(magnetUri, wrap) {
 
   const doLoad = () => {
     wtClient = new WebTorrent();
+
+    // Strip udp:// trackers (don't work in browser) and inject wss:// ones
+    const wssTrackers = [
+      'wss://tracker.openwebtorrent.com',
+      'wss://tracker.btorrent.xyz',
+      'wss://tracker.fastcast.nz',
+      'wss://tracker.webtorrent.dev'
+    ];
+    // Remove udp/http trackers from magnet, add wss ones
+    let cleanMagnet = magnetUri.replace(/&tr=udp[^&]*/g,'').replace(/&tr=http[^&]*/g,'');
+    wssTrackers.forEach(t => { if(!cleanMagnet.includes(t)) cleanMagnet += '&tr=' + encodeURIComponent(t); });
+    magnetUri = cleanMagnet;
 
     // Status overlay
     const statusEl = document.createElement('div');
@@ -2661,14 +2738,7 @@ function loadTorrent(magnetUri, wrap) {
     // Browser-native formats only — MKV/AVI won't play
     const nativeExts = ['mp4','webm','ogg','ogv','m4v'];
 
-    wtClient.add(magnetUri, {
-      announce: [
-        'wss://tracker.openwebtorrent.com',
-        'wss://tracker.btorrent.xyz',
-        'wss://tracker.fastcast.nz',
-        'wss://tracker.webtorrent.dev'
-      ]
-    }, torrent => {
+    wtClient.add(magnetUri, torrent => {
       // Prefer browser-native formats, fall back to any video
       const allVideo = ['mp4','webm','ogg','ogv','m4v','mkv','avi','mov'];
       let file = torrent.files
@@ -2883,6 +2953,7 @@ function updateHostUI(){
   let badge=$('host-badge');
   if(!badge){badge=document.createElement('span');badge.id='host-badge';badge.style.cssText='font-size:.65rem;font-family:"DM Mono",monospace;padding:.15rem .45rem;border-radius:5px;background:rgba(232,67,147,.2);color:var(--accent);border:1px solid rgba(232,67,147,.3);';$('tb-right').prepend(badge);}
   badge.textContent=amIHost?'👑 host':'👤 membro';
+  const ssBtn=$('screenshare-btn');if(ssBtn)ssBtn.style.display=amIHost?'flex':'none';
   $('ctrl').querySelectorAll('.c-btn,#vol').forEach(b=>{b.style.opacity=amIHost?'':'0.35';b.style.pointerEvents=amIHost?'':'none';});
   $('prog').style.pointerEvents=amIHost?'auto':'none';
   $('prog').style.cursor=amIHost?'pointer':'default';
@@ -3765,6 +3836,116 @@ async function loadLobbyFeed() {
   }
 }
 function copyCode(){navigator.clipboard.writeText(roomId).then(()=>toast('Código copiado: '+roomId));}
+// ── SCREEN SHARE ─────────────────────────────────────────
+const SS_ICE = { iceServers: [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' }
+]};
+
+async function toggleScreenShare() {
+  if (ssActive) {
+    ssStopSharing();
+  } else {
+    await ssStartSharing();
+  }
+}
+
+async function ssStartSharing() {
+  try {
+    ssStream = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: 30, cursor: 'always' },
+      audio: true
+    });
+  } catch(e) {
+    if (e.name !== 'NotAllowedError') toast('Erro ao capturar tela: ' + e.message);
+    return;
+  }
+
+  ssActive = true;
+  const btn = $('screenshare-btn');
+  btn.classList.add('ss-active');
+  $('ss-lbl').textContent = 'Parar';
+
+  // When user stops via browser button
+  ssStream.getVideoTracks()[0].onended = () => ssStopSharing();
+
+  // Notify all viewers
+  send('SCREEN_SHARE_START', { by: myUser });
+
+  // Create peer connection for each current member
+  if (currentRoomMembers) {
+    currentRoomMembers.forEach(member => {
+      if (member.id !== myWsId) ssCreateHostPeer(member.id);
+    });
+  }
+}
+
+function ssCreateHostPeer(viewerId) {
+  const pc = new RTCPeerConnection(SS_ICE);
+  ssPeers[viewerId] = pc;
+
+  // Add all tracks from screen stream
+  ssStream.getTracks().forEach(track => pc.addTrack(track, ssStream));
+
+  // Send ICE candidates to this viewer
+  pc.onicecandidate = e => {
+    if (e.candidate) send('WR_ICE', { targetId: viewerId, candidate: e.candidate });
+  };
+
+  // Create and send offer
+  pc.createOffer().then(offer => {
+    pc.setLocalDescription(offer);
+    send('WR_OFFER', { targetId: viewerId, sdp: offer });
+  }).catch(console.error);
+}
+
+function ssStopSharing() {
+  ssActive = false;
+  if (ssStream) { ssStream.getTracks().forEach(t => t.stop()); ssStream = null; }
+  Object.values(ssPeers).forEach(pc => { try { pc.close(); } catch(e){} });
+  ssPeers = {};
+  const btn = $('screenshare-btn');
+  if (btn) { btn.classList.remove('ss-active'); $('ss-lbl').textContent = 'Tela'; }
+  send('SCREEN_SHARE_STOP', {});
+}
+
+// ── VIEWER SIDE ──────────────────────────────────────────
+let currentRoomMembers = null; // kept updated from ROOM_STATE
+
+function ssViewerConnect(hostWsId) {
+  // Nothing to do here — wait for the offer from host
+}
+
+async function ssHandleOffer(payload) {
+  ssCleanupViewer();
+  ssViewerPc = new RTCPeerConnection(SS_ICE);
+
+  ssViewerPc.onicecandidate = e => {
+    if (e.candidate) send('WR_ICE', { targetId: payload.fromId, candidate: e.candidate });
+  };
+
+  ssViewerPc.ontrack = e => {
+    const vid = $('ss-video');
+    vid.srcObject = e.streams[0];
+    $('ss-overlay').style.display = 'flex';
+  };
+
+  await ssViewerPc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+  const answer = await ssViewerPc.createAnswer();
+  await ssViewerPc.setLocalDescription(answer);
+  send('WR_ANSWER', { targetId: payload.fromId, sdp: answer });
+}
+
+function ssCleanupViewer() {
+  if (ssViewerPc) { try { ssViewerPc.close(); } catch(e){} ssViewerPc = null; }
+  const vid = $('ss-video');
+  if (vid) vid.srcObject = null;
+}
+
+function closeScreenShareOverlay() {
+  $('ss-overlay').style.display = 'none';
+}
+
 function leaveRoom(){
   if(ws)ws.close();
   if(wtClient){try{wtClient.destroy();}catch(e){}wtClient=null;}
