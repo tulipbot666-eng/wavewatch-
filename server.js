@@ -81,6 +81,14 @@ async function initDB() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS banner_url TEXT;
 
     CREATE INDEX IF NOT EXISTS IDX_session_expire ON session (expire);
+
+    CREATE TABLE IF NOT EXISTS user_posts (
+      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS user_posts_user_idx ON user_posts (user_id, created_at DESC);
   `);
   console.log('✅ Database ready');
 }
@@ -272,6 +280,41 @@ app.delete('/api/gallery/:id', async (req, res) => {
   if(!req.user) return res.status(401).json({ error: 'Não autenticado' });
   try {
     await pool.query(`DELETE FROM user_gallery WHERE id=$1 AND user_id=$2`, [req.params.id, req.user.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
+});
+
+// ── POSTS ──
+app.get('/api/users/:id/posts', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT p.id, p.content, p.created_at, u.name, u.avatar_url, u.avatar_emoji
+       FROM user_posts p JOIN users u ON u.id=p.user_id
+       WHERE p.user_id=$1 ORDER BY p.created_at DESC LIMIT 50`,
+      [req.params.id]
+    );
+    res.json({ posts: rows });
+  } catch(e) { res.status(500).json({ posts: [] }); }
+});
+
+app.post('/api/posts', async (req, res) => {
+  if(!req.user) return res.status(401).json({ error: 'Não autenticado' });
+  const { content } = req.body;
+  if(!content || !content.trim()) return res.status(400).json({ error: 'Conteúdo vazio' });
+  if(content.length > 500) return res.status(400).json({ error: 'Texto muito longo (máx 500)' });
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO user_posts (user_id, content) VALUES ($1, $2) RETURNING id, content, created_at`,
+      [req.user.id, content.trim()]
+    );
+    res.json({ ok: true, post: rows[0] });
+  } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
+});
+
+app.delete('/api/posts/:id', async (req, res) => {
+  if(!req.user) return res.status(401).json({ error: 'Não autenticado' });
+  try {
+    await pool.query(`DELETE FROM user_posts WHERE id=$1 AND user_id=$2`, [req.params.id, req.user.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
 });
@@ -599,6 +642,41 @@ app.get('/api/friends/pending', requireAuth, async (req, res) => {
     `, [req.user.id]);
     res.json({ pending: rows });
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─────────────────────────────────────────
+// POSTS API
+// ─────────────────────────────────────────
+app.post('/api/posts', requireAuth, async (req, res) => {
+  const { content } = req.body;
+  if(!content || !content.trim()) return res.status(400).json({ error: 'Conteúdo vazio' });
+  if(content.length > 1000) return res.status(400).json({ error: 'Post muito longo (máx 1000 caracteres)' });
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO user_posts (user_id, content) VALUES ($1, $2) RETURNING *`,
+      [req.user.id, content.trim()]
+    );
+    res.json({ ok: true, post: rows[0] });
+  } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
+});
+
+app.get('/api/users/:id/posts', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT p.id, p.content, p.created_at, u.name, u.username, u.avatar_url, u.avatar_emoji
+       FROM user_posts p JOIN users u ON u.id = p.user_id
+       WHERE p.user_id = $1 ORDER BY p.created_at DESC LIMIT 50`,
+      [req.params.id]
+    );
+    res.json({ posts: rows });
+  } catch(e) { res.status(500).json({ posts: [] }); }
+});
+
+app.delete('/api/posts/:id', requireAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM user_posts WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
 });
 
 // ─────────────────────────────────────────
