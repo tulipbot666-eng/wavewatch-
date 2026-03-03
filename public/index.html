@@ -661,14 +661,14 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
 /* ── PROFILE MODAL ── */
 .profile-overlay{position:fixed;inset:0;z-index:250;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(5,5,8,.85);backdrop-filter:blur(20px);}
 .profile-overlay.hidden{display:none;}
-.profile-box{width:100%;max-width:460px;max-height:88vh;background:#0f0f1a;border:1px solid rgba(255,255,255,.09);border-radius:20px;overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,.8);animation:modalIn .25s ease;display:flex;flex-direction:column;}
+.profile-box{width:100%;max-width:460px;max-height:88vh;background:#0f0f1a;border:1px solid rgba(255,255,255,.09);border-radius:20px;overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,.8);animation:modalIn .25s ease;display:flex;flex-direction:column;}.profile-head{overflow:visible!important;margin-top:-36px;padding-top:0;}.profile-av-wrap{margin-top:0!important;}
 .profile-banner{height:130px;background:linear-gradient(135deg,rgba(255,45,120,.5),rgba(124,58,237,.4),rgba(0,229,192,.2));position:relative;flex-shrink:0;background-size:cover;background-position:center;}
 .profile-banner-close{position:absolute;top:.7rem;right:.7rem;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.15);color:#fff;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:.85rem;display:flex;align-items:center;justify-content:center;z-index:2;}
 .profile-banner-close:hover{background:rgba(0,0,0,.8);}
 .profile-banner-edit{position:absolute;bottom:.6rem;right:.7rem;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.15);color:#fff;padding:.3rem .7rem;border-radius:8px;cursor:pointer;font-size:.75rem;}
 .profile-banner-edit:hover{background:rgba(0,0,0,.8);}
 .profile-head{display:flex;align-items:flex-end;gap:.9rem;padding:.6rem 1.2rem .7rem;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06);}
-.profile-av-wrap{margin-top:-36px;flex-shrink:0;}
+.profile-av-wrap{margin-top:-36px;flex-shrink:0;position:relative;z-index:2;}
 .profile-av{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--a2));border:3px solid #0f0f1a;display:flex;align-items:center;justify-content:center;font-size:2rem;overflow:hidden;cursor:pointer;transition:opacity .2s;}
 .profile-av:hover{opacity:.85;}
 .profile-av img{width:100%;height:100%;object-fit:cover;}
