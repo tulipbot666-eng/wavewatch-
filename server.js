@@ -337,19 +337,7 @@ app.get('/api/users/:id/posts', async (req, res) => {
   } catch(e) { res.status(500).json({ posts: [] }); }
 });
 
-app.post('/api/posts', async (req, res) => {
-  if(!req.user) return res.status(401).json({ error: 'Não autenticado' });
-  const { content } = req.body;
-  if(!content || !content.trim()) return res.status(400).json({ error: 'Conteúdo vazio' });
-  if(content.length > 500) return res.status(400).json({ error: 'Texto muito longo (máx 500)' });
-  try {
-    const { rows } = await pool.query(
-      `INSERT INTO user_posts (user_id, content) VALUES ($1, $2) RETURNING id, content, created_at`,
-      [req.user.id, content.trim()]
-    );
-    res.json({ ok: true, post: rows[0] });
-  } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
-});
+// (posts route defined below)
 
 app.delete('/api/posts/:id', async (req, res) => {
   if(!req.user) return res.status(401).json({ error: 'Não autenticado' });
