@@ -11,6 +11,11 @@ const { Pool } = require('pg');
 const pgSession = require('connect-pg-simple')(session);
 const bcrypt = require('bcrypt');
 
+// ── PUPPETEER (optional — virtual browser) ──
+let puppeteer = null;
+try { puppeteer = require('puppeteer'); console.log('✅ Puppeteer disponível — Browser Virtual ativo'); }
+catch(e) { console.log('⚠️  Puppeteer não instalado. Execute: npm install puppeteer'); }
+
 const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
@@ -439,90 +444,134 @@ app.get('/api/config', (req, res) => {
 });
 
 // ── PROXY REVERSO PARA IFRAME (remove X-Frame-Options) ──
+// Helper: reescreve todas as URLs de um HTML para passar pelo proxy
+function rewriteUrls(html, origin, proxyBase) {
+  // Reescreve src/href/action absolutos de outros domínios
+  html = html
+    // href="/..." e src="/..."  → absoluto do origin
+    .replace(/(href|src|action|srcset|data-src|poster)=(["'])\/(?!\/)/g, `$1=$2${origin}/`)
+    // URLs relativas sem barra (./foo, foo.js) — difíceis de reescrever com regex, ignora por ora
+    // Envolve URLs absolutas do mesmo origin pelo proxy
+    .replace(
+      new RegExp(`(href|src|action|srcset|data-src|poster)=(["'])(${origin.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}[^"' >]*)`, 'g'),
+      (_, attr, q, fullUrl) => `${attr}=${q}${proxyBase}${encodeURIComponent(fullUrl)}`
+    );
+
+  return html;
+}
+
 app.get('/api/proxy', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).send('URL required');
 
+  // Headers que bloqueiam iframe — removemos todos
+  const BLOCKED_HEADERS = new Set([
+    'x-frame-options','content-security-policy','content-security-policy-report-only',
+    'x-content-type-options','cross-origin-opener-policy','cross-origin-embedder-policy',
+    'cross-origin-resource-policy','permissions-policy','strict-transport-security',
+  ]);
+
   try {
     const target = new URL(url);
-    const proxyBase = `${req.protocol}://${req.get('host')}/api/proxy?url=`;
 
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
         'Accept-Encoding': 'identity',
-        'Referer': target.origin
+        'Referer': target.origin + '/',
+        'Origin': target.origin,
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Upgrade-Insecure-Requests': '1',
+        'Cache-Control': 'no-cache',
       },
       redirect: 'follow'
     });
 
-    // Remove headers que bloqueiam iframe
-    const headers = {};
+    // Copia headers da resposta, pulando os bloqueadores
     response.headers.forEach((val, key) => {
-      const lower = key.toLowerCase();
-      if (!['x-frame-options','content-security-policy','x-content-type-options'].includes(lower)) {
-        headers[key] = val;
-      }
+      if (!BLOCKED_HEADERS.has(key.toLowerCase())) res.setHeader(key, val);
     });
+    BLOCKED_HEADERS.forEach(h => res.removeHeader(h));
 
     const contentType = response.headers.get('content-type') || '';
 
     if (contentType.includes('text/html')) {
       let html = await response.text();
 
-      // Reescreve links relativos para absolutos
+      // Reescreve URLs relativas para absolutas
       html = html
-        .replace(/(href|src|action)="\/(?!\/)/g, `$1="${target.origin}/`)
-        .replace(/(href|src|action)='\/(?!\/)/g, `$1='${target.origin}/`);
+        .replace(/(href|src|action|srcset|data-src|poster)=(["'])\/(?!\/)/g, `$1=$2${target.origin}/`)
+        .replace(/(href|src|action|srcset|data-src|poster)=(["'])(?!https?:\/\/|\/\/|#|data:|javascript:|mailto:)([^"'> ]+)/g,
+          (_, attr, q, rel) => `${attr}=${q}${target.origin}/${rel}`);
 
-      // Injeta script de controle do player
-      const controlScript = `
-<script>
-(function() {
-  function findVideo() {
-    return document.querySelector('video');
-  }
-
-  // Escuta comandos do WaveWatch
-  window.addEventListener('message', function(e) {
-    const v = findVideo();
-    if (!v) return;
-    if (e.data.type === 'WW_PLAY') v.play();
-    if (e.data.type === 'WW_PAUSE') v.pause();
-    if (e.data.type === 'WW_SEEK') v.currentTime = e.data.time;
-  });
-
-  // Envia eventos de volta para o WaveWatch
-  function watch() {
-    const v = findVideo();
-    if (!v) { setTimeout(watch, 500); return; }
-    v.addEventListener('play', () => window.parent.postMessage({type:'WW_PLAYING', time: v.currentTime}, '*'));
-    v.addEventListener('pause', () => window.parent.postMessage({type:'WW_PAUSED', time: v.currentTime}, '*'));
-    v.addEventListener('seeked', () => window.parent.postMessage({type:'WW_SEEKED', time: v.currentTime}, '*'));
-    v.addEventListener('timeupdate', () => {
-      if (Math.floor(v.currentTime) % 2 === 0)
-        window.parent.postMessage({type:'WW_TIME', time: v.currentTime, duration: v.duration}, '*');
-    });
-    window.parent.postMessage({type:'WW_READY'}, '*');
-  }
-  
-  if (document.readyState === 'complete') watch();
-  else window.addEventListener('load', watch);
+      // Anti-detecção: injeta ANTES de qualquer JS do site
+      // Falsifica window.top, parent, self, frameElement
+      const antiDetect = `<script>
+(function(){
+  try {
+    Object.defineProperty(window,'top',         {get:function(){return window;},configurable:true});
+    Object.defineProperty(window,'parent',      {get:function(){return window;},configurable:true});
+    Object.defineProperty(window,'frameElement',{get:function(){return null;  },configurable:true});
+    Object.defineProperty(window,'self',        {get:function(){return window;},configurable:true});
+  } catch(e){}
+  // Bloqueia tentativas de window.top.location = x (busting)
+  try {
+    const origAssign = window.location.assign.bind(window.location);
+    window.location.assign = function(u){ origAssign(u); };
+  } catch(e){}
 })();
-</script>`;
+<\/script>`;
 
-      html = html.replace('</body>', controlScript + '</body>');
-      
-      Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
+      // Script de sincronização WaveWatch (player control)
+      const wwControl = `<script>
+(function(){
+  function findVideo(){ return document.querySelector('video'); }
+  window.addEventListener('message',function(e){
+    var v=findVideo(); if(!v) return;
+    if(e.data.type==='WW_PLAY')  v.play();
+    if(e.data.type==='WW_PAUSE') v.pause();
+    if(e.data.type==='WW_SEEK')  v.currentTime=e.data.time;
+  });
+  function watch(){
+    var v=findVideo();
+    if(!v){setTimeout(watch,500);return;}
+    v.addEventListener('play',  function(){window.parent.postMessage({type:'WW_PLAYING',time:v.currentTime},'*');});
+    v.addEventListener('pause', function(){window.parent.postMessage({type:'WW_PAUSED', time:v.currentTime},'*');});
+    v.addEventListener('seeked',function(){window.parent.postMessage({type:'WW_SEEKED', time:v.currentTime},'*');});
+    v.addEventListener('timeupdate',function(){
+      if(Math.floor(v.currentTime)%2===0)
+        window.parent.postMessage({type:'WW_TIME',time:v.currentTime,duration:v.duration},'*');
+    });
+    window.parent.postMessage({type:'WW_READY'},'*');
+  }
+  if(document.readyState==='complete') watch(); else window.addEventListener('load',watch);
+})();
+<\/script>`;
+
+      // Injeta anti-detect no <head> (antes de tudo) e controle no </body>
+      if (html.includes('<head>')) {
+        html = html.replace('<head>', '<head>' + antiDetect);
+      } else if (html.includes('<head ')) {
+        html = html.replace(/<head [^>]*>/, m => m + antiDetect);
+      } else {
+        html = antiDetect + html;
+      }
+
+      html = html.includes('</body>')
+        ? html.replace('</body>', wwControl + '</body>')
+        : html + wwControl;
+
       res.removeHeader('x-frame-options');
       res.removeHeader('content-security-policy');
       res.setHeader('content-type', 'text/html; charset=utf-8');
+      res.setHeader('x-wavewatch-proxied', '1');
       res.send(html);
     } else {
-      // Para recursos não-HTML (JS, CSS, imagens), faz proxy direto
-      Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
+      // JS, CSS, imagens — proxy direto sem modificação
       const { Readable } = require('stream');
       Readable.fromWeb(response.body).pipe(res);
     }
