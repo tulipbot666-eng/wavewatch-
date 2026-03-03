@@ -459,6 +459,28 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
   border-radius: 12px 4px 12px 12px;
 }
 
+/* ── CHAT PROFILE POPUP ── */
+.chat-profile-popup{
+  position:fixed;z-index:999;
+  background:rgba(14,14,22,.97);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:16px;
+  padding:1.2rem 1.2rem 1rem;
+  width:220px;
+  box-shadow:0 16px 48px rgba(0,0,0,.7);
+  animation:msgIn .15s ease;
+  pointer-events:all;
+}
+.cpp-av{width:56px;height:56px;border-radius:50%;overflow:hidden;background:linear-gradient(135deg,var(--accent),var(--a2));display:flex;align-items:center;justify-content:center;font-size:1.8rem;margin:0 auto .7rem;border:3px solid rgba(255,255,255,.1);}
+.cpp-av img{width:100%;height:100%;object-fit:cover;}
+.cpp-name{font-size:.95rem;font-weight:700;text-align:center;margin-bottom:.15rem;}
+.cpp-user{font-size:.7rem;color:var(--sub);text-align:center;font-family:'JetBrains Mono',monospace;margin-bottom:.85rem;}
+.cpp-actions{display:flex;gap:.4rem;}
+.cpp-btn{flex:1;padding:.45rem;border-radius:9px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);font-size:.72rem;font-family:'Space Grotesk',sans-serif;cursor:pointer;transition:all .15s;text-align:center;}
+.cpp-btn:hover{border-color:rgba(255,45,120,.35);color:var(--accent);background:rgba(255,45,120,.07);}
+.cpp-btn.primary{background:rgba(255,45,120,.1);border-color:rgba(255,45,120,.3);color:var(--accent);}
+.cpp-btn.primary:hover{background:rgba(255,45,120,.2);}
+
 /* grouped messages (same user) */
 .msg.grouped{padding-top:.06rem;}
 .msg.grouped .msg-av-col{visibility:hidden;}
@@ -2134,6 +2156,57 @@ let chatPendingImg = null; // {dataUrl, type: 'image'|'gif', url?}
 let gifSearchTimer = null;
 const TENOR_KEY = 'LIVDSRZULELA'; // Tenor official demo key
 
+let _cppEl = null;
+function openChatProfile(user) {
+  // Fechar popup anterior
+  if(_cppEl) { _cppEl.remove(); _cppEl = null; }
+
+  const isMe = user?.id === myUser?.id || user?.name === myUser?.name;
+  const avHtml = user?.avatarUrl
+    ? `<img src="${esc(user.avatarUrl)}">`
+    : `<span>${esc(user?.avatar || '👤')}</span>`;
+
+  const popup = document.createElement('div');
+  popup.className = 'chat-profile-popup';
+  popup.innerHTML = `
+    <div class="cpp-av">${avHtml}</div>
+    <div class="cpp-name">${esc(user?.name || '?')}</div>
+    <div class="cpp-user">${user?.username ? '@'+esc(user.username) : ''}</div>
+    <div class="cpp-actions">
+      ${isMe
+        ? `<button class="cpp-btn primary" onclick="closeChatProfile();openProfileModal()">✏️ Meu perfil</button>`
+        : `<button class="cpp-btn primary" onclick="closeChatProfile();fsAddFriendByName('${esc(user?.name||'')}')">➕ Adicionar</button>
+           <button class="cpp-btn" onclick="closeChatProfile()">✕ Fechar</button>`
+      }
+    </div>`;
+
+  // Posicionar no centro da sidebar
+  const sidebar = document.querySelector('.sidebar');
+  const rect = sidebar.getBoundingClientRect();
+  popup.style.left = (rect.left + 10) + 'px';
+  popup.style.bottom = '80px';
+
+  document.body.appendChild(popup);
+  _cppEl = popup;
+
+  // Fechar ao clicar fora
+  setTimeout(() => document.addEventListener('click', closeChatProfileOutside, {once:true}), 50);
+}
+
+function closeChatProfile() { if(_cppEl){_cppEl.remove();_cppEl=null;} }
+function closeChatProfileOutside(e) { if(_cppEl && !_cppEl.contains(e.target)) closeChatProfile(); }
+
+function fsAddFriendByName(name) {
+  // Busca o usuário pelo nome e manda pedido
+  fetch(`/api/users/search?q=${encodeURIComponent(name)}`)
+    .then(r=>r.json())
+    .then(data=>{
+      const u = data.users?.find(x=>x.name===name);
+      if(u) { fsAddFriend(u.id, {textContent:'',disabled:false}); toast(`Pedido enviado para ${name}! 🎉`); }
+      else toast('Usuário não encontrado');
+    }).catch(()=>toast('Erro ao buscar usuário'));
+}
+
 function shareRoom() {
   const link = `${location.origin}?room=${roomId}`;
   navigator.clipboard.writeText(link).then(()=>toast('Link copiado! 🔗')).catch(()=>toast(roomId));
@@ -2274,10 +2347,10 @@ function renderChatMsg(payload) {
   const textHtml = payload.text ? `<div class="msg-text">${esc(payload.text)}</div>` : '';
 
   div.innerHTML = `
-    <div class="msg-av-col"><div class="msg-av">${avHtml}</div></div>
+    <div class="msg-av-col"><div class="msg-av" style="cursor:pointer" onclick="openChatProfile(${JSON.stringify(payload.user||{})})">${avHtml}</div></div>
     <div class="msg-body">
       <div class="msg-head">
-        <span class="msg-name" style="color:${isMe ? 'var(--accent)' : '#fff'}">${esc(payload.user?.name || '?')}</span>
+        <span class="msg-name" style="color:${isMe ? 'var(--accent)' : '#fff'};cursor:pointer" onclick="openChatProfile(${JSON.stringify(payload.user||{})})">${esc(payload.user?.name || '?')}</span>
         <span class="msg-time">${ts}</span>
       </div>
       ${textHtml}${mediaHtml}
