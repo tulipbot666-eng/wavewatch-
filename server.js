@@ -1020,31 +1020,25 @@ app.get('/api/yt/info', async (req, res) => {
 });
 
 // ─────────────────────────────────────────
-// YT-DLP EXTRACT
+// YT-DLP EXTRACT + STREAM PROXY
 // ─────────────────────────────────────────
 const { exec } = require('child_process');
-const fs = require('fs');
 
-// Instala yt-dlp automaticamente se não existir
 async function ensureYtDlp() {
   return new Promise((resolve) => {
     exec('yt-dlp --version', (err) => {
       if (!err) return resolve(true);
       console.log('📦 Instalando yt-dlp...');
-      // Tenta instalar via pip
-      exec('pip3 install yt-dlp --break-system-packages 2>&1 || pip install yt-dlp 2>&1', (err2, stdout) => {
-        if (!err2) { console.log('✅ yt-dlp instalado via pip'); return resolve(true); }
-        // Fallback: baixa binário direto
+      exec('pip3 install yt-dlp --break-system-packages 2>&1 || pip install yt-dlp 2>&1', (err2) => {
+        if (!err2) { console.log('✅ yt-dlp instalado'); return resolve(true); }
         exec('curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && chmod +x /usr/local/bin/yt-dlp', (err3) => {
-          if (!err3) { console.log('✅ yt-dlp instalado via binário'); return resolve(true); }
-          console.log('⚠️  yt-dlp não pôde ser instalado:', err3?.message);
-          resolve(false);
+          console.log(err3 ? '⚠️  yt-dlp falhou: ' + err3.message : '✅ yt-dlp instalado via binário');
+          resolve(!err3);
         });
       });
     });
   });
 }
-
 ensureYtDlp();
 
 // Extrai URL direta do stream usando yt-dlp
@@ -1052,61 +1046,78 @@ app.get('/api/extract', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'URL obrigatória' });
 
-  // Timeout de 20s pra não travar
   const timeout = setTimeout(() => {
-    res.status(504).json({ error: 'Timeout ao extrair vídeo' });
-  }, 20000);
+    if (!res.headersSent) res.status(504).json({ error: 'Timeout ao extrair vídeo' });
+  }, 25000);
 
   const cmd = [
     'yt-dlp',
     '--no-playlist',
     '--format', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-    '--get-url',
-    '--get-title',
-    '--get-thumbnail',
+    '--get-url', '--get-title', '--get-thumbnail',
     '--no-warnings',
     '--socket-timeout', '10',
     `"${url.replace(/"/g, '')}"`
   ].join(' ');
 
-  exec(cmd, { timeout: 18000 }, (err, stdout, stderr) => {
+  exec(cmd, { timeout: 22000 }, (err, stdout) => {
     clearTimeout(timeout);
     if (res.headersSent) return;
-
-    if (err) {
-      console.log('[yt-dlp] erro:', stderr?.slice(0, 200));
-      return res.status(422).json({ error: 'Não foi possível extrair o vídeo deste site' });
-    }
+    if (err) return res.status(422).json({ error: 'Site não suportado pelo extrator' });
 
     const lines = stdout.trim().split('
 ').filter(Boolean);
     if (!lines.length) return res.status(422).json({ error: 'Nenhuma URL encontrada' });
 
-    // yt-dlp com --get-url --get-title --get-thumbnail retorna:
-    // título, thumbnail, url(s) — ou apenas url(s) dependendo do site
     let title = '', thumb = '', streamUrl = '';
+    if (lines.length >= 3) { title = lines[0]; thumb = lines[1]; streamUrl = lines[2]; }
+    else if (lines.length === 2) { title = lines[0]; streamUrl = lines[1]; }
+    else { streamUrl = lines[0]; }
 
-    // Se tiver 3+ linhas: title, thumb, url
-    if (lines.length >= 3) {
-      title = lines[0];
-      thumb = lines[1];
-      streamUrl = lines[2];
-    } else if (lines.length === 2) {
-      title = lines[0];
-      streamUrl = lines[1];
-    } else {
-      streamUrl = lines[0];
-    }
-
-    // Valida que é uma URL
+    // Garante que streamUrl é uma URL válida
     try { new URL(streamUrl); } catch {
-      // Tenta achar a URL nas linhas
       streamUrl = lines.find(l => l.startsWith('http')) || '';
       if (!streamUrl) return res.status(422).json({ error: 'URL extraída inválida' });
     }
 
-    res.json({ ok: true, url: streamUrl, title, thumb });
+    // Envolve a URL num proxy de stream do nosso servidor
+    // Isso resolve CORS e Referer bloqueado no browser
+    const proxiedStream = `/api/stream?url=${encodeURIComponent(streamUrl)}&origin=${encodeURIComponent(new URL(url).origin)}`;
+    res.json({ ok: true, url: proxiedStream, title, thumb });
   });
+});
+
+// Proxy de stream — repassa o vídeo/HLS com headers corretos
+app.get('/api/stream', async (req, res) => {
+  const { url, origin } = req.query;
+  if (!url) return res.status(400).send('URL obrigatória');
+
+  try {
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+      'Accept-Encoding': 'identity',
+    };
+    if (origin) { headers['Referer'] = origin + '/'; headers['Origin'] = origin; }
+    if (req.headers.range) headers['Range'] = req.headers.range;
+
+    const response = await fetch(url, { headers });
+    if (!response.ok) return res.status(response.status).send('Stream error');
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', response.headers.get('content-type') || 'video/mp4');
+    res.setHeader('Accept-Ranges', 'bytes');
+    const cl = response.headers.get('content-length');
+    const cr = response.headers.get('content-range');
+    if (cl) res.setHeader('Content-Length', cl);
+    if (cr) res.setHeader('Content-Range', cr);
+    res.status(response.status);
+
+    const { Readable } = require('stream');
+    Readable.fromWeb(response.body).pipe(res);
+  } catch(e) {
+    if (!res.headersSent) res.status(500).send('Stream proxy error: ' + e.message);
+  }
 });
 
 function generateRoomCode() {
