@@ -2386,6 +2386,10 @@ function showLErr(m) { $('lerr').textContent = m; $('lerr').classList.add('on');
 
 // ── APP ───────────────────────────────────────────────────
 function enterApp(id, name, roomName, isPublic, category) {
+  // Clear previous room chat
+  const msgs=$('msgs'); if(msgs) msgs.innerHTML='';
+  rendered=new Set();
+  localQueue=[];
   roomId = id;
   myUser = {
     id: null, name,
@@ -3621,7 +3625,18 @@ async function loadLobbyFeed() {
   }
 }
 function copyCode(){navigator.clipboard.writeText(roomId).then(()=>toast('Código copiado: '+roomId));}
-function leaveRoom(){if(ws)ws.close();$('app').style.display='none';$('lobby').style.display='flex';roomId='';rendered=new Set();if(loggedInUser){$('auth-overlay').classList.add('hidden');$('lobby-topbar').style.display='flex';$('lobby-body').style.display='flex';}loadPublicRooms();}
+function leaveRoom(){
+  if(ws)ws.close();
+  // Clear chat and state
+  const msgs=$('msgs'); if(msgs) msgs.innerHTML='';
+  rendered=new Set();
+  localQueue=[];
+  $('app').style.display='none';
+  $('lobby').style.display='flex';
+  roomId='';
+  if(loggedInUser){$('auth-overlay').classList.add('hidden');$('lobby-topbar').style.display='flex';$('lobby-body').style.display='flex';}
+  loadPublicRooms();
+}
 
 // ── FRIENDS SIDEBAR ───────────────────────────────────────
 let fsView = 'list'; // 'list' | 'search'
