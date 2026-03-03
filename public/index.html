@@ -1153,7 +1153,21 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
           <div class="feed-composer-av" id="feed-composer-av">👤</div>
           <textarea class="feed-composer-textarea" id="feed-composer-textarea" placeholder="No que você está pensando?" rows="1" oninput="this.style.height='';this.style.height=this.scrollHeight+'px';feedComposerInput(this)"></textarea>
         </div>
-        <div id="feed-publish-row" style="display:none;justify-content:flex-end;padding:.4rem 0 0">
+        <div id="feed-publish-row" style="display:none;justify-content:space-between;align-items:center;padding:.4rem 0 0;gap:.5rem">
+          <div class="composer-vis pub" id="profile-composer-vis" onclick="toggleProfileVisDropdown(event)" style="position:relative;">
+            <svg id="profile-vis-icon" viewBox="0 0 20 20" fill="none" style="width:13px;height:13px;stroke:currentColor"><circle cx="10" cy="10" r="8" stroke-width="1.5"/><path d="M2 10h16M10 2c-2 2.5-3 5-3 8s1 5.5 3 8M10 2c2 2.5 3 5 3 8s-1 5.5-3 8" stroke-width="1.2"/></svg>
+            <span class="composer-vis-lbl" id="profile-vis-lbl">Público</span>
+            <div class="vis-dropdown" id="profile-vis-dropdown">
+              <div class="vis-opt" onclick="setProfileVisibility('public',event)">
+                <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M2 10h16M10 2c-2 2.5-3 5-3 8s1 5.5 3 8M10 2c2 2.5 3 5 3 8s-1 5.5-3 8" stroke="currentColor" stroke-width="1.2"/></svg>
+                <div><div>Público</div><span>Visível para todos</span></div>
+              </div>
+              <div class="vis-opt" onclick="setProfileVisibility('friends',event)">
+                <svg viewBox="0 0 20 20" fill="none"><path d="M13 11c2.5 0 5 1.2 5 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="13" cy="6" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M2 17c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="7" r="3" stroke="currentColor" stroke-width="1.6"/></svg>
+                <div><div>Amigos</div><span>Só seus amigos veem</span></div>
+              </div>
+            </div>
+          </div>
           <button class="pill-btn primary" style="padding:.4rem 1.2rem;font-size:.82rem;width:auto" onclick="submitFeedPost()">Publicar</button>
         </div>
         <div class="feed-composer-actions">
@@ -1907,6 +1921,25 @@ function feedComposerInput(ta) {
   if(row) row.style.display = ta.value.trim() ? 'flex' : 'none';
 }
 
+let profilePostVisibility = 'public';
+
+function setProfileVisibility(v, e) {
+  e && e.stopPropagation();
+  profilePostVisibility = v;
+  const lbl = $('profile-vis-lbl'), vis = $('profile-composer-vis');
+  $('profile-vis-dropdown').classList.remove('open');
+  if (v === 'public') {
+    lbl.textContent = 'Público'; vis.className = 'composer-vis pub';
+  } else {
+    lbl.textContent = 'Amigos'; vis.className = 'composer-vis';
+  }
+}
+
+function toggleProfileVisDropdown(e) {
+  e.stopPropagation();
+  $('profile-vis-dropdown')?.classList.toggle('open');
+}
+
 async function submitFeedPost() {
   const ta = $('feed-composer-textarea');
   const text = ta?.value.trim();
@@ -1917,13 +1950,16 @@ async function submitFeedPost() {
     const res = await fetch('/api/posts', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ content: text })
+      body: JSON.stringify({ content: text, is_public: profilePostVisibility === 'public' })
     });
     if(res.ok) {
       ta.value = ''; ta.style.height = '';
       if($('feed-publish-row')) $('feed-publish-row').style.display = 'none';
       toast('Publicado! 🎉');
-      if(loggedInUser) loadProfileFeed(loggedInUser.id);
+      if(loggedInUser) {
+        loadProfileFeed(loggedInUser.id);
+        loadLobbyFeed(); // refresh lobby feed too
+      }
     } else {
       const d = await res.json();
       toast(d.error || 'Erro ao publicar');
@@ -3222,6 +3258,7 @@ function switchLobbyTab(tab) {
     rooms.style.display = 'none'; feed.style.display = 'flex';
     tr.classList.remove('on'); tf.classList.add('on');
     updateComposerAvatar();
+    loadLobbyFeed();
   }
 }
 
@@ -3235,7 +3272,6 @@ function switchFeedTab(tab) {
 // ── POST COMPOSER ──
 let composerImgData = null;
 let postVisibility = 'public';
-const feedPosts = { friends: [], public: [] };
 
 function updateComposerAvatar() {
   const av = $('composer-av');
@@ -3289,63 +3325,33 @@ function clearComposerImg() {
   $('composer-img-thumb').src = '';
 }
 
-function publishPost() {
+async function publishPost() {
   const text = ($('composer-text').value || '').trim();
   if (!text && !composerImgData) return;
-  const user = loggedInUser || { avatar: '👤', name: 'Você' };
-  const post = {
-    id: Date.now(),
-    name: user.displayName || user.name || 'Você',
-    avatar: user.avatarUrl || user.avatar || '👤',
-    text, imgData: composerImgData,
-    visibility: postVisibility,
-    time: new Date(), likes: 0, liked: false, comments: 0
-  };
-  feedPosts.friends.unshift(post);
-  if (postVisibility === 'public') feedPosts.public.unshift(post);
-  renderFeeds();
-  $('composer-text').value = '';
-  clearComposerImg();
-}
-
-function renderFeeds() {
-  ['friends','public'].forEach(tab => {
-    const el = $('feed-'+tab);
-    const posts = feedPosts[tab];
-    if (!posts.length) {
-      el.innerHTML = tab === 'friends'
-        ? '<div class="feed-empty"><div class="feed-empty-icon">👥</div><div>Nenhuma postagem dos seus amigos ainda.</div><div style="font-size:.75rem;color:var(--sub)">Adicione amigos e fique ligado!</div></div>'
-        : '<div class="feed-empty"><div class="feed-empty-icon">🌎</div><div>O feed público está vazio.</div><div style="font-size:.75rem;color:var(--sub)">Seja o primeiro a postar algo!</div></div>';
-      return;
+  if (!loggedInUser) { toast('Faça login para publicar! 👤'); return; }
+  const btn = document.querySelector('.composer-send');
+  if (btn) { btn.textContent = 'Publicando...'; btn.disabled = true; }
+  try {
+    const res = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: text,
+        is_public: postVisibility === 'public',
+        img_url: composerImgData || null
+      })
+    });
+    if (res.ok) {
+      $('composer-text').value = '';
+      clearComposerImg();
+      toast('Publicado! 🎉');
+      loadLobbyFeed();
+    } else {
+      const d = await res.json();
+      toast(d.error || 'Erro ao publicar');
     }
-    el.innerHTML = posts.map(p => {
-      const avHtml = (p.avatar && p.avatar.startsWith('data:')) ? '<img src="'+p.avatar+'">' : p.avatar;
-      return '<div class="feed-post">' +
-        '<div class="post-header">' +
-          '<div class="post-av">'+avHtml+'</div>' +
-          '<div class="post-meta">' +
-            '<div class="post-name">'+p.name+'</div>' +
-            '<div class="post-time">'+fmtTime(p.time)+
-              '<span class="post-vis-tag '+(p.visibility==='public'?'pub':'prv')+'">'+
-              (p.visibility==='public'?'🌎 Público':'👥 Amigos')+'</span></div>' +
-          '</div></div>' +
-        (p.text ? '<div class="post-text">'+p.text+'</div>' : '') +
-        (p.imgData ? '<img class="post-img" src="'+p.imgData+'" loading="lazy">' : '') +
-        '<div class="post-footer">' +
-          '<button class="post-act '+(p.liked?'liked':'')+'" onclick="likePost(\''+tab+'\','+p.id+')">' +
-            '<svg viewBox="0 0 20 20"><path d="M10 17s-7-4.35-7-9a4 4 0 018 0 4 4 0 018 0c0 4.65-7 9-7 9z" stroke="currentColor" stroke-width="1.5" '+(p.liked?'fill="currentColor"':'fill="none"')+'/></svg> '+p.likes+'</button>' +
-          '<button class="post-act"><svg viewBox="0 0 20 20"><path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2H6l-4 3V5z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg> '+p.comments+'</button>' +
-        '</div></div>';
-    }).join('');
-  });
-}
-
-function likePost(tab, id) {
-  ['friends','public'].forEach(t => {
-    const p = feedPosts[t].find(x => x.id === id);
-    if (p) { p.liked = !p.liked; p.likes += p.liked ? 1 : -1; }
-  });
-  renderFeeds();
+  } catch { toast('Erro ao publicar :('); }
+  finally { if (btn) { btn.innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor" style="width:13px;height:13px"><path d="M17 10L3 4l3 6-3 6 14-6z"/></svg> Publicar'; btn.disabled = false; } }
 }
 
 function fmtTime(d) {
@@ -3354,6 +3360,52 @@ function fmtTime(d) {
   if (diff < 3600) return Math.floor(diff/60) + 'min atrás';
   if (diff < 86400) return Math.floor(diff/3600) + 'h atrás';
   return new Date(d).toLocaleDateString('pt-BR');
+}
+
+function renderFeedPosts(posts, containerId, emptyIcon, emptyMsg, emptyHint) {
+  const el = $(containerId);
+  if (!el) return;
+  if (!posts.length) {
+    el.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">'+emptyIcon+'</div><div>'+emptyMsg+'</div><div style="font-size:.75rem;color:var(--sub)">'+emptyHint+'</div></div>';
+    return;
+  }
+  el.innerHTML = posts.map(p => {
+    const av = p.avatar_url ? '<img src="'+esc(p.avatar_url)+'">' : (p.avatar_emoji || p.avatar || '👤');
+    const isPublic = p.is_public !== false;
+    return '<div class="feed-post">' +
+      '<div class="post-header">' +
+        '<div class="post-av">'+av+'</div>' +
+        '<div class="post-meta">' +
+          '<div class="post-name">'+esc(p.name||p.username||'?')+'</div>' +
+          '<div class="post-time">'+fmtTime(p.created_at)+
+            '<span class="post-vis-tag '+(isPublic?'pub':'prv')+'">'+
+            (isPublic?'🌎 Público':'👥 Amigos')+'</span></div>' +
+        '</div></div>' +
+      (p.content ? '<div class="post-text">'+esc(p.content)+'</div>' : '') +
+      (p.img_url ? '<img class="post-img" src="'+esc(p.img_url)+'" loading="lazy">' : '') +
+      '<div class="post-footer">' +
+        '<button class="post-act"><svg viewBox="0 0 20 20"><path d="M10 17s-7-4.35-7-9a4 4 0 018 0 4 4 0 018 0c0 4.65-7 9-7 9z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg> 0</button>' +
+        '<button class="post-act"><svg viewBox="0 0 20 20"><path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2H6l-4 3V5z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg> 0</button>' +
+      '</div></div>';
+  }).join('');
+}
+
+async function loadLobbyFeed() {
+  const activeFeedTab = $('feed-tab-friends')?.classList.contains('on') ? 'friends' : 'public';
+  // Load both in parallel
+  try {
+    const [friendsRes, publicRes] = await Promise.all([
+      fetch('/api/feed?type=friends'),
+      fetch('/api/feed?type=public')
+    ]);
+    const { posts: friendsPosts = [] } = await friendsRes.json();
+    const { posts: publicPosts = [] } = await publicRes.json();
+    renderFeedPosts(friendsPosts, 'feed-friends', '👥', 'Nenhuma postagem dos seus amigos ainda.', 'Adicione amigos e fique ligado!');
+    renderFeedPosts(publicPosts, 'feed-public', '🌎', 'O feed público está vazio.', 'Seja o primeiro a postar algo!');
+  } catch(e) {
+    renderFeedPosts([], 'feed-friends', '👥', 'Nenhuma postagem dos seus amigos ainda.', 'Adicione amigos e fique ligado!');
+    renderFeedPosts([], 'feed-public', '🌎', 'O feed público está vazio.', 'Seja o primeiro a postar algo!');
+  }
 }
 function copyCode(){navigator.clipboard.writeText(roomId).then(()=>toast('Código copiado: '+roomId));}
 function leaveRoom(){if(ws)ws.close();$('app').style.display='none';$('lobby').style.display='flex';roomId='';rendered=new Set();if(loggedInUser){$('auth-overlay').classList.add('hidden');$('lobby-topbar').style.display='flex';$('lobby-body').style.display='flex';}loadPublicRooms();}
