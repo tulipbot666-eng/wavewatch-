@@ -86,11 +86,16 @@ async function initDB() {
       id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       content TEXT NOT NULL,
+      img_url TEXT,
+      is_public BOOLEAN DEFAULT TRUE,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS user_posts_user_idx ON user_posts (user_id, created_at DESC);
   `);
-  console.log('✅ Database ready');
+  // Add columns if not exist (safe migration)
+    await pool.query(`ALTER TABLE user_posts ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT TRUE`).catch(()=>{});
+    await pool.query(`ALTER TABLE user_posts ADD COLUMN IF NOT EXISTS img_url TEXT`).catch(()=>{});
+    console.log('✅ Database ready');
 }
 
 initDB().catch(console.error);
@@ -648,13 +653,13 @@ app.get('/api/friends/pending', requireAuth, async (req, res) => {
 // POSTS API
 // ─────────────────────────────────────────
 app.post('/api/posts', requireAuth, async (req, res) => {
-  const { content } = req.body;
-  if(!content || !content.trim()) return res.status(400).json({ error: 'Conteúdo vazio' });
-  if(content.length > 1000) return res.status(400).json({ error: 'Post muito longo (máx 1000 caracteres)' });
+  const { content, is_public = true, img_url } = req.body;
+  if(!content?.trim() && !img_url) return res.status(400).json({ error: 'Conteúdo vazio' });
+  if(content && content.length > 1000) return res.status(400).json({ error: 'Post muito longo (máx 1000 caracteres)' });
   try {
     const { rows } = await pool.query(
-      `INSERT INTO user_posts (user_id, content) VALUES ($1, $2) RETURNING *`,
-      [req.user.id, content.trim()]
+      `INSERT INTO user_posts (user_id, content, is_public, img_url) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [req.user.id, (content||'').trim(), !!is_public, img_url||null]
     );
     res.json({ ok: true, post: rows[0] });
   } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
@@ -663,11 +668,41 @@ app.post('/api/posts', requireAuth, async (req, res) => {
 app.get('/api/users/:id/posts', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT p.id, p.content, p.created_at, u.name, u.username, u.avatar_url, u.avatar_emoji
+      `SELECT p.id, p.content, p.img_url, p.is_public, p.created_at, u.id as user_id, u.name, u.username, u.avatar_url, u.avatar_emoji
        FROM user_posts p JOIN users u ON u.id = p.user_id
        WHERE p.user_id = $1 ORDER BY p.created_at DESC LIMIT 50`,
       [req.params.id]
     );
+    res.json({ posts: rows });
+  } catch(e) { res.status(500).json({ posts: [] }); }
+});
+
+// Feed: public posts from everyone OR friends
+app.get('/api/feed', async (req, res) => {
+  const type = req.query.type || 'public'; // 'public' | 'friends'
+  try {
+    let rows;
+    if (type === 'friends' && req.user) {
+      const { rows: r } = await pool.query(
+        `SELECT p.id, p.content, p.img_url, p.is_public, p.created_at, u.id as user_id, u.name, u.username, u.avatar_url, u.avatar_emoji
+         FROM user_posts p JOIN users u ON u.id = p.user_id
+         WHERE (u.id = $1 OR u.id IN (
+           SELECT CASE WHEN user_id=$1 THEN friend_id ELSE user_id END
+           FROM friendships WHERE (user_id=$1 OR friend_id=$1) AND status='accepted'
+         ))
+         ORDER BY p.created_at DESC LIMIT 80`,
+        [req.user.id]
+      );
+      rows = r;
+    } else {
+      const { rows: r } = await pool.query(
+        `SELECT p.id, p.content, p.img_url, p.is_public, p.created_at, u.id as user_id, u.name, u.username, u.avatar_url, u.avatar_emoji
+         FROM user_posts p JOIN users u ON u.id = p.user_id
+         WHERE p.is_public = TRUE
+         ORDER BY p.created_at DESC LIMIT 80`
+      );
+      rows = r;
+    }
     res.json({ posts: rows });
   } catch(e) { res.status(500).json({ posts: [] }); }
 });
