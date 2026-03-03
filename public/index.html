@@ -179,6 +179,15 @@ body::after{content:'';position:fixed;inset:0;
 .rooms-empty-sub{font-size:.66rem;color:rgba(255,255,255,.1);font-family:'JetBrains Mono',monospace;}
 
 /* ── FRIENDS SIDEBAR ── */
+
+/* ── LOBBY TABS ── */
+.lobby-tabs{display:flex;gap:.2rem;padding:.55rem 1.6rem .0rem;background:rgba(5,5,8,.6);border-bottom:1px solid var(--border);flex-shrink:0;}
+.lobby-tab{display:flex;align-items:center;gap:.45rem;padding:.5rem 1.1rem;border:none;background:none;color:rgba(255,255,255,.3);font-family:'Space Grotesk',sans-serif;font-size:.84rem;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;}
+.lobby-tab svg{width:15px;height:15px;stroke:currentColor;fill:none;flex-shrink:0;}
+.lobby-tab:hover{color:rgba(255,255,255,.6);}
+.lobby-tab.on{color:#fff;border-bottom-color:var(--accent);}
+.lobby-tab.on svg{filter:drop-shadow(0 0 4px rgba(255,45,120,.5));}
+#lobby-body{flex-direction:column!important;}
 .friends-sidebar{width:260px;flex-shrink:0;background:rgba(8,8,12,.88);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;backdrop-filter:blur(16px);}
 .fs-header{padding:.9rem 1rem .65rem;border-bottom:1px solid var(--border);flex-shrink:0;}
 .fs-title{font-size:.8rem;font-weight:600;margin-bottom:.65rem;display:flex;align-items:center;justify-content:space-between;color:rgba(255,255,255,.7);}
@@ -323,7 +332,7 @@ body::after{content:'';position:fixed;inset:0;
 .tb-user-name{font-size:.72rem;font-weight:600;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
 /* ── MAIN LAYOUT ── */
-#view-stream{display:flex;flex:1;overflow:hidden;min-height:0;}
+.main{display:flex;flex:1;overflow:hidden;min-height:0;}
 .varea{flex:1;display:flex;flex-direction:column;min-width:0;background:#000;position:relative;}
 
 /* ── PLACEHOLDER ── */
@@ -952,9 +961,22 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
   </div>
 
   <!-- Body: rooms list + friends sidebar -->
-  <div class="lobby-content" id="lobby-body" style="display:none">
+  <div class="lobby-content" id="lobby-body" style="display:none;flex-direction:column;">
 
-    <!-- MAIN CONTENT -->
+    <!-- LOBBY TABS -->
+    <div class="lobby-tabs">
+      <button class="lobby-tab on" id="ltab-rooms" onclick="switchLobbyTab('rooms')">
+        <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M8 8l5 2.5L8 13V8z" fill="currentColor"/></svg>
+        Salas
+      </button>
+      <button class="lobby-tab" id="ltab-feed" onclick="switchLobbyTab('feed')">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M2 5h16M2 10h10M2 15h13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        Feed
+      </button>
+    </div>
+
+    <!-- ROOMS VIEW -->
+    <div id="lobby-view-rooms" style="display:flex;flex:1;overflow:hidden;min-height:0;">
     <div class="lobby-main">
       <!-- Join inline panel -->
       <div class="join-inline" id="join-panel">
@@ -994,6 +1016,68 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
         </div>
       </div>
     </div>
+
+    </div><!-- /lobby-view-rooms -->
+
+    <!-- FEED VIEW -->
+    <div id="lobby-view-feed" style="display:none;flex:1;overflow:hidden;min-height:0;flex-direction:column;background:var(--bg);">
+      <div class="feed-tabs">
+        <button class="feed-tab on" id="feed-tab-friends" onclick="switchFeedTab('friends')">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M13 11c2.5 0 5 1.2 5 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="13" cy="6" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M2 17c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="7" r="3" stroke="currentColor" stroke-width="1.6"/></svg>
+          Amigos
+        </button>
+        <button class="feed-tab" id="feed-tab-public" onclick="switchFeedTab('public')">
+          <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.6"/><path d="M2 10h16M10 2c-2 2.5-3 5-3 8s1 5.5 3 8M10 2c2 2.5 3 5 3 8s-1 5.5-3 8" stroke="currentColor" stroke-width="1.3"/></svg>
+          Público
+        </button>
+      </div>
+      <div class="feed-body">
+        <!-- Composer -->
+        <div class="post-composer" id="post-composer">
+          <div class="post-composer-top">
+            <div class="composer-av" id="composer-av">👤</div>
+            <textarea class="composer-box" id="composer-text" placeholder="O que você quer compartilhar?" rows="3"></textarea>
+          </div>
+          <div id="composer-img-preview" class="composer-img-preview">
+            <img id="composer-img-thumb" src="">
+            <button class="composer-img-rm" onclick="clearComposerImg()">✕</button>
+          </div>
+          <div class="post-composer-foot">
+            <button class="composer-attach-btn" onclick="document.getElementById('composer-img-input').click()">
+              <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="8.5" r="1.5" fill="currentColor" opacity=".6"/><path d="M2 14l4-4 3 3 3-4 6 5" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" opacity=".7"/></svg>
+              Foto
+            </button>
+            <input type="file" id="composer-img-input" accept="image/*" style="display:none" onchange="handleComposerImg(this)">
+            <div class="composer-vis pub" id="composer-vis" onclick="toggleVisDropdown(event)">
+              <svg id="composer-vis-icon" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M2 10h16M10 2c-2 2.5-3 5-3 8s1 5.5 3 8M10 2c2 2.5 3 5 3 8s-1 5.5-3 8" stroke="currentColor" stroke-width="1.2"/></svg>
+              <span class="composer-vis-lbl" id="composer-vis-lbl">Público</span>
+              <div class="vis-dropdown" id="vis-dropdown">
+                <div class="vis-opt" onclick="setVisibility('public',event)">
+                  <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M2 10h16M10 2c-2 2.5-3 5-3 8s1 5.5 3 8M10 2c2 2.5 3 5 3 8s-1 5.5-3 8" stroke="currentColor" stroke-width="1.2"/></svg>
+                  <div><div>Público</div><span>Visível para todos</span></div>
+                </div>
+                <div class="vis-opt" onclick="setVisibility('friends',event)">
+                  <svg viewBox="0 0 20 20" fill="none"><path d="M13 11c2.5 0 5 1.2 5 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="13" cy="6" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M2 17c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="7" r="3" stroke="currentColor" stroke-width="1.6"/></svg>
+                  <div><div>Amigos</div><span>Só seus amigos veem</span></div>
+                </div>
+              </div>
+            </div>
+            <button class="composer-send" onclick="publishPost()">
+              <svg viewBox="0 0 20 20" fill="currentColor" style="width:13px;height:13px"><path d="M17 10L3 4l3 6-3 6 14-6z"/></svg>
+              Publicar
+            </button>
+          </div>
+        </div>
+        <!-- Friends feed -->
+        <div class="feed-content on" id="feed-friends">
+          <div class="feed-empty"><div class="feed-empty-icon">👥</div><div>Nenhuma postagem dos seus amigos ainda.</div><div style="font-size:.75rem;color:var(--sub)">Adicione amigos e fique ligado!</div></div>
+        </div>
+        <!-- Public feed -->
+        <div class="feed-content" id="feed-public">
+          <div class="feed-empty"><div class="feed-empty-icon">🌎</div><div>O feed público está vazio.</div><div style="font-size:.75rem;color:var(--sub)">Seja o primeiro a postar algo!</div></div>
+        </div>
+      </div>
+    </div><!-- /lobby-view-feed -->
 
     <!-- FRIENDS SIDEBAR -->
     <div class="friends-sidebar">
@@ -1258,21 +1342,9 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
       <button class="tb-btn tb-leave" onclick="leaveRoom()">Sair</button>
     </div>
   </div>
-  <!-- ── APP MAIN TABS ── -->
-  <div class="app-tabs">
-    <button class="app-tab on" id="app-tab-stream" onclick="switchAppTab('stream')">
-      <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M8 8l5 2.5L8 13V8z" fill="currentColor"/></svg>
-      Stream
-      <span class="app-tab-badge">AO VIVO</span>
-    </button>
-    <button class="app-tab" id="app-tab-feed" onclick="switchAppTab('feed')">
-      <svg viewBox="0 0 20 20" fill="none"><path d="M2 5h16M2 10h10M2 15h13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-      Feed
-    </button>
-  </div>
 
   <!-- ── STREAM VIEW ── -->
-  <div id="view-stream">
+  <div class="main">
     <div class="varea">
       <div id="vph">
         <div class="vph-bg"></div>
@@ -1402,77 +1474,7 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
         </div>
       </div>
     </div>
-  </div><!-- /view-stream -->
-
-  <!-- ── FEED VIEW ── -->
-  <div id="view-feed">
-    <div class="feed-tabs">
-      <button class="feed-tab on" id="feed-tab-friends" onclick="switchFeedTab('friends')">
-        <svg viewBox="0 0 20 20" fill="none"><path d="M13 11c2.5 0 5 1.2 5 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="13" cy="6" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M2 17c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="7" r="3" stroke="currentColor" stroke-width="1.6"/></svg>
-        Amigos
-      </button>
-      <button class="feed-tab" id="feed-tab-public" onclick="switchFeedTab('public')">
-        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.6"/><path d="M2 10h16M10 2c-2 2.5-3 5-3 8s1 5.5 3 8M10 2c2 2.5 3 5 3 8s-1 5.5-3 8" stroke="currentColor" stroke-width="1.3"/></svg>
-        Público
-      </button>
-    </div>
-    <div class="feed-body">
-      <!-- Composer -->
-      <div class="post-composer" id="post-composer">
-        <div class="post-composer-top">
-          <div class="composer-av" id="composer-av">👤</div>
-          <textarea class="composer-box" id="composer-text" placeholder="O que você quer compartilhar?" rows="3"></textarea>
-        </div>
-        <div id="composer-img-preview" class="composer-img-preview">
-          <img id="composer-img-thumb" src="">
-          <button class="composer-img-rm" onclick="clearComposerImg()">✕</button>
-        </div>
-        <div class="post-composer-foot">
-          <button class="composer-attach-btn" onclick="document.getElementById('composer-img-input').click()" title="Imagem">
-            <svg viewBox="0 0 20 20"><rect x="2" y="4" width="16" height="12" rx="2" stroke-width="1.5"/><circle cx="7" cy="8.5" r="1.5" fill="currentColor" opacity=".6" stroke="none"/><path d="M2 14l4-4 3 3 3-4 6 5" stroke-width="1.3" stroke-linejoin="round" opacity=".7"/></svg>
-            Foto
-          </button>
-          <input type="file" id="composer-img-input" accept="image/*" style="display:none" onchange="handleComposerImg(this)">
-          <div class="composer-vis pub" id="composer-vis" onclick="toggleVisDropdown(event)">
-            <svg id="composer-vis-icon" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" stroke-width="1.5"/><path d="M2 10h16M10 2c-2 2.5-3 5-3 8s1 5.5 3 8M10 2c2 2.5 3 5 3 8s-1 5.5-3 8" stroke-width="1.2"/></svg>
-            <span class="composer-vis-lbl" id="composer-vis-lbl">Público</span>
-            <div class="vis-dropdown" id="vis-dropdown">
-              <div class="vis-opt" onclick="setVisibility('public',event)">
-                <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" stroke-width="1.5"/><path d="M2 10h16M10 2c-2 2.5-3 5-3 8s1 5.5 3 8M10 2c2 2.5 3 5 3 8s-1 5.5-3 8" stroke-width="1.2"/></svg>
-                <div><div>Público</div><span>Visível para todos</span></div>
-              </div>
-              <div class="vis-opt" onclick="setVisibility('friends',event)">
-                <svg viewBox="0 0 20 20"><path d="M13 11c2.5 0 5 1.2 5 4" stroke-width="1.6" stroke-linecap="round"/><circle cx="13" cy="6" r="3" stroke-width="1.6"/><path d="M2 17c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="7" r="3" stroke-width="1.6"/></svg>
-                <div><div>Amigos</div><span>Só seus amigos veem</span></div>
-              </div>
-            </div>
-          </div>
-          <button class="composer-send" onclick="publishPost()">
-            <svg viewBox="0 0 20 20" fill="currentColor" style="width:13px;height:13px"><path d="M17 10L3 4l3 6-3 6 14-6z"/></svg>
-            Publicar
-          </button>
-        </div>
-      </div>
-
-      <!-- Friends feed -->
-      <div class="feed-content on" id="feed-friends">
-        <div class="feed-empty">
-          <div class="feed-empty-icon">👥</div>
-          <div>Nenhuma postagem dos seus amigos ainda.</div>
-          <div style="font-size:.75rem;color:var(--sub)">Adicione amigos e fique ligado no que estão assistindo!</div>
-        </div>
-      </div>
-
-      <!-- Public feed -->
-      <div class="feed-content" id="feed-public">
-        <div class="feed-empty">
-          <div class="feed-empty-icon">🌎</div>
-          <div>O feed público está vazio.</div>
-          <div style="font-size:.75rem;color:var(--sub)">Seja o primeiro a postar algo!</div>
-        </div>
-      </div>
-    </div>
-  </div><!-- /view-feed -->
+  </div><!-- /main -->
 
 </div>
 
@@ -3205,16 +3207,16 @@ async function addVideo(){
 
 function sTab(t,el){document.querySelectorAll('.stab').forEach(s=>s.classList.remove('on'));el.classList.add('on');['chat','queue','members','friends'].forEach(p=>{const panel=$('p-'+p);if(panel)panel.classList.toggle('on',p===t);});}
 
-// ── APP TAB SWITCHING ──
-function switchAppTab(tab) {
-  const stream = $('view-stream'), feed = $('view-feed');
-  const ts = $('app-tab-stream'), tf = $('app-tab-feed');
-  if (tab === 'stream') {
-    stream.style.display = 'flex'; feed.style.display = 'none';
-    ts.classList.add('on'); tf.classList.remove('on');
+// ── LOBBY TAB SWITCHING ──
+function switchLobbyTab(tab) {
+  const rooms = $('lobby-view-rooms'), feed = $('lobby-view-feed');
+  const tr = $('ltab-rooms'), tf = $('ltab-feed');
+  if (tab === 'rooms') {
+    rooms.style.display = 'flex'; feed.style.display = 'none';
+    tr.classList.add('on'); tf.classList.remove('on');
   } else {
-    stream.style.display = 'none'; feed.style.display = 'flex';
-    ts.classList.remove('on'); tf.classList.add('on');
+    rooms.style.display = 'none'; feed.style.display = 'flex';
+    tr.classList.remove('on'); tf.classList.add('on');
     updateComposerAvatar();
   }
 }
