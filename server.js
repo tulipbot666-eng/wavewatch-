@@ -70,6 +70,16 @@ async function initDB() {
     );
     CREATE INDEX IF NOT EXISTS watch_history_user_idx ON watch_history (user_id, watched_at DESC);
 
+    CREATE TABLE IF NOT EXISTS user_gallery (
+      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      url TEXT NOT NULL,
+      uploaded_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS gallery_user_idx ON user_gallery (user_id, uploaded_at DESC);
+
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS banner_url TEXT;
+
     CREATE INDEX IF NOT EXISTS IDX_session_expire ON session (expire);
   `);
   console.log('✅ Database ready');
@@ -226,9 +236,43 @@ app.get('/auth/me', (req, res) => {
     avatarEmoji: req.user.avatar_emoji || '🎬',
     email: req.user.email,
     avatarUrl: req.user.avatar_url,
+    bannerUrl: req.user.banner_url || null,
     profileComplete: req.user.profile_complete || false,
     googleAccessToken: req.session.googleAccessToken || null
   }});
+});
+
+// ── GALLERY ──
+app.get('/api/users/:id/gallery', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, url, uploaded_at FROM user_gallery WHERE user_id=$1 ORDER BY uploaded_at DESC LIMIT 50`,
+      [req.params.id]
+    );
+    res.json({ photos: rows });
+  } catch(e) { res.status(500).json({ photos: [] }); }
+});
+
+app.post('/api/gallery/upload', async (req, res) => {
+  if(!req.user) return res.status(401).json({ error: 'Não autenticado' });
+  const { imageData } = req.body;
+  if(!imageData || !imageData.startsWith('data:image/')) return res.status(400).json({ error: 'Imagem inválida' });
+  if(imageData.length > 10_000_000) return res.status(400).json({ error: 'Foto muito grande' });
+  try {
+    await pool.query(
+      `INSERT INTO user_gallery (user_id, url) VALUES ($1, $2)`,
+      [req.user.id, imageData]
+    );
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
+});
+
+app.delete('/api/gallery/:id', async (req, res) => {
+  if(!req.user) return res.status(401).json({ error: 'Não autenticado' });
+  try {
+    await pool.query(`DELETE FROM user_gallery WHERE id=$1 AND user_id=$2`, [req.params.id, req.user.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
 });
 
 // ── WATCH HISTORY ──
@@ -293,18 +337,22 @@ app.post('/auth/setup-profile', async (req, res) => {
     const safeName = (displayName || '').trim() || req.user.name;
     const emoji = avatarEmoji || req.user.avatar_emoji || '🎬';
 
-    // Determina avatar_url: nova foto, remover, ou manter a atual
     let avatarUrl = req.user.avatar_url;
     if (removeAvatar) avatarUrl = null;
     else if (avatarData && avatarData.startsWith('data:image/')) {
-      // Valida tamanho (~5MB base64)
       if (avatarData.length > 7_000_000) return res.status(400).json({ error: 'Foto muito grande' });
       avatarUrl = avatarData;
     }
 
+    let bannerUrl = req.user.banner_url || null;
+    if (bannerData && bannerData.startsWith('data:image/')) {
+      if (bannerData.length > 10_000_000) return res.status(400).json({ error: 'Banner muito grande' });
+      bannerUrl = bannerData;
+    }
+
     const { rows } = await pool.query(
-      'UPDATE users SET username=$1, avatar_emoji=$2, name=$3, avatar_url=$4, profile_complete=TRUE WHERE id=$5 RETURNING *',
-      [finalUsername, emoji, safeName, avatarUrl, req.user.id]
+      'UPDATE users SET username=$1, avatar_emoji=$2, name=$3, avatar_url=$4, banner_url=$5, profile_complete=TRUE WHERE id=$6 RETURNING *',
+      [finalUsername, emoji, safeName, avatarUrl, bannerUrl, req.user.id]
     );
     req.login(rows[0], err => {
       if (err) return res.status(500).json({ error: 'Erro ao atualizar sessão' });
