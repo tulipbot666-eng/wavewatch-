@@ -1519,13 +1519,24 @@ async function openProfileModal(targetUser) {
   const u = _currentProfileUser;
   const av = u.avatarEmoji || u.avatar_emoji || '🎬';
 
-  // Avatar
-  const avEl = $('prof-av-inner');
+  // Avatar — sempre recria o elemento para evitar null após outerHTML anterior
+  const profAvWrap = $('prof-av');
+  const existingInner = $('prof-av-inner');
+  if(existingInner) existingInner.remove();
   if(u.avatarUrl || u.avatar_url) {
     const url = u.avatarUrl || u.avatar_url;
-    avEl.outerHTML = `<img id="prof-av-inner" src="${esc(url)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.outerHTML='<span id=prof-av-inner style=font-size:2rem>${esc(av)}</span>'">`;
+    const img = document.createElement('img');
+    img.id = 'prof-av-inner';
+    img.src = url;
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+    img.onerror = function(){ const s=document.createElement('span');s.id='prof-av-inner';s.style.fontSize='2rem';s.textContent=av;this.replaceWith(s); };
+    profAvWrap.appendChild(img);
   } else {
-    avEl.textContent = av;
+    const span = document.createElement('span');
+    span.id = 'prof-av-inner';
+    span.style.fontSize = '2rem';
+    span.textContent = av;
+    profAvWrap.appendChild(span);
   }
 
   // Banner
