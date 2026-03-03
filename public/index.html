@@ -1519,67 +1519,46 @@ async function openProfileModal(targetUser) {
   const u = _currentProfileUser;
   const av = u.avatarEmoji || u.avatar_emoji || '🎬';
 
-  // Avatar — recria elemento para evitar null apos outerHTML anterior
+  // Avatar — innerHTML no pai para evitar null apos outerHTML
   const profAvWrap = document.getElementById('prof-av');
   if(profAvWrap) {
-    const old = document.getElementById('prof-av-inner');
-    if(old) old.remove();
     if(u.avatarUrl || u.avatar_url) {
-      const img = document.createElement('img');
-      img.id = 'prof-av-inner';
-      img.src = u.avatarUrl || u.avatar_url;
-      img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-      img.onerror = function(){ const s=document.createElement('span');s.id='prof-av-inner';s.style.fontSize='2rem';s.textContent=av;this.replaceWith(s); };
-      profAvWrap.appendChild(img);
+      profAvWrap.innerHTML = `<span id="prof-av-inner"><img src="${esc(u.avatarUrl||u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.parentNode.textContent='${av}'"></span>`;
     } else {
-      const span = document.createElement('span');
-      span.id = 'prof-av-inner';
-      span.style.fontSize = '2rem';
-      span.textContent = av;
-      profAvWrap.appendChild(span);
+      profAvWrap.innerHTML = `<span id="prof-av-inner" style="font-size:2rem">${av}</span>`;
     }
-    profAvWrap.style.cursor = isMyProfile ? 'pointer' : 'default';
   }
 
   // Banner
-  const banner = document.getElementById('prof-banner');
-  if(banner) {
-    const bannerUrl = isMyProfile ? (loggedInUser.bannerUrl || null) : null;
-    banner.style.backgroundImage = bannerUrl ? 'url(' + esc(bannerUrl) + ')' : '';
-  }
-  const bannerEdit = document.getElementById('profile-banner-edit');
-  if(bannerEdit) bannerEdit.style.display = isMyProfile ? 'block' : 'none';
+  const banner = $('prof-banner');
+  const bannerUrl = isMyProfile ? loggedInUser.bannerUrl : null;
+  banner.style.backgroundImage = bannerUrl ? `url(${esc(bannerUrl)})` : '';
+  $('profile-banner-edit').style.display = isMyProfile ? 'block' : 'none';
+  $('prof-av').style.cursor = isMyProfile ? 'pointer' : 'default';
 
   // Info
-  const profName = document.getElementById('prof-name');
-  if(profName) profName.textContent = u.name || u.displayName || '?';
-  const profUsername = document.getElementById('prof-username');
-  if(profUsername) profUsername.textContent = u.username ? '@' + u.username : '';
+  $('prof-name').textContent = u.name || u.displayName || '?';
+  $('prof-username').textContent = (u.username) ? `@${u.username}` : '';
 
   // Head actions
-  const actions = document.getElementById('prof-head-actions');
-  if(actions) {
-    if(isMyProfile) {
-      const nameInp = document.getElementById('prof-edit-name');
-      if(nameInp) nameInp.value = u.name || '';
-      profEditAvatar = av;
-      actions.innerHTML = '<button class="tb-btn" onclick="profTab('edit',document.querySelectorAll('#profile-overlay .profile-tab')[2])" style="font-size:.75rem;padding:.35rem .75rem">✏️ Editar</button>';
-      const tabEdit = document.getElementById('prof-tab-edit');
-      if(tabEdit) tabEdit.style.display = 'none';
-      const uploadBtn = document.getElementById('prof-photos-upload-btn');
-      if(uploadBtn) uploadBtn.style.display = 'block';
-    } else {
-      actions.innerHTML = '<button class="tb-btn" onclick="fsAddFriendByName('' + esc(u.name||'') + '');closeProfileModal()" style="font-size:.75rem;padding:.35rem .75rem">➕ Adicionar</button>';
-      const tabEdit = document.getElementById('prof-tab-edit');
-      if(tabEdit) tabEdit.style.display = 'none';
-      const uploadBtn = document.getElementById('prof-photos-upload-btn');
-      if(uploadBtn) uploadBtn.style.display = 'none';
-    }
+  const actions = $('prof-head-actions');
+  if(isMyProfile) {
+    $('prof-edit-name').value = u.name || '';
+    profEditAvatar = av;
+    actions.innerHTML = `<button class="tb-btn" onclick="profTab('edit',document.querySelectorAll('.profile-tab')[2])" style="font-size:.75rem;padding:.35rem .75rem">✏️ Editar</button>`;
+    $('prof-tab-edit').style.display = 'none';
+    const uploadBtn = $('prof-photos-upload-btn');
+    if(uploadBtn) uploadBtn.style.display = 'block';
+  } else {
+    actions.innerHTML = `<button class="tb-btn" onclick="fsAddFriendByName('${esc(u.name||'')}');closeProfileModal()" style="font-size:.75rem;padding:.35rem .75rem">➕ Adicionar</button>`;
+    $('prof-tab-edit').style.display = 'none';
+    const uploadBtn = $('prof-photos-upload-btn');
+    if(uploadBtn) uploadBtn.style.display = 'none';
   }
 
   // Show modal on feed tab
-  profTab('feed', document.querySelector('#profile-overlay .profile-tab'));
-  document.getElementById('profile-overlay').classList.remove('hidden');
+  profTab('feed', document.querySelector('.profile-tab'));
+  $('profile-overlay').classList.remove('hidden');
 
   // Load feed & photos
   const dbId = isMyProfile ? loggedInUser.id : (u.dbId || u.id);
