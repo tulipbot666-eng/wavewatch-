@@ -2909,13 +2909,14 @@ function _loadVjs(wrap, src, typeOverride, extraOpts) {
 }
 
 function _guessType(url) {
-  const u = (url||'').toLowerCase().split('?')[0];
-  if(u.endsWith('.mp4'))  return 'video/mp4';
-  if(u.endsWith('.webm')) return 'video/webm';
-  if(u.endsWith('.ogg') || u.endsWith('.ogv')) return 'video/ogg';
-  if(u.endsWith('.m3u8')) return 'application/x-mpegURL';
-  if(u.endsWith('.mpd'))  return 'application/dash+xml';
-  if(u.endsWith('.mov'))  return 'video/quicktime';
+  const u = (url||'').toLowerCase();
+  const noQ = u.split('?')[0];
+  if(noQ.endsWith('.mp4'))  return 'video/mp4';
+  if(noQ.endsWith('.webm')) return 'video/webm';
+  if(noQ.endsWith('.ogg') || noQ.endsWith('.ogv')) return 'video/ogg';
+  if(noQ.endsWith('.m3u8') || u.includes('.m3u8') || u.includes('m3u8') || u.includes('hls')) return 'application/x-mpegURL';
+  if(noQ.endsWith('.mpd')  || u.includes('.mpd')  || u.includes('dash')) return 'application/dash+xml';
+  if(noQ.endsWith('.mov'))  return 'video/quicktime';
   return 'video/mp4';
 }
 
@@ -3354,6 +3355,7 @@ function removeQ(i){localQueue.splice(i,1);send('QUEUE_UPDATE',{queue:localQueue
 
 function renderHistory(history){
   const wrap=$('history-wrap');
+  if(!wrap) return; // elemento não existe na página atual, ignora
   if(!history?.length){wrap.innerHTML='<div class="q-empty">Sem histórico</div>';return;}
   wrap.innerHTML='';
   history.forEach(v=>{
@@ -3531,33 +3533,8 @@ async function addVideo(){
     const proxyUrl=$('vurl').value.trim();
     if(!proxyUrl){merr('Cole a URL do site');return;}
     try { new URL(proxyUrl); } catch(e){ merr('URL inválida');return; }
-
-    // Tenta extrair URL direta com yt-dlp antes de cair no proxy iframe
-    const mBtn = document.querySelector('#add-modal .pill-btn.primary');
-    if(mBtn){ mBtn.disabled=true; mBtn.textContent='Extraindo...'; }
-
-    try {
-      const ext = await fetch(`/api/extract?url=${encodeURIComponent(proxyUrl)}`);
-      const data = await ext.json();
-      if(data.ok && data.url) {
-        // yt-dlp conseguiu! usa URL direta como vídeo direct
-        video = {
-          src: 'direct',
-          url: data.url,
-          title: data.title || proxyUrl.split('/').pop() || 'Vídeo',
-          thumb: data.thumb || ''
-        };
-        if(mBtn){ mBtn.disabled=false; mBtn.textContent='Adicionar →'; }
-        // segue fluxo normal abaixo
-      } else {
-        throw new Error('fallback');
-      }
-    } catch(e) {
-      // yt-dlp falhou — usa proxy iframe como fallback
-      if(mBtn){ mBtn.disabled=false; mBtn.textContent='Adicionar →'; }
-      const proxied = `/api/proxy?url=${encodeURIComponent(proxyUrl)}`;
-      video={src:'proxy',url:proxied,title:proxyUrl.split('/').pop()||'Vídeo',thumb:''};
-    }
+    const proxied = `/api/proxy?url=${encodeURIComponent(proxyUrl)}`;
+    video={src:'proxy',url:proxied,title:proxyUrl.split('/').pop()||'Vídeo',thumb:''};
   }else if(currentSrc==='local'){
     if(!pickedFile){merr('Selecione um arquivo');return;}
     const title=pickedFile.name;
