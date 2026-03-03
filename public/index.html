@@ -1436,8 +1436,6 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
         </div>
       </div>
       <div id="vwrap">
-        <!-- Overlay que bloqueia interação com o proxy iframe para não-hosts -->
-        <div id="proxy-block-overlay" style="display:none;position:absolute;inset:0;z-index:10;cursor:not-allowed;" title="Só o host pode controlar o site"></div>
         <div class="vinfo" id="vinfo"><div class="vi-title" id="vi-title"></div><div class="vi-sub" id="vi-sub"></div></div>
         <div class="reacts-wrap">
           <button class="r-btn" onclick="react('❤️')">❤️</button>
@@ -2677,9 +2675,6 @@ function loadVideo(video,doBroadcast){
     iframe.allowFullscreen=true;
     wrap.appendChild(iframe);
     proxyIframe=iframe;
-    // Bloqueia interação para não-hosts
-    const blockOverlay = $('proxy-block-overlay');
-    if(blockOverlay) blockOverlay.style.display = amIHost ? 'none' : 'block';
     // Escuta eventos do player dentro do iframe
     window.removeEventListener('message', onProxyMsg);
     window.addEventListener('message', onProxyMsg);
@@ -2959,9 +2954,6 @@ function updateHostUI(){
   if(!badge){badge=document.createElement('span');badge.id='host-badge';badge.style.cssText='font-size:.65rem;font-family:"DM Mono",monospace;padding:.15rem .45rem;border-radius:5px;background:rgba(232,67,147,.2);color:var(--accent);border:1px solid rgba(232,67,147,.3);';$('tb-right').prepend(badge);}
   badge.textContent=amIHost?'👑 host':'👤 membro';
   const ssBtn=$('screenshare-btn');if(ssBtn)ssBtn.style.display=amIHost?'flex':'none';
-  // Atualiza overlay do proxy iframe
-  const blockOverlay=$('proxy-block-overlay');
-  if(blockOverlay && proxyIframe) blockOverlay.style.display=amIHost?'none':'block';
   $('ctrl').querySelectorAll('.c-btn,#vol').forEach(b=>{b.style.opacity=amIHost?'':'0.35';b.style.pointerEvents=amIHost?'':'none';});
   $('prog').style.pointerEvents=amIHost?'auto':'none';
   $('prog').style.cursor=amIHost?'pointer':'default';
@@ -3539,8 +3531,33 @@ async function addVideo(){
     const proxyUrl=$('vurl').value.trim();
     if(!proxyUrl){merr('Cole a URL do site');return;}
     try { new URL(proxyUrl); } catch(e){ merr('URL inválida');return; }
-    const proxied = `/api/proxy?url=${encodeURIComponent(proxyUrl)}`;
-    video={src:'proxy',url:proxied,title:proxyUrl.split('/').pop()||'Vídeo',thumb:''};
+
+    // Tenta extrair URL direta com yt-dlp antes de cair no proxy iframe
+    const mBtn = document.querySelector('#add-modal .pill-btn.primary');
+    if(mBtn){ mBtn.disabled=true; mBtn.textContent='Extraindo...'; }
+
+    try {
+      const ext = await fetch(`/api/extract?url=${encodeURIComponent(proxyUrl)}`);
+      const data = await ext.json();
+      if(data.ok && data.url) {
+        // yt-dlp conseguiu! usa URL direta como vídeo direct
+        video = {
+          src: 'direct',
+          url: data.url,
+          title: data.title || proxyUrl.split('/').pop() || 'Vídeo',
+          thumb: data.thumb || ''
+        };
+        if(mBtn){ mBtn.disabled=false; mBtn.textContent='Adicionar →'; }
+        // segue fluxo normal abaixo
+      } else {
+        throw new Error('fallback');
+      }
+    } catch(e) {
+      // yt-dlp falhou — usa proxy iframe como fallback
+      if(mBtn){ mBtn.disabled=false; mBtn.textContent='Adicionar →'; }
+      const proxied = `/api/proxy?url=${encodeURIComponent(proxyUrl)}`;
+      video={src:'proxy',url:proxied,title:proxyUrl.split('/').pop()||'Vídeo',thumb:''};
+    }
   }else if(currentSrc==='local'){
     if(!pickedFile){merr('Selecione um arquivo');return;}
     const title=pickedFile.name;
