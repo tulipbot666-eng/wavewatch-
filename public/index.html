@@ -859,14 +859,7 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
       </div>
       <div style="font-size:.7rem;color:var(--sub);margin-top:.4rem;font-family:'DM Mono',monospace;" id="vis-desc">Aparece na lista de salas públicas</div>
     </div>
-    <div class="field"><label>Seu nome na sala</label><input type="text" id="l-name" placeholder="Como quer ser chamado?" maxlength="20"></div>
-    <span class="av-label">Escolha um avatar</span>
-    <div class="avatar-pick" id="av-pick">
-      <div class="av-opt on" data-av="🎬">🎬</div><div class="av-opt" data-av="🎵">🎵</div>
-      <div class="av-opt" data-av="🦊">🦊</div><div class="av-opt" data-av="🐼">🐼</div>
-      <div class="av-opt" data-av="🌙">🌙</div><div class="av-opt" data-av="⚡">⚡</div>
-      <div class="av-opt" data-av="🍕">🍕</div><div class="av-opt" data-av="👾">👾</div>
-    </div>
+    <input type="hidden" id="l-name">
     <button class="pill-btn primary" onclick="createRoom()">🚀 Criar e Entrar</button>
     <div class="lerr" id="create-err" style="margin-top:.5rem;"></div>
   </div>
@@ -1458,9 +1451,8 @@ document.querySelectorAll('.av-opt').forEach(el => {
 
 async function createRoom() {
   if (!loggedInUser) { showLErr('Faça login para criar uma sala'); return; }
-  const name = $('l-name').value.trim();
+  const name = loggedInUser.name;
   const roomName = $('room-name-inp').value.trim();
-  if (!name) { $('create-err').textContent = 'Digite seu nome'; $('create-err').classList.add('on'); return; }
   try {
     const res = await fetch('/api/room/new');
     const { roomId: id } = await res.json();
@@ -1488,7 +1480,7 @@ function enterApp(id, name, roomName, isPublic, category) {
   roomId = id;
   myUser = {
     id: null, name,
-    avatar: selectedAvatar,
+    avatar: loggedInUser?.avatarEmoji || selectedAvatar,
     avatarUrl: loggedInUser?.avatarUrl || null,
     googleId: loggedInUser?.id || null,
     _roomName: roomName,
