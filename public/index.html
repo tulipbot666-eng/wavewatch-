@@ -1556,7 +1556,7 @@ async function openProfileModal(targetUser) {
   }
 
   // Show modal on feed tab
-  profTab('feed', document.querySelector('.profile-tab'));
+  profTab('feed', document.querySelector('#profile-overlay .profile-tab'));
   $('profile-overlay').classList.remove('hidden');
 
   // Load feed & photos
