@@ -59,6 +59,17 @@ async function initDB() {
       CONSTRAINT session_pkey PRIMARY KEY (sid)
     );
 
+    CREATE TABLE IF NOT EXISTS watch_history (
+      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      video_url TEXT NOT NULL,
+      video_title TEXT,
+      video_thumb TEXT,
+      video_src TEXT,
+      watched_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS watch_history_user_idx ON watch_history (user_id, watched_at DESC);
+
     CREATE INDEX IF NOT EXISTS IDX_session_expire ON session (expire);
   `);
   console.log('✅ Database ready');
@@ -218,6 +229,30 @@ app.get('/auth/me', (req, res) => {
     profileComplete: req.user.profile_complete || false,
     googleAccessToken: req.session.googleAccessToken || null
   }});
+});
+
+// ── WATCH HISTORY ──
+app.get('/api/users/:id/history', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT video_url, video_title, video_thumb, video_src, watched_at
+       FROM watch_history WHERE user_id=$1
+       ORDER BY watched_at DESC LIMIT 50`,
+      [req.params.id]
+    );
+    res.json({ history: rows });
+  } catch(e) { res.status(500).json({ history: [] }); }
+});
+
+app.get('/api/users/:id/profile', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, name, username, avatar_url, avatar_emoji FROM users WHERE id=$1`,
+      [req.params.id]
+    );
+    if(!rows.length) return res.status(404).json({ error: 'Usuário não encontrado' });
+    res.json({ user: rows[0] });
+  } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
 });
 
 // ── CHECK USERNAME AVAILABILITY ──
@@ -658,9 +693,13 @@ wss.on('connection', (ws) => {
       currentRoom.playing = false;
       currentRoom.currentTime = 0;
       currentRoom.wallClock = Date.now();
-      if (payload.video && !currentRoom.history.find(h => h.url === payload.video.url)) {
-        currentRoom.history.unshift({ ...payload.video, addedAt: Date.now(), addedBy: currentUser.name });
-        if (currentRoom.history.length > 50) currentRoom.history.pop();
+      // Salva no histórico pessoal do usuário (se tiver dbId)
+      if (payload.video && currentUser.dbId) {
+        pool.query(
+          `INSERT INTO watch_history (user_id, video_url, video_title, video_thumb, video_src)
+           VALUES ($1,$2,$3,$4,$5)`,
+          [currentUser.dbId, payload.video.url||'', payload.video.title||'', payload.video.thumb||'', payload.video.src||'']
+        ).catch(()=>{});
       }
       broadcastAll(currentRoom, { type: 'VIDEO', payload: { video: payload.video, by: currentUser } });
     }
