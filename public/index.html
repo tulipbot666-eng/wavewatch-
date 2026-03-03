@@ -8,6 +8,7 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.10.0/video-js.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/@videojs/themes@1/dist/city/index.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.10.0/video.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/videojs-youtube@3.0.1/dist/Youtube.min.js"></script>
 <style>
 /* ── Video.js City overrides para combinar com WaveWatch ── */
 .vjs-city.video-js {
@@ -1786,7 +1787,7 @@ function loadVideo(video,doBroadcast){
   if(vinfo) wrap.appendChild(vinfo);
   if(ctrl) wrap.appendChild(ctrl);
 
-  $('vph').style.display='none'; wrap.style.display='block'; $('ctrl').style.display='flex';
+  $('vph').style.display='none'; wrap.style.display='block';
   $('vi-title').textContent=title||''; $('vi-sub').textContent=author||'';
   $('vinfo').style.display=title?'block':'none';
   isPlaying=false; $('pbtn').textContent='▶';
@@ -1794,21 +1795,11 @@ function loadVideo(video,doBroadcast){
 
   if(src==='youtube'){
     $('src-badge').textContent='YT';
+    $('ctrl').style.display='none';
     const vid=extractYT(url); if(!vid){toast('URL inválida');return;}
     const startAt=Math.floor(Math.max(0,expectedNow()));
-    const iframe=document.createElement('iframe');
-    iframe.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
-    iframe.src=`https://www.youtube-nocookie.com/embed/${vid}?autoplay=0&controls=0&rel=0&modestbranding=1&enablejsapi=1&start=${startAt}&origin=${encodeURIComponent(location.origin)}`;
-    iframe.allow='autoplay; fullscreen; accelerometer; encrypted-media; gyroscope; picture-in-picture';
-    iframe.allowFullscreen=true; wrap.appendChild(iframe); ytIframe=iframe;
-    const overlay=document.createElement('div');
-    overlay.id='yt-overlay';
-    // z-index:5 — below ctrl (z-index:15) and reacts (z-index:20) so buttons stay clickable
-    overlay.style.cssText='position:absolute;top:0;left:0;width:100%;height:calc(100% - 56px);z-index:5;';
-    overlay.onclick=()=>{if(amIHost)togglePlay();else toast('Apenas o host pode controlar o vídeo ▶');};
-    wrap.appendChild(overlay);
-    window.removeEventListener('message',onYTMsg); window.addEventListener('message',onYTMsg);
-    iframe.addEventListener('load',()=>{try{iframe.contentWindow.postMessage(JSON.stringify({event:'listening'}),'*');}catch(e){}});
+    const ytUrl=`https://www.youtube.com/watch?v=${vid}`;
+    _loadVjs(wrap, ytUrl, 'youtube', { youtube: { ytControls: 0, rel: 0, modestbranding: 1, start: startAt } });
   } else if(src==='vimeo'){
     $('src-badge').textContent='VM';
     const m=url.match(/vimeo\.com\/(\d+)/); if(!m){toast('URL Vimeo inválida');return;}
@@ -1852,75 +1843,72 @@ function loadVideo(video,doBroadcast){
   if(doBroadcast)send('VIDEO',{video});
 }
 
-// ── VIDEO.JS PLAYER (para MP4/WebM/HLS/Drive/Local) ───────
-function _loadVjs(wrap, src) {
+// ── VIDEO.JS PLAYER ───────────────────────────────────────
+function _loadVjs(wrap, src, typeOverride, extraOpts) {
+  const isYT = typeOverride === 'youtube';
+  const type  = isYT ? 'video/youtube' : _guessType(src);
+
   const videoEl = document.createElement('video');
   videoEl.className = 'video-js vjs-city';
   videoEl.setAttribute('playsinline', '');
-  // Inserir antes dos overlays de reações/controles
   wrap.insertBefore(videoEl, wrap.firstChild);
 
-  vjsPlayer = videojs(videoEl, {
+  vjsPlayer = videojs(videoEl, Object.assign({
     autoplay: false,
     controls: true,
     fluid: false,
     responsive: false,
-    preload: 'metadata',
-    playbackRates: [0.5, 1, 1.25, 1.5, 2],
-    html5: { vhs: { overrideNative: true } },
-    sources: [{ src, type: _guessType(src) }]
-  });
+    preload: isYT ? 'none' : 'metadata',
+    playbackRates: isYT ? [] : [0.5, 1, 1.25, 1.5, 2],
+    techOrder: isYT ? ['youtube', 'html5'] : ['html5'],
+    sources: [{ src, type }],
+    youtube: { ytControls: 0, rel: 0, modestbranding: 1 }
+  }, extraOpts || {}));
 
-  // Aplicar permissões de host/spectator
   function applyPerms() {
-    const el = vjsPlayer.el();
-    if(amIHost) el.classList.remove('ww-spectator');
-    else el.classList.add('ww-spectator');
-    // Bloquear seek e play para não-host via vjs
-    if(!amIHost) {
-      vjsPlayer.controlBar.progressControl.disable();
-      vjsPlayer.controlBar.playToggle.disable();
-    }
+    try {
+      const el = vjsPlayer.el();
+      if(amIHost){ el.classList.remove('ww-spectator'); vjsPlayer.controlBar.progressControl.enable(); vjsPlayer.controlBar.playToggle.enable(); }
+      else { el.classList.add('ww-spectator'); vjsPlayer.controlBar.progressControl.disable(); vjsPlayer.controlBar.playToggle.disable(); }
+    } catch(e){}
   }
 
-  vjsPlayer.on('ready', applyPerms);
+  vjsPlayer.on('ready', () => {
+    applyPerms();
+    if(isYT) { ytReady = true; } // não setar ytIframe — controle via nativeVid proxy
+    const t = expectedNow();
+    if(t > 0.5) { isSyncing=true; vjsPlayer.currentTime(t); isSyncing=false; }
+    if(syncPlaying) vjsPlayer.play().catch(()=>{});
+  });
 
   vjsPlayer.on('play', () => {
     if(isSyncing) return;
     isPlaying = true;
     if(amIHost) send('STATE', {playing: true, currentTime: vjsPlayer.currentTime()});
-    else { isSyncing = true; if(!syncPlaying) vjsPlayer.pause(); isSyncing = false; }
+    else { isSyncing=true; if(!syncPlaying) vjsPlayer.pause(); isSyncing=false; }
   });
   vjsPlayer.on('pause', () => {
     if(isSyncing) return;
     isPlaying = false;
     if(amIHost) send('STATE', {playing: false, currentTime: vjsPlayer.currentTime()});
-    else { isSyncing = true; if(syncPlaying) vjsPlayer.play().catch(()=>{}); isSyncing = false; }
+    else { isSyncing=true; if(syncPlaying) vjsPlayer.play().catch(()=>{}); isSyncing=false; }
   });
   vjsPlayer.on('seeked', () => {
     if(isSyncing) return;
     if(amIHost) send('SEEK', {t: vjsPlayer.currentTime()});
   });
-  vjsPlayer.on('loadedmetadata', () => {
-    applyPerms();
-    const t = expectedNow();
-    if(t > 0) { isSyncing=true; vjsPlayer.currentTime(t); isSyncing=false; }
-    if(syncPlaying) vjsPlayer.play().catch(()=>{});
-  });
   vjsPlayer.on('error', () => toast('Erro ao carregar vídeo ⚠️'));
-
   vjsPlayer.volume(parseFloat($('vol').value));
 
-  // nativeVid proxy para compatibilidade com curTime()/curDur()/doPlay()/doPause()/seekTo()/setRate()
   nativeVid = {
     get currentTime() { return vjsPlayer ? vjsPlayer.currentTime() : 0; },
     set currentTime(t) { if(vjsPlayer) vjsPlayer.currentTime(t); },
-    get duration() { return vjsPlayer ? (vjsPlayer.duration()||0) : 0; },
-    get volume() { return vjsPlayer ? vjsPlayer.volume() : 1; },
-    set volume(v) { if(vjsPlayer) vjsPlayer.volume(v); },
-    get playbackRate() { return vjsPlayer ? vjsPlayer.playbackRate() : 1; },
-    set playbackRate(r) { if(vjsPlayer) vjsPlayer.playbackRate(r); },
-    play() { return vjsPlayer ? vjsPlayer.play() : Promise.resolve(); },
+    get duration()    { return vjsPlayer ? (vjsPlayer.duration()||0) : 0; },
+    get volume()      { return vjsPlayer ? vjsPlayer.volume() : 1; },
+    set volume(v)     { if(vjsPlayer) vjsPlayer.volume(v); },
+    get playbackRate(){ return vjsPlayer ? vjsPlayer.playbackRate() : 1; },
+    set playbackRate(r){ if(vjsPlayer) vjsPlayer.playbackRate(r); },
+    play()  { return vjsPlayer ? vjsPlayer.play() : Promise.resolve(); },
     pause() { if(vjsPlayer) vjsPlayer.pause(); },
     _isVjs: true
   };
