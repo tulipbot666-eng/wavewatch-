@@ -1822,11 +1822,7 @@ function handle(msg) {
   if(type==='HOST_CHANGED'){amIHost=payload.hostId===myUser.id;updateHostUI();updateYTOverlay();if(amIHost)sysMsg('👑 Você agora é o host da sala');}
   if(type==='USER_LEFT'){sysMsg(`${payload.user?.avatar||'👤'} ${payload.user?.name||'Alguém'} saiu`);updateLiveLbl(payload.memberCount);}
   if(type==='PONG'){const m=Date.now()-payload.ts;rtt=Math.round(rtt*0.7+m*0.3);}
-  if(type==='CHAT'){
-    // Se tem localId, já foi renderizado localmente — só adiciona o id real ao Set para deduplicar
-    if(payload.localId && rendered.has(payload.localId)) { rendered.add(payload.id); return; }
-    renderChatMsg(payload);
-  }
+  if(type==='CHAT'){renderChatMsg(payload);}
   if(type==='REACTION'){spawnFloat(payload.emoji);}
 
   if(type==='VIDEO'){
@@ -2235,7 +2231,7 @@ function sendChat() {
   const localId = 'local-' + Date.now() + Math.random();
   rendered.add(localId);
   renderChatMsg({ id: localId, user: myUser, text: payload.text, gifUrl: payload.gifUrl, imgData: payload.imgData, ts: Date.now(), _isMe: true });
-  send('CHAT', { ...payload, localId });
+  send('CHAT', payload);
   inp.value = ''; inp.style.height = '';
   clearChatImg();
 }
