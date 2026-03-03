@@ -479,106 +479,69 @@ app.get('/api/proxy', async (req, res) => {
 
       // Injeta script de controle do player
       const controlScript = `
-<style id="ww-cinema">
-/* WaveWatch Cinema Mode — esconde tudo, deixa só o vídeo */
-::-webkit-scrollbar { display: none !important; }
-
-/* Esconde elementos comuns de navegação/anúncio */
-header, nav, footer, aside,
-[class*="header"], [class*="navbar"], [class*="nav-bar"],
-[class*="topbar"], [class*="top-bar"], [class*="toolbar"],
-[class*="sidebar"], [class*="side-bar"],
-[class*="footer"], [class*="banner"],
-[class*="cookie"], [class*="popup"], [class*="modal"],
-[class*="overlay"]:not([class*="player"]):not([class*="video"]),
-[class*="advert"], [class*="ads-"], [class*="-ads"],
-[class*="publicidade"], [class*="pub-"],
-[id*="header"], [id*="navbar"], [id*="nav-bar"],
-[id*="topbar"], [id*="sidebar"], [id*="footer"],
-[id*="cookie"], [id*="popup"], [id*="banner"],
-[id*="advert"], [id*="publicidade"] {
-  display: none !important;
-  visibility: hidden !important;
-  height: 0 !important;
-  overflow: hidden !important;
-}
-
-/* Faz o body e html ocuparem 100% sem scroll */
-html, body {
-  margin: 0 !important;
-  padding: 0 !important;
-  overflow: hidden !important;
-  background: #000 !important;
-  height: 100% !important;
-  width: 100% !important;
-}
-</style>
 <script>
 (function() {
-  // Esconde elementos de nav/header/footer dinamicamente depois que carregarem
-  function cinemaMode() {
-    var selectors = [
-      'header','nav','footer','aside',
+  var cinemaDone = false;
+
+  // Ativa modo cinema SOMENTE depois que o vídeo começa a tocar
+  // Assim o usuário pode navegar/escolher canal normalmente antes
+  function activateCinema(v) {
+    if (cinemaDone) return;
+    cinemaDone = true;
+
+    // Esconde header/nav/footer/anúncios
+    var hide = ['header','nav','footer','aside',
       '[class*="header"]','[class*="navbar"]','[class*="topbar"]',
       '[class*="sidebar"]','[class*="footer"]','[class*="banner"]',
-      '[class*="cookie"]','[class*="popup"]',
-      '[class*="advert"]','[class*="publicidade"]'
-    ];
-    selectors.forEach(function(sel) {
+      '[class*="cookie"]','[class*="advert"]','[class*="publicidade"]',
+      '[id*="header"]','[id*="navbar"]','[id*="footer"]','[id*="sidebar"]'];
+    hide.forEach(function(sel) {
       try {
         document.querySelectorAll(sel).forEach(function(el) {
-          // Não esconde se tiver um <video> dentro
-          if (!el.querySelector('video') && !el.closest('[class*="player"]') && !el.closest('[class*="video"]')) {
-            el.style.setProperty('display','none','important');
-          }
+          if (!el.contains(v)) el.style.setProperty('display','none','important');
         });
-      } catch(e) {}
+      } catch(e){}
     });
 
-    // Acha o vídeo e faz ele preencher a tela
-    var v = document.querySelector('video');
-    if (v) {
-      // Sobe na DOM até achar o container do player
-      var container = v;
-      for (var i = 0; i < 6; i++) {
-        if (!container.parentElement) break;
-        container = container.parentElement;
-        var rect = container.getBoundingClientRect();
-        if (rect.width > window.innerWidth * 0.4 && rect.height > window.innerHeight * 0.3) break;
+    // Sobe na DOM a partir do vídeo até achar o container do player
+    var container = v;
+    for (var i = 0; i < 8; i++) {
+      if (!container.parentElement) break;
+      var p = container.parentElement;
+      var r = p.getBoundingClientRect();
+      if (r.width > window.innerWidth * 0.5 && r.height > window.innerHeight * 0.35) {
+        container = p; break;
       }
-      // Aplica fullscreen no container
-      container.style.setProperty('position','fixed','important');
-      container.style.setProperty('inset','0','important');
-      container.style.setProperty('width','100vw','important');
-      container.style.setProperty('height','100vh','important');
-      container.style.setProperty('z-index','99999','important');
-      container.style.setProperty('background','#000','important');
-      container.style.setProperty('max-width','none','important');
-      container.style.setProperty('max-height','none','important');
-      container.style.setProperty('margin','0','important');
-      container.style.setProperty('padding','0','important');
-      v.style.setProperty('width','100%','important');
-      v.style.setProperty('height','100%','important');
-      v.style.setProperty('object-fit','contain','important');
-
-      // Scrolla até o vídeo ficar visível (fallback)
-      v.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      container = p;
     }
+
+    // Estica o container do player pra 100% da tela
+    container.style.setProperty('position','fixed','important');
+    container.style.setProperty('inset','0','important');
+    container.style.setProperty('width','100vw','important');
+    container.style.setProperty('height','100vh','important');
+    container.style.setProperty('z-index','99999','important');
+    container.style.setProperty('background','#000','important');
+    container.style.setProperty('max-width','none','important');
+    container.style.setProperty('max-height','none','important');
+    container.style.setProperty('margin','0','important');
+    container.style.setProperty('padding','0','important');
+
+    // O vídeo em si
+    v.style.setProperty('width','100%','important');
+    v.style.setProperty('height','100%','important');
+    v.style.setProperty('object-fit','contain','important');
+
+    // Esconde scrollbar
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
   }
-
-  // Roda imediatamente e depois de carregar
-  cinemaMode();
-  window.addEventListener('load', function() { setTimeout(cinemaMode, 500); setTimeout(cinemaMode, 1500); });
-
-  // Observa mudanças no DOM (SPAs que carregam o player depois)
-  var obs = new MutationObserver(function() { cinemaMode(); });
-  obs.observe(document.body || document.documentElement, { childList: true, subtree: true });
 
   function findVideo() { return document.querySelector('video'); }
 
   window.addEventListener('message', function(e) {
     var v = findVideo(); if (!v) return;
-    if (e.data.type === 'WW_PLAY')  v.play();
+    if (e.data.type === 'WW_PLAY')  { activateCinema(v); v.play(); }
     if (e.data.type === 'WW_PAUSE') v.pause();
     if (e.data.type === 'WW_SEEK')  v.currentTime = e.data.time;
   });
@@ -586,7 +549,11 @@ html, body {
   function watch() {
     var v = findVideo();
     if (!v) { setTimeout(watch, 500); return; }
-    v.addEventListener('play',      function() { window.parent.postMessage({type:'WW_PLAYING', time: v.currentTime}, '*'); });
+
+    v.addEventListener('play', function() {
+      activateCinema(v); // ativa cinema na primeira vez que tocar
+      window.parent.postMessage({type:'WW_PLAYING', time: v.currentTime}, '*');
+    });
     v.addEventListener('pause',     function() { window.parent.postMessage({type:'WW_PAUSED',  time: v.currentTime}, '*'); });
     v.addEventListener('seeked',    function() { window.parent.postMessage({type:'WW_SEEKED',  time: v.currentTime}, '*'); });
     v.addEventListener('timeupdate',function() {
@@ -595,7 +562,16 @@ html, body {
     });
     window.parent.postMessage({type:'WW_READY'}, '*');
   }
-  if (document.readyState === 'complete') watch(); else window.addEventListener('load', watch);
+
+  if (document.readyState === 'complete') watch();
+  else window.addEventListener('load', watch);
+
+  // Observa DOM para sites SPA que criam o vídeo depois
+  var watched = false;
+  var obs = new MutationObserver(function() {
+    if (!watched && findVideo()) { watched = true; watch(); }
+  });
+  obs.observe(document.documentElement, {childList:true, subtree:true});
 })();
 </script>`;
 
