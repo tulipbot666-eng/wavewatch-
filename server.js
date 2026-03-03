@@ -439,6 +439,18 @@ app.get('/api/config', (req, res) => {
 });
 
 // ── PROXY REVERSO PARA IFRAME (remove X-Frame-Options) ──
+// ── WORKER PROXY URL (set via env var WORKER_PROXY_URL) ──
+// Se definido, todas as requests do proxy passam pelo Cloudflare Worker
+// em vez de sair direto do servidor (evita bloqueio de IP de datacenter)
+const WORKER_PROXY_URL = process.env.WORKER_PROXY_URL || null;
+
+function buildFetchUrl(targetUrl) {
+  if (WORKER_PROXY_URL) {
+    return `${WORKER_PROXY_URL}?url=${encodeURIComponent(targetUrl)}`;
+  }
+  return targetUrl;
+}
+
 app.get('/api/proxy', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).send('URL required');
@@ -447,14 +459,27 @@ app.get('/api/proxy', async (req, res) => {
     const target = new URL(url);
     const proxyBase = `${req.protocol}://${req.get('host')}/api/proxy?url=`;
 
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
-        'Accept-Encoding': 'identity',
-        'Referer': target.origin
-      },
+    const fetchUrl = buildFetchUrl(url);
+    const fetchHeaders = WORKER_PROXY_URL
+      ? { 'Range': req.headers.range || '' } // worker já monta os headers realistas
+      : {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Accept-Encoding': 'identity',
+          'Referer': target.origin + '/',
+          'Origin': target.origin,
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Upgrade-Insecure-Requests': '1',
+          'Cache-Control': 'no-cache',
+        };
+
+    if (req.headers.range) fetchHeaders['Range'] = req.headers.range;
+
+    const response = await fetch(fetchUrl, {
+      headers: fetchHeaders,
       redirect: 'follow'
     });
 
@@ -481,97 +506,35 @@ app.get('/api/proxy', async (req, res) => {
       const controlScript = `
 <script>
 (function() {
-  var cinemaDone = false;
-
-  // Ativa modo cinema SOMENTE depois que o vídeo começa a tocar
-  // Assim o usuário pode navegar/escolher canal normalmente antes
-  function activateCinema(v) {
-    if (cinemaDone) return;
-    cinemaDone = true;
-
-    // Esconde header/nav/footer/anúncios
-    var hide = ['header','nav','footer','aside',
-      '[class*="header"]','[class*="navbar"]','[class*="topbar"]',
-      '[class*="sidebar"]','[class*="footer"]','[class*="banner"]',
-      '[class*="cookie"]','[class*="advert"]','[class*="publicidade"]',
-      '[id*="header"]','[id*="navbar"]','[id*="footer"]','[id*="sidebar"]'];
-    hide.forEach(function(sel) {
-      try {
-        document.querySelectorAll(sel).forEach(function(el) {
-          if (!el.contains(v)) el.style.setProperty('display','none','important');
-        });
-      } catch(e){}
-    });
-
-    // Sobe na DOM a partir do vídeo até achar o container do player
-    var container = v;
-    for (var i = 0; i < 8; i++) {
-      if (!container.parentElement) break;
-      var p = container.parentElement;
-      var r = p.getBoundingClientRect();
-      if (r.width > window.innerWidth * 0.5 && r.height > window.innerHeight * 0.35) {
-        container = p; break;
-      }
-      container = p;
-    }
-
-    // Estica o container do player pra 100% da tela
-    container.style.setProperty('position','fixed','important');
-    container.style.setProperty('inset','0','important');
-    container.style.setProperty('width','100vw','important');
-    container.style.setProperty('height','100vh','important');
-    container.style.setProperty('z-index','99999','important');
-    container.style.setProperty('background','#000','important');
-    container.style.setProperty('max-width','none','important');
-    container.style.setProperty('max-height','none','important');
-    container.style.setProperty('margin','0','important');
-    container.style.setProperty('padding','0','important');
-
-    // O vídeo em si
-    v.style.setProperty('width','100%','important');
-    v.style.setProperty('height','100%','important');
-    v.style.setProperty('object-fit','contain','important');
-
-    // Esconde scrollbar
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
+  function findVideo() {
+    return document.querySelector('video');
   }
 
-  function findVideo() { return document.querySelector('video'); }
-
+  // Escuta comandos do WaveWatch
   window.addEventListener('message', function(e) {
-    var v = findVideo(); if (!v) return;
-    if (e.data.type === 'WW_PLAY')  { activateCinema(v); v.play(); }
+    const v = findVideo();
+    if (!v) return;
+    if (e.data.type === 'WW_PLAY') v.play();
     if (e.data.type === 'WW_PAUSE') v.pause();
-    if (e.data.type === 'WW_SEEK')  v.currentTime = e.data.time;
+    if (e.data.type === 'WW_SEEK') v.currentTime = e.data.time;
   });
 
+  // Envia eventos de volta para o WaveWatch
   function watch() {
-    var v = findVideo();
+    const v = findVideo();
     if (!v) { setTimeout(watch, 500); return; }
-
-    v.addEventListener('play', function() {
-      activateCinema(v); // ativa cinema na primeira vez que tocar
-      window.parent.postMessage({type:'WW_PLAYING', time: v.currentTime}, '*');
-    });
-    v.addEventListener('pause',     function() { window.parent.postMessage({type:'WW_PAUSED',  time: v.currentTime}, '*'); });
-    v.addEventListener('seeked',    function() { window.parent.postMessage({type:'WW_SEEKED',  time: v.currentTime}, '*'); });
-    v.addEventListener('timeupdate',function() {
+    v.addEventListener('play', () => window.parent.postMessage({type:'WW_PLAYING', time: v.currentTime}, '*'));
+    v.addEventListener('pause', () => window.parent.postMessage({type:'WW_PAUSED', time: v.currentTime}, '*'));
+    v.addEventListener('seeked', () => window.parent.postMessage({type:'WW_SEEKED', time: v.currentTime}, '*'));
+    v.addEventListener('timeupdate', () => {
       if (Math.floor(v.currentTime) % 2 === 0)
         window.parent.postMessage({type:'WW_TIME', time: v.currentTime, duration: v.duration}, '*');
     });
     window.parent.postMessage({type:'WW_READY'}, '*');
   }
-
+  
   if (document.readyState === 'complete') watch();
   else window.addEventListener('load', watch);
-
-  // Observa DOM para sites SPA que criam o vídeo depois
-  var watched = false;
-  var obs = new MutationObserver(function() {
-    if (!watched && findVideo()) { watched = true; watch(); }
-  });
-  obs.observe(document.documentElement, {childList:true, subtree:true});
 })();
 </script>`;
 
