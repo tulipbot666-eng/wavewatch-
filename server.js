@@ -237,9 +237,8 @@ app.get('/api/users/check-username', async (req, res) => {
 // ── SETUP PROFILE (onboarding + profile edit) ──
 app.post('/auth/setup-profile', async (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Não autenticado' });
-  const { username, avatarEmoji, displayName } = req.body;
+  const { username, avatarEmoji, displayName, avatarData, removeAvatar } = req.body;
 
-  // If user already has a username and none was sent, keep the existing one
   const existingUsername = req.user.username;
   let finalUsername = existingUsername;
 
@@ -258,9 +257,19 @@ app.post('/auth/setup-profile', async (req, res) => {
   try {
     const safeName = (displayName || '').trim() || req.user.name;
     const emoji = avatarEmoji || req.user.avatar_emoji || '🎬';
+
+    // Determina avatar_url: nova foto, remover, ou manter a atual
+    let avatarUrl = req.user.avatar_url;
+    if (removeAvatar) avatarUrl = null;
+    else if (avatarData && avatarData.startsWith('data:image/')) {
+      // Valida tamanho (~5MB base64)
+      if (avatarData.length > 7_000_000) return res.status(400).json({ error: 'Foto muito grande' });
+      avatarUrl = avatarData;
+    }
+
     const { rows } = await pool.query(
-      'UPDATE users SET username=$1, avatar_emoji=$2, name=$3, profile_complete=TRUE WHERE id=$4 RETURNING *',
-      [finalUsername, emoji, safeName, req.user.id]
+      'UPDATE users SET username=$1, avatar_emoji=$2, name=$3, avatar_url=$4, profile_complete=TRUE WHERE id=$5 RETURNING *',
+      [finalUsername, emoji, safeName, avatarUrl, req.user.id]
     );
     req.login(rows[0], err => {
       if (err) return res.status(500).json({ error: 'Erro ao atualizar sessão' });
