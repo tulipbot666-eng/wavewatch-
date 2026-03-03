@@ -9,6 +9,7 @@
 <link href="https://cdn.jsdelivr.net/npm/@videojs/themes@1/dist/city/index.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.10.0/video.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/videojs-youtube@3.0.1/dist/Youtube.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
 <style>
 /* ── Video.js City overrides para combinar com WaveWatch ── */
 .vjs-city.video-js {
@@ -1420,6 +1421,7 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
             <span class="vph-chip">🟣 Twitch</span>
             <span class="vph-chip">📁 Drive</span>
             <span class="vph-chip">💾 Arquivo</span>
+            <span class="vph-chip">🧲 Torrent</span>
           </div>
           <button class="vph-btn" onclick="openAddModal()">
             <svg viewBox="0 0 20 20" fill="none" style="width:15px;height:15px"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
@@ -1551,6 +1553,7 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
       <div class="src-opt" data-s="direct" onclick="selSrc(this,'direct')"><span class="ico">🔗</span>URL direta</div>
       <div class="src-opt" data-s="gdrive" onclick="selSrc(this,'gdrive')"><span class="ico">📁</span>Google Drive</div>
       <div class="src-opt" data-s="local" onclick="selSrc(this,'local')"><span class="ico">💾</span>Arquivo</div>
+      <div class="src-opt" data-s="torrent" onclick="selSrc(this,'torrent')"><span class="ico">🧲</span>Torrent</div>
     </div>
     <div id="yt-section">
       <div class="yt-search-wrap">
@@ -1591,6 +1594,19 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
         <p><strong>Clique ou arraste</strong> um arquivo de vídeo<br><span style="font-size:.72rem">MP4 · WebM · MKV · MOV · AVI</span></p>
       </div>
       <input type="file" id="ff" accept="video/*" style="display:none" onchange="filePick(this)">
+    </div>
+    <div id="torrent-section" style="display:none">
+      <div style="margin-bottom:.6rem">
+        <span class="mlabel">Link Magnético ou Hash</span>
+        <input class="minp" id="magnet-inp" placeholder="magnet:?xt=urn:btih:... ou infohash">
+        <div style="font-size:.68rem;color:var(--sub);font-family:'JetBrains Mono',monospace;margin-top:.4rem;line-height:1.6">
+          Cole um link magnético de qualquer site de torrents.<br>
+          O vídeo é transmitido P2P, nada fica no servidor. 🔒
+        </div>
+      </div>
+      <div id="torrent-status" style="display:none;background:rgba(0,229,192,.06);border:1px solid rgba(0,229,192,.2);border-radius:10px;padding:.6rem .85rem;font-size:.78rem;font-family:'JetBrains Mono',monospace;color:var(--ok);margin-top:.5rem;">
+        <span id="torrent-status-txt">Conectando...</span>
+      </div>
     </div>
     <div class="merr" id="merr"></div>
     <div class="mbtns">
@@ -2548,6 +2564,7 @@ function loadVideo(video,doBroadcast){
   if(vjsPlayer){try{vjsPlayer.dispose();}catch(e){}vjsPlayer=null;nativeVid=null;}
   if(nativeVid){nativeVid.pause();nativeVid.src='';nativeVid.load();nativeVid=null;}
   if(proxyIframe){proxyIframe=null;window.removeEventListener('message',onProxyMsg);}
+  if(wtClient){try{wtClient.destroy();}catch(e){}wtClient=null;}
 
   const wrap=$('vwrap');
   const reacts=wrap.querySelector('.reacts-wrap');
@@ -2611,7 +2628,93 @@ function loadVideo(video,doBroadcast){
     _loadVjs(wrap, url);
     $('ctrl').style.display='none';
   }
+  if(src==='torrent'){
+    $('src-badge').textContent='🧲';
+    $('ctrl').style.display='flex';
+    loadTorrent(url, wrap);
+    if(doBroadcast)send('VIDEO',{video});
+    return;
+  }
   if(doBroadcast)send('VIDEO',{video});
+}
+
+// ── WEBTORRENT ─────────────────────────────────
+let wtClient = null;
+
+function loadTorrent(magnetUri, wrap) {
+  // Destroy previous torrent client
+  if(wtClient) { try { wtClient.destroy(); } catch(e){} wtClient = null; }
+
+  if(typeof WebTorrent === 'undefined') {
+    toast('WebTorrent não carregou — verifique a conexão');
+    return;
+  }
+
+  wtClient = new WebTorrent();
+  const statusEl = document.createElement('div');
+  statusEl.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;z-index:5;gap:.75rem;';
+  statusEl.innerHTML = `
+    <div style="font-size:2.5rem">🧲</div>
+    <div id="wt-status-lbl" style="font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--ok)">Conectando aos peers...</div>
+    <div id="wt-progress-bar" style="width:240px;height:3px;background:rgba(255,255,255,.1);border-radius:10px;overflow:hidden;">
+      <div id="wt-progress-fill" style="height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--a2));transition:width .5s;"></div>
+    </div>
+    <div id="wt-peers" style="font-size:.68rem;color:var(--sub);font-family:'JetBrains Mono',monospace;">0 peers</div>`;
+  wrap.appendChild(statusEl);
+
+  wtClient.add(magnetUri, { announce: [
+    'wss://tracker.openwebtorrent.com',
+    'wss://tracker.btorrent.xyz',
+    'wss://tracker.fastcast.nz'
+  ]}, torrent => {
+    // Find the largest video file in the torrent
+    const videoExts = ['mp4','webm','mkv','avi','mov','m4v','ogv'];
+    const file = torrent.files
+      .filter(f => videoExts.some(ext => f.name.toLowerCase().endsWith(ext)))
+      .sort((a,b) => b.length - a.length)[0];
+
+    if(!file) { toast('Nenhum vídeo encontrado no torrent'); return; }
+
+    // Update title
+    $('vi-title').textContent = file.name;
+    $('vinfo').style.display = 'block';
+
+    // Create video element and stream into it
+    const videoEl = document.createElement('video');
+    videoEl.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:#000;';
+    videoEl.controls = false;
+
+    file.renderTo(videoEl, { autoplay: false }, err => {
+      if(err) { toast('Erro ao carregar torrent: ' + err.message); return; }
+      statusEl.remove();
+      wrap.appendChild(videoEl);
+      nativeVid = videoEl;
+
+      // Wire up WaveWatch controls
+      videoEl.addEventListener('play',  () => { isPlaying=true;  $('pbtn').textContent='⏸'; if(amIHost) send('STATE',{playing:true,  currentTime:videoEl.currentTime}); });
+      videoEl.addEventListener('pause', () => { isPlaying=false; $('pbtn').textContent='▶'; if(amIHost) send('STATE',{playing:false, currentTime:videoEl.currentTime}); });
+      videoEl.addEventListener('timeupdate', () => {
+        const t=videoEl.currentTime, d=videoEl.duration||0;
+        if(d>0){ $('prog-fill').style.width=(t/d*100)+'%'; $('tlbl-cur').textContent=fmt(t); $('tlbl-dur').textContent=fmt(d); }
+      });
+    });
+
+    // Progress updates
+    const tick = setInterval(() => {
+      if(!wtClient) { clearInterval(tick); return; }
+      const pct = (torrent.progress*100).toFixed(1);
+      const dl  = (torrent.downloadSpeed/1024).toFixed(0);
+      const lbl = document.getElementById('wt-status-lbl');
+      const bar = document.getElementById('wt-progress-fill');
+      const peers = document.getElementById('wt-peers');
+      if(lbl) lbl.textContent = `⬇ ${dl} KB/s · ${pct}% em buffer`;
+      if(bar) bar.style.width = pct + '%';
+      if(peers) peers.textContent = torrent.numPeers + ' peers';
+      if(torrent.progress >= 0.02) clearInterval(tick); // enough to start
+    }, 800);
+  });
+
+  wtClient.on('error', err => toast('Erro WebTorrent: ' + err.message));
 }
 
 // ── VIDEO.JS PLAYER ───────────────────────────────────────
@@ -3189,6 +3292,7 @@ function selSrc(el,src){
   $('url-section').style.display=['vimeo','twitch','direct','proxy'].includes(src)?'block':'none';
   $('gdrive-section').style.display=src==='gdrive'?'block':'none';
   $('local-section').style.display=src==='local'?'block':'none';
+  $('torrent-section').style.display=src==='torrent'?'block':'none';
   if(['vimeo','twitch','direct','proxy'].includes(src)){$('url-mlabel').textContent=SRC_LABELS[src]||'URL';$('vurl').placeholder=SRC_PLACEHOLDERS[src]||'https://';}
 }
 
@@ -3333,6 +3437,11 @@ async function addVideo(){
     const reader=new FileReader();
     reader.onload=e=>{video={src:'local',url:e.target.result,title,thumb:''};localQueue.push(video);renderQueue(localQueue);loadVideo(video,false);closeModal('add-modal');sysMsg(`📁 ${myUser.name} adicionou: ${title}`);};
     reader.readAsDataURL(pickedFile);return;
+  }else if(currentSrc==='torrent'){
+    const magnet=$('magnet-inp').value.trim();
+    if(!magnet){merr('Cole um link magnético');return;}
+    if(!magnet.startsWith('magnet:')){merr('Link magnético inválido — deve começar com magnet:');return;}
+    video={src:'torrent',url:magnet,title:'🧲 Torrent',thumb:''};
   }else{
     const url=$('vurl').value.trim();if(!url){merr('Digite a URL');return;}
     let title=url.split('/').pop().split('?')[0]||url;
@@ -3627,6 +3736,7 @@ async function loadLobbyFeed() {
 function copyCode(){navigator.clipboard.writeText(roomId).then(()=>toast('Código copiado: '+roomId));}
 function leaveRoom(){
   if(ws)ws.close();
+  if(wtClient){try{wtClient.destroy();}catch(e){}wtClient=null;}
   // Clear chat and state
   const msgs=$('msgs'); if(msgs) msgs.innerHTML='';
   rendered=new Set();
