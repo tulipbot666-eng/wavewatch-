@@ -459,22 +459,30 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
   border-radius: 12px 4px 12px 12px;
 }
 
-/* ── CHAT PROFILE POPUP ── */
 .chat-profile-popup{
   position:fixed;z-index:999;
-  background:rgba(14,14,22,.97);
+  background:rgba(14,14,22,.98);
   border:1px solid rgba(255,255,255,.1);
   border-radius:16px;
-  padding:1.2rem 1.2rem 1rem;
-  width:220px;
-  box-shadow:0 16px 48px rgba(0,0,0,.7);
+  padding:1.2rem 1.1rem 1rem;
+  width:260px;
+  box-shadow:0 16px 48px rgba(0,0,0,.8);
   animation:msgIn .15s ease;
-  pointer-events:all;
 }
-.cpp-av{width:56px;height:56px;border-radius:50%;overflow:hidden;background:linear-gradient(135deg,var(--accent),var(--a2));display:flex;align-items:center;justify-content:center;font-size:1.8rem;margin:0 auto .7rem;border:3px solid rgba(255,255,255,.1);}
+.cpp-av{width:60px;height:60px;border-radius:50%;overflow:hidden;background:linear-gradient(135deg,var(--accent),var(--a2));display:flex;align-items:center;justify-content:center;margin:0 auto .6rem;border:3px solid rgba(255,255,255,.1);}
 .cpp-av img{width:100%;height:100%;object-fit:cover;}
-.cpp-name{font-size:.95rem;font-weight:700;text-align:center;margin-bottom:.15rem;}
-.cpp-user{font-size:.7rem;color:var(--sub);text-align:center;font-family:'JetBrains Mono',monospace;margin-bottom:.85rem;}
+.cpp-name{font-size:1rem;font-weight:700;text-align:center;margin-bottom:.1rem;}
+.cpp-user{font-size:.7rem;color:var(--sub);text-align:center;font-family:'JetBrains Mono',monospace;margin-bottom:.8rem;}
+.cpp-history-label{font-size:.65rem;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1px;font-family:'JetBrains Mono',monospace;margin-bottom:.4rem;}
+.cpp-history{max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:.3rem;margin-bottom:.5rem;}
+.cpp-history-loading,.cpp-history-empty{font-size:.75rem;color:var(--sub);text-align:center;padding:.5rem 0;}
+.cpp-history-item{display:flex;align-items:center;gap:.5rem;padding:.3rem .35rem;border-radius:8px;background:rgba(255,255,255,.04);cursor:pointer;transition:background .15s;}
+.cpp-history-item:hover{background:rgba(255,255,255,.08);}
+.cpp-history-thumb{width:36px;height:24px;border-radius:4px;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,.06);}
+.cpp-history-thumb-empty{width:36px;height:24px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:.75rem;background:rgba(255,255,255,.06);}
+.cpp-history-info{flex:1;min-width:0;}
+.cpp-history-title{font-size:.72rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cpp-history-date{font-size:.6rem;color:var(--sub);font-family:'JetBrains Mono',monospace;}
 .cpp-actions{display:flex;gap:.5rem;}
 .cpp-btn{flex:1;padding:.5rem .7rem;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);color:rgba(255,255,255,.7);font-size:.78rem;font-family:'Space Grotesk',sans-serif;font-weight:600;cursor:pointer;transition:all .15s;text-align:center;white-space:nowrap;}
 .cpp-btn:hover{border-color:rgba(255,45,120,.4);color:var(--accent);background:rgba(255,45,120,.08);}
@@ -1165,9 +1173,6 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
         <button class="stab" onclick="sTab('queue',this)" title="Fila">
           <svg viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 10h10M3 15h7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
         </button>
-        <button class="stab" onclick="sTab('history',this)" title="Histórico">
-          <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.6"/><path d="M10 6v4l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-        </button>
         <button class="stab" onclick="sTab('members',this)" title="Membros">
           <svg viewBox="0 0 20 20" fill="none"><circle cx="8" cy="7" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M2 17c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="15" cy="6" r="2.2" stroke="currentColor" stroke-width="1.5"/><path d="M18 16c0-2.21-1.343-3.5-3-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         </button>
@@ -1225,7 +1230,6 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
           <button class="pill-btn ghost" style="font-size:.82rem;padding:.6rem" onclick="openAddModal()">+ Adicionar à fila</button>
         </div>
       </div>
-      <div class="panel" id="p-history"><div class="history-wrap" id="history-wrap"></div></div>
       <div class="panel" id="p-members"><div class="members-panel" id="members-panel"></div></div>
       <div class="panel" id="p-friends">
         <div class="friends-panel" id="friends-panel">
@@ -1809,7 +1813,7 @@ function connectWS() {
   ws.onopen = () => {
     send('JOIN', {
       roomId,
-      user: myUser,
+      user: { ...myUser, dbId: loggedInUser?.id || null },
       roomName: myUser._roomName,
       isPublic: myUser._isPublic,
       category: myUser._category,
@@ -2183,14 +2187,12 @@ let gifSearchTimer = null;
 const TENOR_KEY = 'LIVDSRZULELA'; // Tenor official demo key
 
 let _cppEl = null;
-function openChatProfile(user) {
-  // Fechar popup anterior
+async function openChatProfile(user) {
   if(_cppEl) { _cppEl.remove(); _cppEl = null; }
-
   const isMe = !!(myUser?.id && user?.id === myUser.id);
   const avHtml = user?.avatarUrl
-    ? `<img src="${esc(user.avatarUrl)}">`
-    : `<span>${esc(user?.avatar || '👤')}</span>`;
+    ? `<img src="${esc(user.avatarUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+    : `<span style="font-size:1.8rem">${esc(user?.avatar || '👤')}</span>`;
 
   const popup = document.createElement('div');
   popup.className = 'chat-profile-popup';
@@ -2198,7 +2200,9 @@ function openChatProfile(user) {
     <div class="cpp-av">${avHtml}</div>
     <div class="cpp-name">${esc(user?.name || '?')}</div>
     <div class="cpp-user">${user?.username ? '@'+esc(user.username) : ''}</div>
-    <div class="cpp-actions">
+    <div class="cpp-history-label">🎬 Histórico</div>
+    <div class="cpp-history" id="cpp-history-list"><div class="cpp-history-loading">Carregando...</div></div>
+    <div class="cpp-actions" style="margin-top:.7rem">
       ${isMe
         ? `<button class="cpp-btn primary" onclick="closeChatProfile();openProfileModal()">✏️ Meu perfil</button>`
         : `<button class="cpp-btn primary" onclick="closeChatProfile();fsAddFriendByName('${esc(user?.name||'')}')">➕ Adicionar</button>
@@ -2206,16 +2210,42 @@ function openChatProfile(user) {
       }
     </div>`;
 
-  // Posicionar no centro da sidebar
   const sidebar = document.querySelector('.sidebar');
   const rect = sidebar.getBoundingClientRect();
   popup.style.left = (rect.left + 10) + 'px';
   popup.style.bottom = '80px';
-
   document.body.appendChild(popup);
   _cppEl = popup;
 
-  // Fechar ao clicar fora
+  // Carrega histórico do usuário
+  const dbId = user?.dbId;
+  if(dbId) {
+    try {
+      const res = await fetch(`/api/users/${dbId}/history`);
+      const data = await res.json();
+      const list = $('cpp-history-list');
+      if(!list) return;
+      if(!data.history?.length) {
+        list.innerHTML = '<div class="cpp-history-empty">Nenhum vídeo assistido ainda</div>';
+      } else {
+        list.innerHTML = data.history.slice(0,5).map(h => `
+          <div class="cpp-history-item">
+            ${h.video_thumb ? `<img src="${esc(h.video_thumb)}" class="cpp-history-thumb">` : `<div class="cpp-history-thumb cpp-history-thumb-empty">🎬</div>`}
+            <div class="cpp-history-info">
+              <div class="cpp-history-title">${esc(h.video_title || h.video_url)}</div>
+              <div class="cpp-history-date">${new Date(h.watched_at).toLocaleDateString('pt-BR')}</div>
+            </div>
+          </div>`).join('');
+      }
+    } catch(e) {
+      const list = $('cpp-history-list');
+      if(list) list.innerHTML = '<div class="cpp-history-empty">Erro ao carregar</div>';
+    }
+  } else {
+    const list = $('cpp-history-list');
+    if(list) list.innerHTML = '<div class="cpp-history-empty">Usuário sem login</div>';
+  }
+
   setTimeout(() => document.addEventListener('click', closeChatProfileOutside, {once:true}), 50);
 }
 
@@ -2701,7 +2731,7 @@ async function addVideo(){
   driveSelectedFile=null;
 }
 
-function sTab(t,el){document.querySelectorAll('.stab').forEach(s=>s.classList.remove('on'));el.classList.add('on');['chat','queue','history','members','friends'].forEach(p=>{const panel=$('p-'+p);if(panel)panel.classList.toggle('on',p===t);});}
+function sTab(t,el){document.querySelectorAll('.stab').forEach(s=>s.classList.remove('on'));el.classList.add('on');['chat','queue','members','friends'].forEach(p=>{const panel=$('p-'+p);if(panel)panel.classList.toggle('on',p===t);});}
 function copyCode(){navigator.clipboard.writeText(roomId).then(()=>toast('Código copiado: '+roomId));}
 function leaveRoom(){if(ws)ws.close();$('app').style.display='none';$('lobby').style.display='flex';roomId='';rendered=new Set();if(loggedInUser){$('auth-overlay').classList.add('hidden');$('lobby-topbar').style.display='flex';$('lobby-body').style.display='flex';}loadPublicRooms();}
 
