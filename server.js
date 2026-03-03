@@ -74,6 +74,7 @@ async function initDB() {
       id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       url TEXT NOT NULL,
+      is_public BOOLEAN DEFAULT TRUE,
       uploaded_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS gallery_user_idx ON user_gallery (user_id, uploaded_at DESC);
@@ -95,6 +96,40 @@ async function initDB() {
   // Add columns if not exist (safe migration)
     await pool.query(`ALTER TABLE user_posts ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT TRUE`).catch(()=>{});
     await pool.query(`ALTER TABLE user_posts ADD COLUMN IF NOT EXISTS img_url TEXT`).catch(()=>{});
+    // Migrations
+    await pool.query(`ALTER TABLE user_gallery ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT TRUE`).catch(()=>{});
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS post_likes (
+        id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        post_id TEXT NOT NULL REFERENCES user_posts(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(user_id, post_id)
+      )
+    `).catch(()=>{});
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS photo_likes (
+        id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        photo_id TEXT NOT NULL REFERENCES user_gallery(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(user_id, photo_id)
+      )
+    `).catch(()=>{});
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS post_comments (
+        id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        post_id TEXT NOT NULL,
+        post_type TEXT NOT NULL DEFAULT 'post',
+        content TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `).catch(()=>{});
+
     console.log('✅ Database ready');
 }
 
@@ -260,7 +295,7 @@ app.get('/auth/me', (req, res) => {
 app.get('/api/users/:id/gallery', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT id, url, uploaded_at FROM user_gallery WHERE user_id=$1 ORDER BY uploaded_at DESC LIMIT 50`,
+      `SELECT id, url, is_public, uploaded_at FROM user_gallery WHERE user_id=$1 ORDER BY uploaded_at DESC LIMIT 50`,
       [req.params.id]
     );
     res.json({ photos: rows });
@@ -269,15 +304,15 @@ app.get('/api/users/:id/gallery', async (req, res) => {
 
 app.post('/api/gallery/upload', async (req, res) => {
   if(!req.user) return res.status(401).json({ error: 'Não autenticado' });
-  const { imageData } = req.body;
+  const { imageData, is_public = true } = req.body;
   if(!imageData || !imageData.startsWith('data:image/')) return res.status(400).json({ error: 'Imagem inválida' });
   if(imageData.length > 10_000_000) return res.status(400).json({ error: 'Foto muito grande' });
   try {
-    await pool.query(
-      `INSERT INTO user_gallery (user_id, url) VALUES ($1, $2)`,
-      [req.user.id, imageData]
+    const { rows } = await pool.query(
+      `INSERT INTO user_gallery (user_id, url, is_public) VALUES ($1, $2, $3) RETURNING id`,
+      [req.user.id, imageData, !!is_public]
     );
-    res.json({ ok: true });
+    res.json({ ok: true, id: rows[0].id });
   } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
 });
 
@@ -991,3 +1026,74 @@ setInterval(() => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`WaveWatch running on port ${PORT}`));
+
+// ─────────────────────────────────────────
+// LIKES API
+// ─────────────────────────────────────────
+app.post('/api/like', requireAuth, async (req, res) => {
+  const { id, type } = req.body; // type: 'post' | 'photo'
+  if (!id || !type) return res.status(400).json({ error: 'Parâmetros inválidos' });
+  const table = type === 'photo' ? 'photo_likes' : 'post_likes';
+  const col   = type === 'photo' ? 'photo_id'   : 'post_id';
+  try {
+    const existing = await pool.query(`SELECT id FROM ${table} WHERE user_id=$1 AND ${col}=$2`, [req.user.id, id]);
+    if (existing.rows.length) {
+      await pool.query(`DELETE FROM ${table} WHERE user_id=$1 AND ${col}=$2`, [req.user.id, id]);
+      const { rows } = await pool.query(`SELECT COUNT(*) FROM ${table} WHERE ${col}=$1`, [id]);
+      res.json({ liked: false, count: parseInt(rows[0].count) });
+    } else {
+      await pool.query(`INSERT INTO ${table} (user_id, ${col}) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [req.user.id, id]);
+      const { rows } = await pool.query(`SELECT COUNT(*) FROM ${table} WHERE ${col}=$1`, [id]);
+      res.json({ liked: true, count: parseInt(rows[0].count) });
+    }
+  } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
+});
+
+app.get('/api/likes/:type/:id', async (req, res) => {
+  const { type, id } = req.params;
+  const table = type === 'photo' ? 'photo_likes' : 'post_likes';
+  const col   = type === 'photo' ? 'photo_id'   : 'post_id';
+  try {
+    const { rows } = await pool.query(`SELECT COUNT(*) FROM ${table} WHERE ${col}=$1`, [id]);
+    const liked = req.user
+      ? (await pool.query(`SELECT 1 FROM ${table} WHERE user_id=$1 AND ${col}=$2`, [req.user.id, id])).rows.length > 0
+      : false;
+    res.json({ count: parseInt(rows[0].count), liked });
+  } catch(e) { res.json({ count: 0, liked: false }); }
+});
+
+// ─────────────────────────────────────────
+// COMMENTS API
+// ─────────────────────────────────────────
+app.get('/api/comments/:type/:id', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT c.id, c.content, c.created_at, u.name, u.username, u.avatar_url, u.avatar_emoji
+       FROM post_comments c JOIN users u ON u.id = c.user_id
+       WHERE c.post_id=$1 AND c.post_type=$2
+       ORDER BY c.created_at ASC LIMIT 100`,
+      [req.params.id, req.params.type]
+    );
+    res.json({ comments: rows });
+  } catch(e) { res.status(500).json({ comments: [] }); }
+});
+
+app.post('/api/comments', requireAuth, async (req, res) => {
+  const { post_id, post_type = 'post', content } = req.body;
+  if (!post_id || !content?.trim()) return res.status(400).json({ error: 'Dados inválidos' });
+  if (content.length > 500) return res.status(400).json({ error: 'Comentário muito longo' });
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO post_comments (user_id, post_id, post_type, content) VALUES ($1,$2,$3,$4) RETURNING id, content, created_at`,
+      [req.user.id, post_id, post_type, content.trim()]
+    );
+    res.json({ ok: true, comment: { ...rows[0], name: req.user.name, avatar_url: req.user.avatar_url, avatar_emoji: req.user.avatar_emoji } });
+  } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
+});
+
+app.delete('/api/comments/:id', requireAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM post_comments WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
+});
