@@ -422,20 +422,20 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
 .feed-tab{flex:1;max-width:140px;padding:.42rem .8rem;border:none;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:8px;color:rgba(255,255,255,.35);font-family:'Space Grotesk',sans-serif;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:.4rem;}
 .feed-tab svg{width:13px;height:13px;stroke:currentColor;fill:none;}
 .feed-tab.on{background:rgba(255,45,120,.1);border-color:rgba(255,45,120,.3);color:#fff;}
-.feed-body{flex:1;overflow-y:auto;padding:.85rem 1rem;}
+.feed-body{flex:1;overflow-y:auto;padding:.7rem .75rem;}
 .feed-content{display:none;flex-direction:column;gap:.75rem;}
 .feed-content.on{display:flex;}
 
 /* ── POST COMPOSER ── */
-.post-composer{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:.9rem 1rem;margin-bottom:.85rem;display:flex;flex-direction:column;gap:.7rem;}
-.post-composer-top{display:flex;gap:.75rem;align-items:flex-start;}
-.composer-av{width:36px;height:36px;border-radius:50%;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem;overflow:hidden;}
+.post-composer{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:.7rem .85rem;margin-bottom:.7rem;display:flex;flex-direction:column;gap:.45rem;}
+.post-composer-top{display:flex;gap:.65rem;align-items:center;}
+.composer-av{width:32px;height:32px;border-radius:50%;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1rem;overflow:hidden;}
 .composer-av img{width:100%;height:100%;object-fit:cover;}
-.composer-box{flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:.65rem .85rem;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:.85rem;outline:none;resize:none;min-height:70px;transition:border-color .2s;}
+.composer-box{flex:1;background:none;border:none;border-radius:0;padding:.3rem .5rem;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:.88rem;outline:none;resize:none;min-height:44px;transition:border-color .2s;}
 .composer-box::placeholder{color:rgba(255,255,255,.2);}
 .composer-box:focus{border-color:rgba(255,45,120,.35);}
-.post-composer-foot{display:flex;align-items:center;gap:.5rem;}
-.composer-attach-btn{display:flex;align-items:center;gap:.35rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:.32rem .7rem;color:rgba(255,255,255,.4);font-size:.72rem;cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all .2s;}
+.post-composer-foot{display:flex;align-items:center;gap:.4rem;border-top:1px solid rgba(255,255,255,.05);padding-top:.4rem;}
+.composer-attach-btn{display:flex;align-items:center;gap:.3rem;background:none;border:none;border-radius:8px;padding:.28rem .55rem;color:rgba(255,255,255,.4);font-size:.72rem;cursor:pointer;font-family:'Space Grotesk',sans-serif;font-weight:600;transition:all .2s;}
 .composer-attach-btn:hover{color:rgba(255,255,255,.75);border-color:rgba(255,255,255,.15);}
 .composer-attach-btn svg{width:13px;height:13px;stroke:currentColor;fill:none;}
 .composer-vis{display:flex;align-items:center;gap:.3rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:.32rem .7rem;cursor:pointer;transition:all .2s;position:relative;}
@@ -451,7 +451,7 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
 .vis-opt:hover{background:rgba(255,255,255,.06);}
 .vis-opt svg{width:14px;height:14px;stroke:currentColor;fill:none;flex-shrink:0;}
 .vis-opt span{color:var(--sub);font-size:.7rem;font-family:'JetBrains Mono',monospace;}
-.composer-send{margin-left:auto;display:flex;align-items:center;gap:.4rem;background:linear-gradient(135deg,var(--accent),var(--a2));color:#fff;border:none;border-radius:10px;padding:.4rem 1rem;font-family:'Space Grotesk',sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 2px 14px rgba(255,45,120,.25);}
+.composer-send{margin-left:auto;display:flex;align-items:center;gap:.35rem;background:linear-gradient(135deg,var(--accent),var(--a2));color:#fff;border:none;border-radius:20px;padding:.35rem .9rem;font-family:'Space Grotesk',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 2px 12px rgba(255,45,120,.25);}
 .composer-send:hover{box-shadow:0 4px 22px rgba(255,45,120,.45);transform:translateY(-1px);}
 .composer-img-preview{display:none;position:relative;margin-top:.35rem;}
 .composer-img-preview img{max-height:120px;border-radius:10px;border:1px solid rgba(255,255,255,.1);}
@@ -470,7 +470,7 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
 .post-vis-tag.pub{background:rgba(0,229,192,.08);border:1px solid rgba(0,229,192,.2);color:var(--ok);}
 .post-vis-tag.prv{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.3);}
 .post-text{padding:.1rem 1rem .8rem;font-size:.87rem;line-height:1.6;color:rgba(255,255,255,.85);}
-.post-img{width:100%;display:block;max-height:380px;object-fit:cover;}
+.post-img{width:100%;display:block;max-height:500px;object-fit:contain;background:#111;}
 .post-footer{display:flex;align-items:center;gap:.3rem;padding:.55rem .75rem;border-top:1px solid rgba(255,255,255,.04);}
 .post-act{display:flex;align-items:center;gap:.35rem;background:none;border:none;color:rgba(255,255,255,.3);font-size:.75rem;font-family:'JetBrains Mono',monospace;cursor:pointer;padding:.3rem .55rem;border-radius:8px;transition:all .15s;}
 .post-act svg{width:14px;height:14px;stroke:currentColor;fill:none;}
@@ -1062,7 +1062,7 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
         <div class="post-composer" id="post-composer">
           <div class="post-composer-top">
             <div class="composer-av" id="composer-av">👤</div>
-            <textarea class="composer-box" id="composer-text" placeholder="O que você quer compartilhar?" rows="3"></textarea>
+            <textarea class="composer-box" id="composer-text" placeholder="O que você quer compartilhar?" rows="1" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
           </div>
           <div id="composer-img-preview" class="composer-img-preview">
             <img id="composer-img-thumb" src="">
@@ -1224,7 +1224,7 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
       <div class="prof-photos-grid" id="prof-photos-grid">
         <div class="prof-empty">Nenhuma foto ainda</div>
       </div>
-      <div id="prof-photos-upload-btn" style="display:none;padding:.6rem .7rem;border-top:1px solid var(--border);display:none;align-items:center;gap:.45rem;flex-wrap:wrap;">
+      <div id="prof-photos-upload-btn" style="display:none;padding:.6rem .7rem;border-top:1px solid var(--border);align-items:center;gap:.45rem;flex-wrap:wrap;">
         <button class="pill-btn ghost" style="font-size:.78rem;flex:1;min-width:120px" onclick="$('prof-gallery-input').click()">📷 Adicionar foto</button>
         <div class="composer-vis pub" id="photo-vis" onclick="togglePhotoVisDropdown(event)" style="position:relative;">
           <svg viewBox="0 0 20 20" fill="none" style="width:13px;height:13px;stroke:currentColor"><circle cx="10" cy="10" r="8" stroke-width="1.5"/><path d="M2 10h16M10 2c-2 2.5-3 5-3 8s1 5.5 3 8M10 2c2 2.5 3 5 3 8s-1 5.5-3 8" stroke-width="1.2"/></svg>
@@ -1867,7 +1867,7 @@ async function openProfileModal(targetUser) {
     actions.innerHTML = `<button class="tb-btn" onclick="profTab('edit',document.querySelectorAll('.profile-tab')[2])" style="font-size:.75rem;padding:.35rem .75rem">✏️ Editar</button>`;
     $('prof-tab-edit').style.display = 'none';
     const uploadBtn = $('prof-photos-upload-btn');
-    if(uploadBtn) uploadBtn.style.display = 'block';
+    if(uploadBtn) uploadBtn.style.display = 'flex';
   } else {
     actions.innerHTML = `<button class="tb-btn" onclick="fsAddFriendByName('${esc(u.name||'')}');closeProfileModal()" style="font-size:.75rem;padding:.35rem .75rem">➕ Adicionar</button>`;
     $('prof-tab-edit').style.display = 'none';
