@@ -9,7 +9,6 @@
 <link href="https://cdn.jsdelivr.net/npm/@videojs/themes@1/dist/city/index.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.10.0/video.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/videojs-youtube@3.0.1/dist/Youtube.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
 <style>
 /* ── Video.js City overrides para combinar com WaveWatch ── */
 .vjs-city.video-js {
@@ -2642,13 +2641,10 @@ function loadVideo(video,doBroadcast){
 let wtClient = null;
 
 function loadTorrent(magnetUri, wrap) {
-  // Destroy previous torrent client
   if(wtClient) { try { wtClient.destroy(); } catch(e){} wtClient = null; }
 
-  if(typeof WebTorrent === 'undefined') {
-    toast('WebTorrent não carregou — verifique a conexão');
-    return;
-  }
+  const doLoad = () => {
+    wtClient = new WebTorrent();
 
   wtClient = new WebTorrent();
   const statusEl = document.createElement('div');
@@ -2715,6 +2711,15 @@ function loadTorrent(magnetUri, wrap) {
   });
 
   wtClient.on('error', err => toast('Erro WebTorrent: ' + err.message));
+  };
+
+  if(typeof WebTorrent !== 'undefined') { doLoad(); return; }
+  // Lazy load WebTorrent script
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/webtorrent@2.1.35/webtorrent.min.js';
+  s.onload = doLoad;
+  s.onerror = () => toast('Erro ao carregar WebTorrent');
+  document.head.appendChild(s);
 }
 
 // ── VIDEO.JS PLAYER ───────────────────────────────────────
