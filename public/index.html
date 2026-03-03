@@ -6,48 +6,28 @@
 <title>WaveWatch</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.10.0/video-js.min.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/@videojs/themes@1/dist/city/index.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.10.0/video.min.js"></script>
 <style>
-/* ── Video.js City Theme Overrides ── */
-.vjs-city .vjs-control-bar {
-  background: linear-gradient(180deg, transparent 0%, rgba(5,5,8,0.95) 100%);
-  border-top: 1px solid rgba(255,255,255,.06);
-}
-.vjs-city .vjs-play-progress,
-.vjs-city .vjs-volume-level {
-  background: linear-gradient(90deg, var(--accent), var(--a2));
-}
-.vjs-city .vjs-play-progress:before {
-  color: var(--accent);
-  filter: drop-shadow(0 0 6px rgba(255,45,120,.7));
-}
-.vjs-city.video-js {
+/* ── Video.js: reset to fill container, hide its UI (WaveWatch usa os próprios controles) ── */
+.video-js {
   width: 100% !important;
   height: 100% !important;
   position: absolute !important;
   top: 0; left: 0;
   background: #050508;
-  font-family: 'JetBrains Mono', monospace;
 }
-.vjs-city .vjs-big-play-button {
-  background: linear-gradient(135deg, var(--accent), var(--a2));
-  border: none;
-  border-radius: 50%;
-  width: 64px;
-  height: 64px;
-  line-height: 64px;
-  box-shadow: 0 8px 32px rgba(255,45,120,.45);
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  margin: 0;
+.video-js .vjs-control-bar,
+.video-js .vjs-big-play-button,
+.video-js .vjs-loading-spinner {
+  display: none !important;
 }
-.vjs-city .vjs-big-play-button:hover {
-  background: linear-gradient(135deg, var(--a2), var(--accent));
-  box-shadow: 0 12px 48px rgba(255,45,120,.6);
+/* Spinner customizado no estilo WaveWatch */
+.vjs-seeking .vjs-loading-spinner,
+.vjs-waiting .vjs-loading-spinner {
+  display: block !important;
+  border-color: rgba(255,45,120,.3) !important;
+  border-top-color: #ff2d78 !important;
 }
-/* Hide default controls when we're non-host */
-.vjs-city.ww-spectator .vjs-control-bar { pointer-events: none; opacity: 0.4; }
 </style>
 <style>
 :root {
@@ -1847,16 +1827,18 @@ function _createVjsPlayer(wrap, src, badge) {
   // Destroy previous vjs instance if exists
   if(vjsPlayer) { try { vjsPlayer.dispose(); } catch(e){} vjsPlayer = null; }
 
+  // Insert BEFORE the ctrl/reacts/vinfo children (which were re-appended by loadVideo)
   const videoEl = document.createElement('video');
   videoEl.className = 'video-js vjs-city';
   videoEl.setAttribute('playsinline', '');
   videoEl.preload = 'metadata';
   videoEl.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;';
-  wrap.appendChild(videoEl);
+  // Insert as FIRST child so it's behind reacts/ctrl overlays
+  wrap.insertBefore(videoEl, wrap.firstChild);
 
   vjsPlayer = videojs(videoEl, {
     autoplay: false,
-    controls: true,
+    controls: false, // ← WaveWatch usa seus próprios controles customizados
     fluid: false,
     responsive: false,
     preload: 'metadata',
@@ -1864,18 +1846,6 @@ function _createVjsPlayer(wrap, src, badge) {
     sources: [{ src, type: _guessType(src) }]
   });
 
-  // Sync Video.js controls with WaveWatch host permissions
-  function updateVjsPermissions() {
-    if(amIHost) {
-      videoEl.classList.remove('ww-spectator');
-    } else {
-      videoEl.classList.add('ww-spectator');
-    }
-  }
-  setTimeout(updateVjsPermissions, 100);
-
-  // Expose a native-video-like interface for compatibility
-  // We proxy events from vjsPlayer to the raw element
   vjsPlayer.on('play', () => {
     if(isSyncing) return;
     isPlaying = true; $('pbtn').textContent = '⏸';
@@ -1894,37 +1864,27 @@ function _createVjsPlayer(wrap, src, badge) {
     const t = expectedNow();
     if(t > 0) vjsPlayer.currentTime(t);
     if(syncPlaying) vjsPlayer.play().catch(()=>{});
-    updateVjsPermissions();
   });
-
-  // Video.js intercepts big-play-button — respect host-only control
-  vjsPlayer.on('click', () => {
-    if(!amIHost) { toast('Apenas o host pode controlar o vídeo ▶'); return; }
-  });
-
-  // Block non-host from using vjs controls (seek bar click)
-  vjsPlayer.controlBar.progressControl.on('mousedown', (e) => {
-    if(!amIHost) { e.stopImmediatePropagation(); toast('Apenas o host pode avançar ⏩'); }
-  });
-  vjsPlayer.controlBar.playToggle.on('click', (e) => {
-    if(!amIHost) { e.stopImmediatePropagation(); toast('Apenas o host pode pausar/dar play ▶'); }
+  vjsPlayer.on('error', () => {
+    const err = vjsPlayer.error();
+    console.error('Video.js error:', err);
   });
 
   vjsPlayer.volume(parseFloat($('vol').value));
 
-  // Return a proxy that mimics HTMLVideoElement for compatibility
+  // Return a proxy that mimics HTMLVideoElement for compatibility with existing WaveWatch code
   const proxy = {
-    get currentTime() { return vjsPlayer.currentTime(); },
-    set currentTime(t) { vjsPlayer.currentTime(t); },
-    get duration() { return vjsPlayer.duration() || 0; },
-    get volume() { return vjsPlayer.volume(); },
-    set volume(v) { vjsPlayer.volume(v); },
-    get playbackRate() { return vjsPlayer.playbackRate(); },
-    set playbackRate(r) { vjsPlayer.playbackRate(r); },
-    play() { return vjsPlayer.play(); },
-    pause() { vjsPlayer.pause(); },
-    addEventListener(ev, fn) { vjsPlayer.on(ev, fn); },
-    removeEventListener(ev, fn) { vjsPlayer.off(ev, fn); },
+    get currentTime() { return vjsPlayer ? vjsPlayer.currentTime() : 0; },
+    set currentTime(t) { if(vjsPlayer) vjsPlayer.currentTime(t); },
+    get duration() { return vjsPlayer ? (vjsPlayer.duration() || 0) : 0; },
+    get volume() { return vjsPlayer ? vjsPlayer.volume() : 1; },
+    set volume(v) { if(vjsPlayer) vjsPlayer.volume(v); },
+    get playbackRate() { return vjsPlayer ? vjsPlayer.playbackRate() : 1; },
+    set playbackRate(r) { if(vjsPlayer) vjsPlayer.playbackRate(r); },
+    play() { return vjsPlayer ? vjsPlayer.play() : Promise.resolve(); },
+    pause() { if(vjsPlayer) vjsPlayer.pause(); },
+    addEventListener(ev, fn) { if(vjsPlayer) vjsPlayer.on(ev, fn); },
+    removeEventListener(ev, fn) { if(vjsPlayer) vjsPlayer.off(ev, fn); },
     src: src,
     _vjsInstance: vjsPlayer
   };
@@ -1940,7 +1900,7 @@ function _guessType(url) {
   if(u.endsWith('.mpd')) return 'application/dash+xml';
   if(u.endsWith('.mov')) return 'video/quicktime';
   if(u.endsWith('.mkv')) return 'video/x-matroska';
-  return 'video/mp4'; // default fallback
+  return 'video/mp4';
 }
 
 // ── YOUTUBE API ───────────────────────────────────────────
@@ -1980,8 +1940,7 @@ function updateHostUI(){
   $('ctrl').querySelectorAll('.c-btn,#vol').forEach(b=>{b.style.opacity=amIHost?'':'0.35';b.style.pointerEvents=amIHost?'':'none';});
   $('prog').style.pointerEvents=amIHost?'auto':'none';
   $('prog').style.cursor=amIHost?'pointer':'default';
-  // Video.js spectator mode
-  if(vjsPlayer){const el=vjsPlayer.el();if(el){if(amIHost)el.classList.remove('ww-spectator');else el.classList.add('ww-spectator');}}
+  // Video.js spectator mode — não necessário pois controls=false, WaveWatch gerencia
   updateYTOverlay();
 }
 function updateYTOverlay(){const o=$('yt-overlay');if(o)o.style.cursor=amIHost?'default':'not-allowed';}
