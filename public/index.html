@@ -2161,7 +2161,7 @@ function openChatProfile(user) {
   // Fechar popup anterior
   if(_cppEl) { _cppEl.remove(); _cppEl = null; }
 
-  const isMe = user?.id === myUser?.id || user?.name === myUser?.name;
+  const isMe = user?.id === myUser?.id;
   const avHtml = user?.avatarUrl
     ? `<img src="${esc(user.avatarUrl)}">`
     : `<span>${esc(user?.avatar || '👤')}</span>`;
@@ -2326,7 +2326,8 @@ let lastMsgUserId = null;
 
 function renderChatMsg(payload) {
   if (rendered.has(payload.id)) return; rendered.add(payload.id);
-  const isMe = payload.user?.id === myUser?.id || payload.user?.name === myUser?.name;
+  // Compara só pelo id único do websocket
+  const isMe = payload.user?.id === myUser?.id;
   const userId = payload.user?.id || payload.user?.name;
   const grouped = userId && userId === lastMsgUserId;
   lastMsgUserId = userId;
@@ -2347,14 +2348,22 @@ function renderChatMsg(payload) {
   const textHtml = payload.text ? `<div class="msg-text">${esc(payload.text)}</div>` : '';
 
   div.innerHTML = `
-    <div class="msg-av-col"><div class="msg-av" style="cursor:pointer" onclick="openChatProfile(${JSON.stringify(payload.user||{})})">${avHtml}</div></div>
+    <div class="msg-av-col"><div class="msg-av msg-av-click" style="cursor:pointer">${avHtml}</div></div>
     <div class="msg-body">
       <div class="msg-head">
-        <span class="msg-name" style="color:${isMe ? 'var(--accent)' : '#fff'};cursor:pointer" onclick="openChatProfile(${JSON.stringify(payload.user||{})})">${esc(payload.user?.name || '?')}</span>
+        <span class="msg-name msg-av-click" style="color:${isMe ? 'var(--accent)' : '#fff'};cursor:pointer">${esc(payload.user?.name || '?')}</span>
         <span class="msg-time">${ts}</span>
       </div>
       ${textHtml}${mediaHtml}
     </div>`;
+
+  // Guarda dados do user no elemento para evitar JSON.stringify no onclick
+  div.dataset.user = JSON.stringify(payload.user || {});
+  div.querySelectorAll('.msg-av-click').forEach(el => {
+    el.addEventListener('click', () => {
+      try { openChatProfile(JSON.parse(div.dataset.user)); } catch(e) {}
+    });
+  });
 
   const msgs = $('msgs');
   msgs.appendChild(div);
