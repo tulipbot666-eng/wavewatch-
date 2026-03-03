@@ -659,39 +659,54 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
 .yt-preview-ch{font-size:.7rem;color:var(--sub);margin-top:.15rem;font-family:'JetBrains Mono',monospace;}
 
 /* ── PROFILE MODAL ── */
-.profile-overlay{position:fixed;inset:0;z-index:250;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(5,5,8,.9);backdrop-filter:blur(20px);}
+.profile-overlay{position:fixed;inset:0;z-index:250;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(5,5,8,.85);backdrop-filter:blur(20px);}
 .profile-overlay.hidden{display:none;}
-.profile-box{width:100%;max-width:380px;background:rgba(10,10,16,.98);border:1px solid rgba(255,255,255,.09);border-radius:24px;overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,.8);animation:modalIn .25s ease;}
-.profile-banner{height:96px;background:linear-gradient(135deg,rgba(255,45,120,.35) 0%, rgba(124,58,237,.3) 50%, rgba(0,229,192,.15) 100%);position:relative;}
-.profile-banner-close{position:absolute;top:.65rem;right:.65rem;background:rgba(5,5,8,.55);border:1px solid rgba(255,255,255,.1);color:var(--text);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:.8rem;display:flex;align-items:center;justify-content:center;transition:background .15s;}
-.profile-banner-close:hover{background:rgba(5,5,8,.85);}
-.profile-av-wrap{position:absolute;bottom:-28px;left:1.4rem;}
-.profile-av{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--a2));border:3px solid rgba(10,10,16,.98);display:flex;align-items:center;justify-content:center;font-size:1.8rem;overflow:hidden;cursor:pointer;transition:opacity .2s;}
+.profile-box{width:100%;max-width:460px;max-height:88vh;background:#0f0f1a;border:1px solid rgba(255,255,255,.09);border-radius:20px;overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,.8);animation:modalIn .25s ease;display:flex;flex-direction:column;}
+.profile-banner{height:130px;background:linear-gradient(135deg,rgba(255,45,120,.5),rgba(124,58,237,.4),rgba(0,229,192,.2));position:relative;flex-shrink:0;background-size:cover;background-position:center;}
+.profile-banner-close{position:absolute;top:.7rem;right:.7rem;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.15);color:#fff;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:.85rem;display:flex;align-items:center;justify-content:center;z-index:2;}
+.profile-banner-close:hover{background:rgba(0,0,0,.8);}
+.profile-banner-edit{position:absolute;bottom:.6rem;right:.7rem;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.15);color:#fff;padding:.3rem .7rem;border-radius:8px;cursor:pointer;font-size:.75rem;}
+.profile-banner-edit:hover{background:rgba(0,0,0,.8);}
+.profile-head{display:flex;align-items:flex-end;gap:.9rem;padding:.6rem 1.2rem .7rem;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,.06);}
+.profile-av-wrap{margin-top:-36px;flex-shrink:0;}
+.profile-av{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--a2));border:3px solid #0f0f1a;display:flex;align-items:center;justify-content:center;font-size:2rem;overflow:hidden;cursor:pointer;transition:opacity .2s;}
 .profile-av:hover{opacity:.85;}
 .profile-av img{width:100%;height:100%;object-fit:cover;}
-.profile-av-hint{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.55);font-size:.5rem;font-family:'JetBrains Mono',monospace;text-align:center;padding:.1rem;border-radius:0 0 50% 50%;opacity:0;transition:opacity .2s;}
-.profile-av-wrap:hover .profile-av-hint{opacity:1;}
-.profile-body{padding:2.2rem 1.4rem 1.4rem;}
-.profile-name-row{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.15rem;}
-.profile-name{font-size:1.1rem;font-weight:700;letter-spacing:-.2px;}
-.profile-username{font-size:.76rem;color:var(--sub);font-family:'JetBrains Mono',monospace;margin-bottom:.9rem;}
-.profile-stats{display:flex;gap:1.2rem;margin-bottom:1.2rem;padding:.7rem 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
-.profile-stat{text-align:center;}
-.profile-stat-n{font-size:1.1rem;font-weight:700;}
-.profile-stat-l{font-size:.62rem;color:var(--sub);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.8px;}
-.profile-edit{display:none;}
-.profile-edit.on{display:block;}
-.profile-edit-field{margin-bottom:.8rem;}
-.profile-edit-field label{display:block;font-size:.62rem;color:var(--sub);margin-bottom:.3rem;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:1px;}
-.profile-edit-inp{width:100%;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.08);border-radius:11px;padding:.65rem .85rem;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:.9rem;outline:none;transition:all .2s;}
-.profile-edit-inp:focus{border-color:rgba(255,45,120,.5);}
+.profile-head-info{flex:1;min-width:0;padding-bottom:.15rem;}
+.profile-name{font-size:1.05rem;font-weight:700;}
+.profile-username{font-size:.72rem;color:var(--sub);font-family:'JetBrains Mono',monospace;}
+.profile-head-actions{flex-shrink:0;display:flex;gap:.4rem;padding-bottom:.15rem;}
+.profile-tabs{display:flex;border-bottom:1px solid rgba(255,255,255,.07);padding:0 1rem;flex-shrink:0;background:#0f0f1a;}
+.profile-tab{padding:.65rem 1rem;background:none;border:none;border-bottom:2px solid transparent;color:rgba(255,255,255,.4);font-family:'Space Grotesk',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .2s;}
+.profile-tab:hover{color:rgba(255,255,255,.7);}
+.profile-tab.on{color:#fff;border-bottom-color:var(--accent);}
+.profile-tab-panel{display:none;overflow-y:auto;flex:1;min-height:0;}
+.profile-tab-panel.on{display:flex;flex-direction:column;}
+.prof-feed{display:flex;flex-direction:column;gap:.5rem;padding:.8rem;}
+.prof-feed-item{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden;cursor:pointer;transition:background .15s;}
+.prof-feed-item:hover{background:rgba(255,255,255,.07);}
+.prof-feed-thumb{width:100%;height:90px;object-fit:cover;display:block;}
+.prof-feed-thumb-empty{width:100%;height:90px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;font-size:2rem;}
+.prof-feed-info{padding:.5rem .75rem;}
+.prof-feed-title{font-size:.83rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.prof-feed-date{font-size:.65rem;color:var(--sub);font-family:'JetBrains Mono',monospace;margin-top:.1rem;}
+.prof-empty{color:var(--sub);font-size:.82rem;text-align:center;padding:2rem;opacity:.6;}
+.prof-photos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;padding:3px;}
+.prof-photo-item{aspect-ratio:1;overflow:hidden;cursor:pointer;position:relative;background:rgba(255,255,255,.04);}
+.prof-photo-item img{width:100%;height:100%;object-fit:cover;transition:opacity .2s;}
+.prof-photo-item:hover img{opacity:.8;}
+.prof-photo-del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.7);border:none;color:#fff;width:22px;height:22px;border-radius:50%;font-size:.65rem;cursor:pointer;display:none;align-items:center;justify-content:center;}
+.prof-photo-item:hover .prof-photo-del{display:flex;}
+.profile-edit-field{margin-bottom:.9rem;}
+.profile-edit-field label{font-size:.7rem;color:var(--sub);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:.3rem;}
+.profile-edit-inp{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:.55rem .75rem;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:.88rem;outline:none;transition:border-color .2s;box-sizing:border-box;}
+.profile-edit-inp:focus{border-color:rgba(255,45,120,.4);}
+.profile-logout-btn{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:.6rem 1rem;color:var(--sub);font-family:'Space Grotesk',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .2s;width:100%;text-align:left;}
+.profile-logout-btn:hover{border-color:rgba(255,51,85,.4);color:var(--danger);}
 .profile-av-grid{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1rem;}
 .profile-av-opt{width:34px;height:34px;border-radius:8px;border:1.5px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);font-size:1.1rem;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;}
 .profile-av-opt:hover{border-color:rgba(124,58,237,.4);}
 .profile-av-opt.on{border-color:var(--accent);background:rgba(255,45,120,.1);}
-.profile-actions{display:flex;gap:.5rem;margin-top:.2rem;}
-.profile-logout-btn{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:.6rem 1rem;color:var(--sub);font-family:'Space Grotesk',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:.4rem;}
-.profile-logout-btn:hover{border-color:rgba(255,51,85,.4);color:var(--danger);}
 
 /* ── ONBOARDING ── */
 .onboarding-overlay{position:fixed;inset:0;z-index:250;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(5,5,8,.95);backdrop-filter:blur(20px);}
@@ -906,71 +921,72 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
 <!-- PROFILE MODAL -->
 <div class="profile-overlay hidden" id="profile-overlay" onclick="if(event.target===this)closeProfileModal()">
   <div class="profile-box">
-    <div class="profile-banner">
+
+    <!-- BANNER -->
+    <div class="profile-banner" id="prof-banner">
       <button class="profile-banner-close" onclick="closeProfileModal()">✕</button>
+      <button class="profile-banner-edit" onclick="$('prof-banner-input').click()" title="Editar banner">🖼</button>
+      <input type="file" id="prof-banner-input" accept="image/*" style="display:none" onchange="handleBannerPhoto(this)">
+    </div>
+
+    <!-- AVATAR + INFO -->
+    <div class="profile-head">
       <div class="profile-av-wrap">
-        <div class="profile-av" id="prof-av" onclick="toggleProfileEdit()">
+        <div class="profile-av" id="prof-av" onclick="if(isMyProfile)$('prof-photo-input').click()">
           <span id="prof-av-inner">🎬</span>
         </div>
+        <input type="file" id="prof-photo-input" accept="image/*" style="display:none" onchange="handleProfilePhoto(this)">
+      </div>
+      <div class="profile-head-info">
+        <div class="profile-name" id="prof-name">Usuário</div>
+        <div class="profile-username" id="prof-username"></div>
+      </div>
+      <div class="profile-head-actions" id="prof-head-actions"></div>
+    </div>
+
+    <!-- TABS -->
+    <div class="profile-tabs">
+      <button class="profile-tab on" onclick="profTab('feed',this)">Feed</button>
+      <button class="profile-tab" onclick="profTab('photos',this)">Fotos</button>
+      <button class="profile-tab" onclick="profTab('edit',this)" id="prof-tab-edit" style="display:none">✏️ Editar</button>
+    </div>
+
+    <!-- TAB: FEED -->
+    <div class="profile-tab-panel on" id="prof-panel-feed">
+      <div class="prof-feed" id="prof-feed-list">
+        <div class="prof-empty">Nenhum vídeo assistido ainda</div>
       </div>
     </div>
-    <div class="profile-body">
-      <!-- View mode -->
-      <div id="prof-view">
-        <div class="profile-name-row">
-          <div>
-            <div class="profile-name" id="prof-name">Usuário</div>
-            <div class="profile-username" id="prof-username">@username</div>
-          </div>
-          <button class="tb-btn" onclick="toggleProfileEdit()" id="prof-edit-btn" style="font-size:.72rem;padding:.28rem .6rem">✏️ Editar</button>
-        </div>
-        <div class="profile-stats">
-          <div class="profile-stat">
-            <div class="profile-stat-n" id="prof-stat-friends">0</div>
-            <div class="profile-stat-l">Amigos</div>
-          </div>
-          <div class="profile-stat">
-            <div class="profile-stat-n" id="prof-stat-rooms">—</div>
-            <div class="profile-stat-l">Salas criadas</div>
-          </div>
-          <div class="profile-stat">
-            <div class="profile-stat-n" id="prof-stat-since">—</div>
-            <div class="profile-stat-l">Membro desde</div>
-          </div>
-        </div>
-        <div class="profile-actions">
-          <button class="profile-logout-btn" onclick="window.location='/auth/logout'">↩ Sair da conta</button>
-        </div>
+
+    <!-- TAB: FOTOS -->
+    <div class="profile-tab-panel" id="prof-panel-photos">
+      <div class="prof-photos-grid" id="prof-photos-grid">
+        <div class="prof-empty">Nenhuma foto ainda</div>
       </div>
+      <div id="prof-photos-upload-btn" style="display:none;padding:.7rem 1rem">
+        <button class="pill-btn ghost" style="width:100%;font-size:.8rem" onclick="$('prof-gallery-input').click()">📷 Adicionar foto</button>
+        <input type="file" id="prof-gallery-input" accept="image/*" style="display:none" onchange="uploadGalleryPhoto(this)">
+      </div>
+    </div>
 
-      <!-- Edit mode -->
-      <div class="profile-edit" id="prof-edit">
-        <div style="font-size:.82rem;font-weight:700;margin-bottom:1rem;display:flex;align-items:center;gap:.4rem">✏️ Editar perfil</div>
-
-        <!-- Upload de foto -->
-        <div class="profile-edit-field">
-          <label>Foto de perfil</label>
-          <div style="display:flex;align-items:center;gap:.8rem;margin-top:.3rem">
-            <div id="prof-photo-preview" style="width:56px;height:56px;border-radius:50%;overflow:hidden;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0"></div>
-            <div style="display:flex;flex-direction:column;gap:.4rem">
-              <button class="pill-btn ghost" style="font-size:.75rem;padding:.4rem .9rem" onclick="$('prof-photo-input').click()">📷 Escolher foto</button>
-              <button class="pill-btn ghost" style="font-size:.75rem;padding:.4rem .9rem;opacity:.6" onclick="removeProfilePhoto()">🗑 Remover foto</button>
-            </div>
-          </div>
-          <input type="file" id="prof-photo-input" accept="image/*" style="display:none" onchange="handleProfilePhoto(this)">
-        </div>
-
+    <!-- TAB: EDITAR -->
+    <div class="profile-tab-panel" id="prof-panel-edit">
+      <div style="padding:1rem">
         <div class="profile-edit-field">
           <label>Nome de exibição</label>
           <input class="profile-edit-inp" id="prof-edit-name" maxlength="30" placeholder="Seu nome">
         </div>
         <div class="lerr" id="prof-err" style="margin-bottom:.5rem"></div>
-        <div class="profile-actions">
-          <button class="pill-btn ghost" style="flex:1;padding:.65rem" onclick="toggleProfileEdit()">Cancelar</button>
-          <button class="pill-btn primary" style="flex:2;padding:.65rem" onclick="saveProfile()" id="prof-save-btn">Salvar →</button>
+        <div style="display:flex;gap:.5rem">
+          <button class="pill-btn ghost" style="flex:1" onclick="profTab('feed',$('.profile-tab'))">Cancelar</button>
+          <button class="pill-btn primary" style="flex:2" onclick="saveProfile()" id="prof-save-btn">Salvar →</button>
+        </div>
+        <div style="margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--border)">
+          <button class="profile-logout-btn" onclick="window.location='/auth/logout'">↩ Sair da conta</button>
         </div>
       </div>
     </div>
+
   </div>
 </div>
 
@@ -1455,84 +1471,174 @@ async function loadAuthState() {
 
 // ── PROFILE MODAL ─────────────────────────────────────────
 let profEditAvatar = null;
+let profPhotoData = null;
+let profBannerData = null;
+let isMyProfile = false;
+let _currentProfileUser = null;
 
-let profPhotoData = null; // base64 da nova foto
+function profTab(name, el) {
+  document.querySelectorAll('.profile-tab').forEach(t => t.classList.remove('on'));
+  document.querySelectorAll('.profile-tab-panel').forEach(p => p.classList.remove('on'));
+  if(el) el.classList.add('on');
+  else document.querySelectorAll('.profile-tab').forEach(t => { if(t.textContent.toLowerCase().includes(name)) t.classList.add('on'); });
+  const panel = $('prof-panel-' + name);
+  if(panel) panel.classList.add('on');
+}
 
 function handleProfilePhoto(input) {
   const file = input.files[0]; if(!file) return;
-  if(file.size > 5 * 1024 * 1024) { toast('Foto muito grande (máx 5MB)'); return; }
+  if(file.size > 5*1024*1024) { toast('Foto muito grande (máx 5MB)'); return; }
   const reader = new FileReader();
   reader.onload = e => {
     profPhotoData = e.target.result;
-    const preview = $('prof-photo-preview');
-    preview.innerHTML = `<img src="${profPhotoData}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
-    // Atualiza preview do avatar grande também
     const avInner = $('prof-av-inner');
-    if(avInner) avInner.outerHTML = `<img id="prof-av-inner" src="${profPhotoData}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+    if(avInner) avInner.outerHTML = `<img id="prof-av-inner" src="${profPhotoData}" style="width:100%;height:100%;object-fit:cover;">`;
+    toast('Foto selecionada — salve para confirmar ✓');
   };
   reader.readAsDataURL(file);
 }
 
-function removeProfilePhoto() {
-  profPhotoData = 'remove';
-  $('prof-photo-preview').innerHTML = `<span style="font-size:1.6rem">${loggedInUser?.avatarEmoji||'🎬'}</span>`;
-  const avInner = $('prof-av-inner');
-  if(avInner) avInner.outerHTML = `<span id="prof-av-inner">${loggedInUser?.avatarEmoji||'🎬'}</span>`;
+function handleBannerPhoto(input) {
+  const file = input.files[0]; if(!file) return;
+  if(file.size > 8*1024*1024) { toast('Banner muito grande (máx 8MB)'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    profBannerData = e.target.result;
+    $('prof-banner').style.backgroundImage = `url(${profBannerData})`;
+    toast('Banner selecionado — salve para confirmar ✓');
+  };
+  reader.readAsDataURL(file);
 }
 
-function openProfileModal() {
+async function openProfileModal(targetUser) {
   if(!loggedInUser) return;
-  profPhotoData = null;
-  const u = loggedInUser;
-  const av = u.avatarEmoji || '🎬';
+  profPhotoData = null; profBannerData = null;
+  isMyProfile = !targetUser || targetUser.dbId === loggedInUser.id || targetUser.id === loggedInUser.id;
+  _currentProfileUser = isMyProfile ? loggedInUser : targetUser;
+
+  const u = _currentProfileUser;
+  const av = u.avatarEmoji || u.avatar_emoji || '🎬';
+
+  // Avatar
   const avEl = $('prof-av-inner');
-  if(u.avatarUrl) {
-    avEl.outerHTML = `<img id="prof-av-inner" src="${esc(u.avatarUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.outerHTML='<span id=prof-av-inner>${esc(av)}</span>'">`;
+  if(u.avatarUrl || u.avatar_url) {
+    const url = u.avatarUrl || u.avatar_url;
+    avEl.outerHTML = `<img id="prof-av-inner" src="${esc(url)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.outerHTML='<span id=prof-av-inner style=font-size:2rem>${esc(av)}</span>'">`;
   } else {
     avEl.textContent = av;
   }
-  // Popular preview da foto atual
-  const preview = $('prof-photo-preview');
-  if(preview) {
-    preview.innerHTML = u.avatarUrl
-      ? `<img src="${esc(u.avatarUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
-      : `<span style="font-size:1.6rem">${esc(av)}</span>`;
-  }
+
+  // Banner
+  const banner = $('prof-banner');
+  const bannerUrl = isMyProfile ? loggedInUser.bannerUrl : null;
+  banner.style.backgroundImage = bannerUrl ? `url(${esc(bannerUrl)})` : '';
+  $('profile-banner-edit').style.display = isMyProfile ? 'block' : 'none';
+  $('prof-av').style.cursor = isMyProfile ? 'pointer' : 'default';
+
   // Info
-  $('prof-name').textContent = u.name;
-  $('prof-username').textContent = u.username ? `@${u.username}` : '';
-  // Stats: use cached friend count
-  $('prof-stat-friends').textContent = fsFriends.filter(f=>f.status==='accepted').length;
-  $('prof-stat-since').textContent = '—';
-  // Pre-fill edit
-  $('prof-edit-name').value = u.name;
-  profEditAvatar = av;
-  // Mark current avatar in grid
-  document.querySelectorAll('.profile-av-opt').forEach(el => el.classList.toggle('on', el.dataset.av === av));
-  // Show view mode
-  $('prof-view').style.display = 'block';
-  $('prof-edit').classList.remove('on');
+  $('prof-name').textContent = u.name || u.displayName || '?';
+  $('prof-username').textContent = (u.username) ? `@${u.username}` : '';
+
+  // Head actions
+  const actions = $('prof-head-actions');
+  if(isMyProfile) {
+    $('prof-edit-name').value = u.name || '';
+    profEditAvatar = av;
+    actions.innerHTML = `<button class="tb-btn" onclick="profTab('edit',document.querySelectorAll('.profile-tab')[2])" style="font-size:.75rem;padding:.35rem .75rem">✏️ Editar</button>`;
+    $('prof-tab-edit').style.display = 'none';
+    const uploadBtn = $('prof-photos-upload-btn');
+    if(uploadBtn) uploadBtn.style.display = 'block';
+  } else {
+    actions.innerHTML = `<button class="tb-btn" onclick="fsAddFriendByName('${esc(u.name||'')}');closeProfileModal()" style="font-size:.75rem;padding:.35rem .75rem">➕ Adicionar</button>`;
+    $('prof-tab-edit').style.display = 'none';
+    const uploadBtn = $('prof-photos-upload-btn');
+    if(uploadBtn) uploadBtn.style.display = 'none';
+  }
+
+  // Show modal on feed tab
+  profTab('feed', document.querySelector('.profile-tab'));
   $('profile-overlay').classList.remove('hidden');
+
+  // Load feed & photos
+  const dbId = isMyProfile ? loggedInUser.id : (u.dbId || u.id);
+  if(dbId) {
+    loadProfileFeed(dbId);
+    loadProfilePhotos(dbId);
+  }
+}
+
+async function loadProfileFeed(dbId) {
+  const list = $('prof-feed-list');
+  list.innerHTML = '<div class="prof-empty">Carregando...</div>';
+  try {
+    const res = await fetch(`/api/users/${dbId}/history`);
+    const data = await res.json();
+    if(!data.history?.length) { list.innerHTML = '<div class="prof-empty">Nenhum vídeo assistido ainda</div>'; return; }
+    list.innerHTML = data.history.map(h => `
+      <div class="prof-feed-item">
+        ${h.video_thumb ? `<img class="prof-feed-thumb" src="${esc(h.video_thumb)}" onerror="this.className='prof-feed-thumb-empty';this.textContent='🎬'">` : `<div class="prof-feed-thumb-empty">🎬</div>`}
+        <div class="prof-feed-info">
+          <div class="prof-feed-title">${esc(h.video_title || h.video_url)}</div>
+          <div class="prof-feed-date">${new Date(h.watched_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'})}</div>
+        </div>
+      </div>`).join('');
+  } catch(e) { list.innerHTML = '<div class="prof-empty">Erro ao carregar</div>'; }
+}
+
+async function loadProfilePhotos(dbId) {
+  const grid = $('prof-photos-grid');
+  grid.innerHTML = '';
+  try {
+    const res = await fetch(`/api/users/${dbId}/gallery`);
+    const data = await res.json();
+    if(!data.photos?.length) { grid.innerHTML = '<div class="prof-empty" style="grid-column:1/-1">Nenhuma foto ainda</div>'; return; }
+    data.photos.forEach(p => {
+      const item = document.createElement('div');
+      item.className = 'prof-photo-item';
+      item.innerHTML = `<img src="${esc(p.url)}" loading="lazy" onclick="window.open('${esc(p.url)}','_blank')">
+        ${isMyProfile ? `<button class="prof-photo-del" onclick="deleteGalleryPhoto('${esc(p.id)}',this)">✕</button>` : ''}`;
+      grid.appendChild(item);
+    });
+  } catch(e) { grid.innerHTML = '<div class="prof-empty" style="grid-column:1/-1">Erro ao carregar</div>'; }
+}
+
+async function uploadGalleryPhoto(input) {
+  const file = input.files[0]; if(!file) return;
+  if(file.size > 8*1024*1024) { toast('Foto muito grande (máx 8MB)'); return; }
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const res = await fetch('/api/gallery/upload', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ imageData: e.target.result })
+      });
+      if(res.ok) { toast('Foto adicionada! 📸'); loadProfilePhotos(loggedInUser.id); }
+      else toast('Erro ao enviar foto');
+    } catch { toast('Erro ao enviar foto'); }
+    input.value = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function deleteGalleryPhoto(id, btn) {
+  btn.closest('.prof-photo-item').style.opacity = '.4';
+  try {
+    await fetch(`/api/gallery/${id}`, { method:'DELETE' });
+    loadProfilePhotos(loggedInUser.id);
+    toast('Foto removida');
+  } catch { toast('Erro ao remover'); }
 }
 
 function closeProfileModal() {
   $('profile-overlay').classList.add('hidden');
 }
 
-function toggleProfileEdit() {
-  const editing = $('prof-edit').classList.contains('on');
-  $('prof-view').style.display = editing ? 'block' : 'none';
-  $('prof-edit').classList.toggle('on', !editing);
-  if(!editing) $('prof-edit-name').focus();
-}
-
 function selectProfAv(el) {
   document.querySelectorAll('.profile-av-opt').forEach(e => e.classList.remove('on'));
   el.classList.add('on');
   profEditAvatar = el.dataset.av;
-  // live preview
   const avInner = $('prof-av-inner');
-  if(avInner) avInner.textContent = profEditAvatar;
+  if(avInner && avInner.tagName === 'SPAN') avInner.textContent = profEditAvatar;
 }
 
 async function saveProfile() {
@@ -1540,22 +1646,20 @@ async function saveProfile() {
   if(!name) { const e=$('prof-err'); e.textContent='Nome não pode ficar vazio'; e.classList.add('on'); return; }
   const btn = $('prof-save-btn'); btn.textContent='Salvando...'; btn.disabled=true;
   try {
-    const body = { username: loggedInUser.username || '', avatarEmoji: profEditAvatar, displayName: name };
-    if(profPhotoData && profPhotoData !== 'remove') body.avatarData = profPhotoData;
-    if(profPhotoData === 'remove') body.removeAvatar = true;
+    const body = { username: loggedInUser.username||'', avatarEmoji: profEditAvatar||loggedInUser.avatarEmoji, displayName: name };
+    if(profPhotoData) body.avatarData = profPhotoData;
+    if(profBannerData) body.bannerData = profBannerData;
     const res = await fetch('/auth/setup-profile', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(body)
     });
     const data = await res.json();
-    if(!res.ok) {
-      const e=$('prof-err'); e.textContent=data.error||'Erro ao salvar'; e.classList.add('on');
-      btn.textContent='Salvar →'; btn.disabled=false; return;
-    }
-    profPhotoData = null;
+    if(!res.ok) { const e=$('prof-err'); e.textContent=data.error||'Erro ao salvar'; e.classList.add('on'); btn.textContent='Salvar →'; btn.disabled=false; return; }
+    profPhotoData = null; profBannerData = null;
     await loadAuthState();
-    closeProfileModal();
+    profTab('feed', document.querySelector('.profile-tab'));
     toast('Perfil atualizado! ✨');
+    btn.textContent='Salvar →'; btn.disabled=false;
   } catch(e) { btn.textContent='Salvar →'; btn.disabled=false; }
 }
 
@@ -2190,6 +2294,7 @@ let _cppEl = null;
 async function openChatProfile(user) {
   if(_cppEl) { _cppEl.remove(); _cppEl = null; }
   const isMe = !!(myUser?.id && user?.id === myUser.id);
+  window._cppUser = user; // store for modal open
   const avHtml = user?.avatarUrl
     ? `<img src="${esc(user.avatarUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
     : `<span style="font-size:1.8rem">${esc(user?.avatar || '👤')}</span>`;
@@ -2200,13 +2305,13 @@ async function openChatProfile(user) {
     <div class="cpp-av">${avHtml}</div>
     <div class="cpp-name">${esc(user?.name || '?')}</div>
     <div class="cpp-user">${user?.username ? '@'+esc(user.username) : ''}</div>
-    <div class="cpp-history-label">🎬 Histórico</div>
+    <div class="cpp-history-label">🎬 Histórico recente</div>
     <div class="cpp-history" id="cpp-history-list"><div class="cpp-history-loading">Carregando...</div></div>
     <div class="cpp-actions" style="margin-top:.7rem">
       ${isMe
-        ? `<button class="cpp-btn primary" onclick="closeChatProfile();openProfileModal()">✏️ Meu perfil</button>`
-        : `<button class="cpp-btn primary" onclick="closeChatProfile();fsAddFriendByName('${esc(user?.name||'')}')">➕ Adicionar</button>
-           <button class="cpp-btn" onclick="closeChatProfile()">✕ Fechar</button>`
+        ? `<button class="cpp-btn primary" onclick="closeChatProfile();openProfileModal()">👤 Ver meu perfil</button>`
+        : `<button class="cpp-btn primary" onclick="closeChatProfile();openProfileModal(window._cppUser)">👤 Ver perfil</button>
+           <button class="cpp-btn" onclick="closeChatProfile()">✕</button>`
       }
     </div>`;
 
