@@ -2229,8 +2229,8 @@ function sendChat() {
   }
   // Gera um id local e renderiza já como "me" sem esperar o servidor
   const localId = 'local-' + Date.now() + Math.random();
-  rendered.add(localId);
-  renderChatMsg({ id: localId, user: myUser, text: payload.text, gifUrl: payload.gifUrl, imgData: payload.imgData, ts: Date.now(), _isMe: true });
+  const localUser = myUser || { name: 'Eu', avatar: '👤' };
+  renderChatMsg({ id: localId, user: localUser, text: payload.text, gifUrl: payload.gifUrl, imgData: payload.imgData, ts: Date.now(), _isMe: true });
   send('CHAT', payload);
   inp.value = ''; inp.style.height = '';
   clearChatImg();
