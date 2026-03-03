@@ -122,7 +122,7 @@ body::after{content:'';position:fixed;inset:0;
 
 /* ── LOBBY CONTENT ── */
 .lobby-content{display:flex;flex:1;overflow:hidden;min-height:0;}
-.lobby-main{flex:1;overflow-y:auto;padding:1.2rem 1.6rem;}
+.lobby-main{flex:1;overflow-y:auto;padding:1.2rem 1.6rem;min-height:0;}
 
 /* join panel */
 .join-inline{display:none;background:rgba(255,45,120,.04);border:1px solid rgba(255,45,120,.15);border-radius:16px;padding:.85rem;margin-bottom:1rem;animation:msgIn .2s ease;backdrop-filter:blur(8px);}
@@ -181,13 +181,14 @@ body::after{content:'';position:fixed;inset:0;
 /* ── FRIENDS SIDEBAR ── */
 
 /* ── LOBBY TABS ── */
+.lobby-left{display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;}
 .lobby-tabs{display:flex;gap:.2rem;padding:.55rem 1.6rem .0rem;background:rgba(5,5,8,.6);border-bottom:1px solid var(--border);flex-shrink:0;}
 .lobby-tab{display:flex;align-items:center;gap:.45rem;padding:.5rem 1.1rem;border:none;background:none;color:rgba(255,255,255,.3);font-family:'Space Grotesk',sans-serif;font-size:.84rem;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;}
 .lobby-tab svg{width:15px;height:15px;stroke:currentColor;fill:none;flex-shrink:0;}
 .lobby-tab:hover{color:rgba(255,255,255,.6);}
 .lobby-tab.on{color:#fff;border-bottom-color:var(--accent);}
 .lobby-tab.on svg{filter:drop-shadow(0 0 4px rgba(255,45,120,.5));}
-#lobby-body{flex-direction:column!important;}
+
 .friends-sidebar{width:260px;flex-shrink:0;background:rgba(8,8,12,.88);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;backdrop-filter:blur(16px);}
 .fs-header{padding:.9rem 1rem .65rem;border-bottom:1px solid var(--border);flex-shrink:0;}
 .fs-title{font-size:.8rem;font-weight:600;margin-bottom:.65rem;display:flex;align-items:center;justify-content:space-between;color:rgba(255,255,255,.7);}
@@ -961,8 +962,10 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
   </div>
 
   <!-- Body: rooms list + friends sidebar -->
-  <div class="lobby-content" id="lobby-body" style="display:none;flex-direction:column;">
+  <div class="lobby-content" id="lobby-body" style="display:none;">
 
+    <!-- LEFT SIDE: tabs + content -->
+    <div class="lobby-left">
     <!-- LOBBY TABS -->
     <div class="lobby-tabs">
       <button class="lobby-tab on" id="ltab-rooms" onclick="switchLobbyTab('rooms')">
@@ -976,7 +979,7 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
     </div>
 
     <!-- ROOMS VIEW -->
-    <div id="lobby-view-rooms" style="display:flex;flex:1;overflow:hidden;min-height:0;">
+    <div id="lobby-view-rooms" style="display:flex;flex:1;overflow:hidden;min-height:0;flex-direction:column;">
     <div class="lobby-main">
       <!-- Join inline panel -->
       <div class="join-inline" id="join-panel">
@@ -1078,6 +1081,7 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
         </div>
       </div>
     </div><!-- /lobby-view-feed -->
+    </div><!-- /lobby-left -->
 
     <!-- FRIENDS SIDEBAR -->
     <div class="friends-sidebar">
