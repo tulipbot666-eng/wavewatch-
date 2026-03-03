@@ -419,7 +419,7 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
   font-family:'Space Grotesk',sans-serif;
   padding:.18rem 1rem .18rem 3.5rem;
 }
-.msg-av-col{width:36px;flex-shrink:0;margin-top:.1rem;}
+.msg-av-col{width:36px;flex-shrink:0;margin-top:.1rem;position:relative;z-index:1;}
 .msg-av{width:36px;height:36px;border-radius:50%;overflow:hidden;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:1.1rem;}
 .msg-av img{width:100%;height:100%;object-fit:cover;}
 .msg-body{flex:1;min-width:0;}
@@ -2161,7 +2161,11 @@ function openChatProfile(user) {
   // Fechar popup anterior
   if(_cppEl) { _cppEl.remove(); _cppEl = null; }
 
-  const isMe = user?.id === myUser?.id;
+  const isMe = !!(
+    (myUser?.id && user?.id === myUser.id) ||
+    (loggedInUser?.id && user?.googleId === loggedInUser.id) ||
+    (myUser?.name && user?.name === myUser.name)
+  );
   const avHtml = user?.avatarUrl
     ? `<img src="${esc(user.avatarUrl)}">`
     : `<span>${esc(user?.avatar || '👤')}</span>`;
@@ -2326,8 +2330,12 @@ let lastMsgUserId = null;
 
 function renderChatMsg(payload) {
   if (rendered.has(payload.id)) return; rendered.add(payload.id);
-  // Compara só pelo id único do websocket
-  const isMe = payload.user?.id === myUser?.id;
+  // isMe: compara wsId, googleId, ou nome como fallback
+  const isMe = !!(
+    (myUser?.id && payload.user?.id === myUser.id) ||
+    (loggedInUser?.id && payload.user?.googleId === loggedInUser.id) ||
+    (myUser?.name && payload.user?.name === myUser.name)
+  );
   const userId = payload.user?.id || payload.user?.name;
   const grouped = userId && userId === lastMsgUserId;
   lastMsgUserId = userId;
