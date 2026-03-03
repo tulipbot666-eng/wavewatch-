@@ -1808,7 +1808,7 @@ function handle(msg) {
 
   if(type==='ROOM_STATE'){
     roomState=payload;
-    myUser.id=payload.members.find(m=>m.name===myUser.name)?.id||myUser.id;
+    myUser.id = payload.myWsId || payload.members.find(m=>m.name===myUser.name)?.id || myUser.id;
     amIHost=payload.host===myUser.id;
     updateHostUI(); renderMembers(payload.members);
     renderQueue(payload.queue); renderHistory(payload.history);
@@ -1822,7 +1822,11 @@ function handle(msg) {
   if(type==='HOST_CHANGED'){amIHost=payload.hostId===myUser.id;updateHostUI();updateYTOverlay();if(amIHost)sysMsg('👑 Você agora é o host da sala');}
   if(type==='USER_LEFT'){sysMsg(`${payload.user?.avatar||'👤'} ${payload.user?.name||'Alguém'} saiu`);updateLiveLbl(payload.memberCount);}
   if(type==='PONG'){const m=Date.now()-payload.ts;rtt=Math.round(rtt*0.7+m*0.3);}
-  if(type==='CHAT'){renderChatMsg(payload);}
+  if(type==='CHAT'){
+    // Se tem localId, já foi renderizado localmente — só adiciona o id real ao Set para deduplicar
+    if(payload.localId && rendered.has(payload.localId)) { rendered.add(payload.id); return; }
+    renderChatMsg(payload);
+  }
   if(type==='REACTION'){spawnFloat(payload.emoji);}
 
   if(type==='VIDEO'){
@@ -2161,11 +2165,7 @@ function openChatProfile(user) {
   // Fechar popup anterior
   if(_cppEl) { _cppEl.remove(); _cppEl = null; }
 
-  const isMe = !!(
-    (myUser?.id && user?.id === myUser.id) ||
-    (loggedInUser?.id && user?.googleId === loggedInUser.id) ||
-    (myUser?.name && user?.name === myUser.name)
-  );
+  const isMe = !!(myUser?.id && user?.id === myUser.id);
   const avHtml = user?.avatarUrl
     ? `<img src="${esc(user.avatarUrl)}">`
     : `<span>${esc(user?.avatar || '👤')}</span>`;
@@ -2231,7 +2231,11 @@ function sendChat() {
     if (chatPendingImg.type === 'gif') payload.gifUrl = chatPendingImg.url;
     else payload.imgData = chatPendingImg.dataUrl;
   }
-  send('CHAT', payload);
+  // Gera um id local e renderiza já como "me" sem esperar o servidor
+  const localId = 'local-' + Date.now() + Math.random();
+  rendered.add(localId);
+  renderChatMsg({ id: localId, user: myUser, text: payload.text, gifUrl: payload.gifUrl, imgData: payload.imgData, ts: Date.now(), _isMe: true });
+  send('CHAT', { ...payload, localId });
   inp.value = ''; inp.style.height = '';
   clearChatImg();
 }
@@ -2330,12 +2334,7 @@ let lastMsgUserId = null;
 
 function renderChatMsg(payload) {
   if (rendered.has(payload.id)) return; rendered.add(payload.id);
-  // isMe: compara wsId, googleId, ou nome como fallback
-  const isMe = !!(
-    (myUser?.id && payload.user?.id === myUser.id) ||
-    (loggedInUser?.id && payload.user?.googleId === loggedInUser.id) ||
-    (myUser?.name && payload.user?.name === myUser.name)
-  );
+  const isMe = payload._isMe || !!(myUser?.id && payload.user?.id === myUser.id);
   const userId = payload.user?.id || payload.user?.name;
   const grouped = userId && userId === lastMsgUserId;
   lastMsgUserId = userId;
