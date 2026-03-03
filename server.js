@@ -917,11 +917,8 @@ wss.on('connection', (ws) => {
         member.ws.send(JSON.stringify({ type: 'SEEK', payload: { t: compensated } }));
       });
     }
-  });
 
     // ── WebRTC SCREEN SHARE SIGNALING ──────────────────────
-    // These messages just relay between specific peers
-
     if (type === 'SCREEN_SHARE_START' && currentRoom) {
       currentRoom.screenShareHost = wsId;
       broadcast(currentRoom, { type: 'SCREEN_SHARE_START', payload: { by: currentUser } }, wsId);
@@ -942,6 +939,7 @@ wss.on('connection', (ws) => {
         }));
       }
     }
+  });
 
   ws.on('close', () => {
     if (!currentRoom) return;
