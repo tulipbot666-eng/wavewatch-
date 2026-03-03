@@ -610,7 +610,9 @@ wss.on('connection', (ws) => {
         if (category) currentRoom.category = category;
       }
       currentRoom.members.set(wsId, { ws, user: currentUser, rtt: 80 });
-      ws.send(JSON.stringify({ type: 'ROOM_STATE', payload: roomInfo(currentRoom) }));
+      const state = roomInfo(currentRoom);
+      state.myWsId = wsId;
+      ws.send(JSON.stringify({ type: 'ROOM_STATE', payload: state }));
       broadcast(currentRoom, { type: 'USER_JOINED', payload: { user: currentUser, memberCount: currentRoom.members.size } }, wsId);
     }
 
@@ -635,7 +637,7 @@ wss.on('connection', (ws) => {
       // Limit image size (base64 ~5MB → ~6.7MB string)
       const imgData = payload.imgData && payload.imgData.length < 7_000_000 ? payload.imgData : null;
       const gifUrl = payload.gifUrl || null;
-      broadcastAll(currentRoom, { type: 'CHAT', payload: { id: uuid(), user: currentUser, text: payload.text || '', gifUrl, imgData, ts: Date.now() } });
+      broadcastAll(currentRoom, { type: 'CHAT', payload: { id: uuid(), localId: payload.localId||null, user: currentUser, text: payload.text || '', gifUrl, imgData, ts: Date.now() } });
     }
 
     if (type === 'REACTION' && currentRoom) {
