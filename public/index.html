@@ -476,6 +476,29 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
 .post-act svg{width:14px;height:14px;stroke:currentColor;fill:none;}
 .post-act:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.75);}
 .post-act.liked{color:var(--accent);}
+
+/* ── COMMENTS ── */
+.post-comments{border-top:1px solid rgba(255,255,255,.05);padding:.5rem .85rem .65rem;}
+.comment-item{display:flex;gap:.55rem;padding:.3rem 0;align-items:flex-start;}
+.comment-av{width:26px;height:26px;border-radius:50%;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.8rem;overflow:hidden;}
+.comment-av img{width:100%;height:100%;object-fit:cover;}
+.comment-body{flex:1;min-width:0;background:rgba(255,255,255,.04);border-radius:10px;padding:.35rem .65rem;}
+.comment-name{font-size:.72rem;font-weight:700;margin-bottom:.08rem;}
+.comment-text{font-size:.82rem;line-height:1.4;color:rgba(255,255,255,.82);}
+.comment-time{font-size:.62rem;color:var(--sub);font-family:'JetBrains Mono',monospace;margin-top:.15rem;}
+.comment-form{display:flex;gap:.5rem;align-items:center;margin-top:.5rem;}
+.comment-inp{flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:.38rem .85rem;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:.82rem;outline:none;transition:border-color .2s;}
+.comment-inp:focus{border-color:rgba(255,45,120,.35);}
+.comment-inp::placeholder{color:rgba(255,255,255,.2);}
+.comment-send{background:linear-gradient(135deg,var(--accent),var(--a2));border:none;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:all .2s;}
+.comment-send:hover{transform:scale(1.1);}
+.comment-send svg{width:13px;height:13px;fill:#fff;}
+.comments-toggle{background:none;border:none;color:var(--sub);font-size:.75rem;font-family:'JetBrains Mono',monospace;cursor:pointer;padding:.1rem 0;transition:color .15s;}
+.comments-toggle:hover{color:rgba(255,255,255,.6);}
+/* Photo vis badge on grid */
+.prof-photo-vis{position:absolute;bottom:4px;left:4px;font-size:.55rem;padding:.1rem .35rem;border-radius:20px;font-family:'JetBrains Mono',monospace;backdrop-filter:blur(6px);}
+.prof-photo-vis.pub{background:rgba(0,229,192,.15);color:var(--ok);border:1px solid rgba(0,229,192,.25);}
+.prof-photo-vis.prv{background:rgba(0,0,0,.6);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.1);}
 .feed-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem 1rem;gap:.55rem;color:var(--sub);font-size:.85rem;text-align:center;}
 .feed-empty-icon{font-size:2.5rem;margin-bottom:.3rem;}
 
@@ -1196,8 +1219,22 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
       <div class="prof-photos-grid" id="prof-photos-grid">
         <div class="prof-empty">Nenhuma foto ainda</div>
       </div>
-      <div id="prof-photos-upload-btn" style="display:none;padding:.7rem 1rem">
-        <button class="pill-btn ghost" style="width:100%;font-size:.8rem" onclick="$('prof-gallery-input').click()">📷 Adicionar foto</button>
+      <div id="prof-photos-upload-btn" style="display:none;padding:.6rem .7rem;border-top:1px solid var(--border);display:none;align-items:center;gap:.45rem;flex-wrap:wrap;">
+        <button class="pill-btn ghost" style="font-size:.78rem;flex:1;min-width:120px" onclick="$('prof-gallery-input').click()">📷 Adicionar foto</button>
+        <div class="composer-vis pub" id="photo-vis" onclick="togglePhotoVisDropdown(event)" style="position:relative;">
+          <svg viewBox="0 0 20 20" fill="none" style="width:13px;height:13px;stroke:currentColor"><circle cx="10" cy="10" r="8" stroke-width="1.5"/><path d="M2 10h16M10 2c-2 2.5-3 5-3 8s1 5.5 3 8M10 2c2 2.5 3 5 3 8s-1 5.5-3 8" stroke-width="1.2"/></svg>
+          <span class="composer-vis-lbl" id="photo-vis-lbl">Público</span>
+          <div class="vis-dropdown" id="photo-vis-dropdown">
+            <div class="vis-opt" onclick="setPhotoVisibility('public',event)">
+              <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M2 10h16M10 2c-2 2.5-3 5-3 8s1 5.5 3 8M10 2c2 2.5 3 5 3 8s-1 5.5-3 8" stroke="currentColor" stroke-width="1.2"/></svg>
+              <div><div>Público</div><span>Visível para todos</span></div>
+            </div>
+            <div class="vis-opt" onclick="setPhotoVisibility('friends',event)">
+              <svg viewBox="0 0 20 20" fill="none"><path d="M13 11c2.5 0 5 1.2 5 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="13" cy="6" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M2 17c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="7" r="3" stroke="currentColor" stroke-width="1.6"/></svg>
+              <div><div>Amigos</div><span>Só seus amigos veem</span></div>
+            </div>
+          </div>
+        </div>
         <input type="file" id="prof-gallery-input" accept="image/*" style="display:none" onchange="uploadGalleryPhoto(this)">
       </div>
     </div>
@@ -1887,16 +1924,14 @@ async function loadProfileFeed(dbId) {
       const uname = item.type==='post' ? esc(item.data.name||u?.name||'?') : esc(u?.name||'?');
       if(item.type === 'post') {
         const h = item.data;
-        return `<div class="feed-post" id="feed-post-${h.id}">
-          <div class="feed-post-header">
-            <div class="feed-post-av">${avSrc}</div>
-            <div class="feed-post-meta"><div class="feed-post-name">${uname}</div><div class="feed-post-date">${dt}</div></div>
-            ${isMyProfile ? `<button class="feed-post-delete" onclick="deleteFeedPost('${h.id}')" title="Remover">✕</button>` : ''}
-          </div>
-          <div class="feed-post-body" style="padding:.75rem 1rem 1rem">
-            <div class="feed-post-text">${esc(h.content)}</div>
-          </div>
-        </div>`;
+        const postObj = {
+          id: h.id, content: h.content, img_url: h.img_url,
+          is_public: h.is_public !== false,
+          created_at: h.created_at,
+          name: uname, avatar_url: h.avatar_url || (u?.avatarUrl||u?.avatar_url),
+          avatar_emoji: h.avatar_emoji || (u?.avatarEmoji||u?.avatar_emoji)
+        };
+        return buildPostCard(postObj, 'post') + (isMyProfile ? '' : '');
       } else {
         const h = item.data;
         const srcBadge = h.video_src ? `<span class="feed-post-src-badge">${srcL[h.video_src]||h.video_src}</span>` : '';
@@ -2004,11 +2039,29 @@ async function loadProfilePhotos(dbId) {
     data.photos.forEach(p => {
       const item = document.createElement('div');
       item.className = 'prof-photo-item';
-      item.innerHTML = `<img src="${esc(p.url)}" loading="lazy" onclick="window.open('${esc(p.url)}','_blank')">
+      const isPublic = p.is_public !== false;
+      item.innerHTML = `<img src="${esc(p.url)}" loading="lazy" onclick="openPhotoModal('${esc(p.id)}','${esc(p.url)}',${isPublic})">
+        <span class="prof-photo-vis ${isPublic?'pub':'prv'}">${isPublic?'🌎':'👥'}</span>
         ${isMyProfile ? `<button class="prof-photo-del" onclick="deleteGalleryPhoto('${esc(p.id)}',this)">✕</button>` : ''}`;
       grid.appendChild(item);
     });
   } catch(e) { grid.innerHTML = '<div class="prof-empty" style="grid-column:1/-1">Erro ao carregar</div>'; }
+}
+
+let photoVisibility = 'public';
+
+function setPhotoVisibility(v, e) {
+  e && e.stopPropagation();
+  photoVisibility = v;
+  const lbl = $('photo-vis-lbl'), vis = $('photo-vis');
+  $('photo-vis-dropdown')?.classList.remove('open');
+  lbl.textContent = v === 'public' ? 'Público' : 'Amigos';
+  vis.className = v === 'public' ? 'composer-vis pub' : 'composer-vis';
+}
+
+function togglePhotoVisDropdown(e) {
+  e.stopPropagation();
+  $('photo-vis-dropdown')?.classList.toggle('open');
 }
 
 async function uploadGalleryPhoto(input) {
@@ -2019,7 +2072,7 @@ async function uploadGalleryPhoto(input) {
     try {
       const res = await fetch('/api/gallery/upload', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ imageData: e.target.result })
+        body: JSON.stringify({ imageData: e.target.result, is_public: photoVisibility === 'public' })
       });
       if(res.ok) { toast('Foto adicionada! 📸'); loadProfilePhotos(loggedInUser.id); }
       else toast('Erro ao enviar foto');
@@ -3362,6 +3415,38 @@ function fmtTime(d) {
   return new Date(d).toLocaleDateString('pt-BR');
 }
 
+function buildPostCard(p, type) {
+  type = type || 'post';
+  const av = p.avatar_url ? '<img src="'+esc(p.avatar_url)+'">' : (p.avatar_emoji || p.avatar || '👤');
+  const isPublic = p.is_public !== false;
+  const likes = p.likes || p.like_count || 0;
+  const comments = p.comments || p.comment_count || 0;
+  const liked = p.liked || false;
+  const pid = esc(p.id);
+  const likeOnclick = 'toggleLike(&quot;'+pid+'&quot;,&quot;'+type+'&quot;,this)';
+  const cmtOnclick  = 'toggleComments(&quot;'+pid+'&quot;,&quot;'+type+'&quot;)';
+  return '<div class="feed-post" id="fpost-'+pid+'">' +
+    '<div class="post-header">' +
+      '<div class="post-av">'+av+'</div>' +
+      '<div class="post-meta">' +
+        '<div class="post-name">'+esc(p.name||p.username||'?')+'</div>' +
+        '<div class="post-time">'+fmtTime(p.created_at)+
+          '<span class="post-vis-tag '+(isPublic?'pub':'prv')+'">'+(isPublic?'🌎 Público':'👥 Amigos')+'</span></div>' +
+      '</div></div>' +
+    (p.content ? '<div class="post-text">'+esc(p.content)+'</div>' : '') +
+    (p.img_url ? '<img class="post-img" src="'+esc(p.img_url)+'" loading="lazy">' : '') +
+    '<div class="post-footer">' +
+      '<button class="post-act'+(liked?' liked':'')+'" id="like-btn-'+pid+'" onclick="'+likeOnclick+'">' +
+        '<svg viewBox="0 0 20 20"><path d="M10 17s-7-4.35-7-9a4 4 0 018 0 4 4 0 018 0c0 4.65-7 9-7 9z" stroke="currentColor" stroke-width="1.5" '+(liked?'fill="currentColor"':'fill="none"')+'/></svg>' +
+        ' <span id="like-count-'+pid+'">'+likes+'</span></button>' +
+      '<button class="post-act" onclick="'+cmtOnclick+'">' +
+        '<svg viewBox="0 0 20 20"><path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2H6l-4 3V5z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>' +
+        ' <span id="comment-count-'+pid+'">'+comments+'</span></button>' +
+    '</div>' +
+    '<div class="post-comments" id="comments-'+pid+'" style="display:none"></div>' +
+  '</div>';
+}
+
 function renderFeedPosts(posts, containerId, emptyIcon, emptyMsg, emptyHint) {
   const el = $(containerId);
   if (!el) return;
@@ -3369,25 +3454,109 @@ function renderFeedPosts(posts, containerId, emptyIcon, emptyMsg, emptyHint) {
     el.innerHTML = '<div class="feed-empty"><div class="feed-empty-icon">'+emptyIcon+'</div><div>'+emptyMsg+'</div><div style="font-size:.75rem;color:var(--sub)">'+emptyHint+'</div></div>';
     return;
   }
-  el.innerHTML = posts.map(p => {
-    const av = p.avatar_url ? '<img src="'+esc(p.avatar_url)+'">' : (p.avatar_emoji || p.avatar || '👤');
-    const isPublic = p.is_public !== false;
-    return '<div class="feed-post">' +
-      '<div class="post-header">' +
-        '<div class="post-av">'+av+'</div>' +
-        '<div class="post-meta">' +
-          '<div class="post-name">'+esc(p.name||p.username||'?')+'</div>' +
-          '<div class="post-time">'+fmtTime(p.created_at)+
-            '<span class="post-vis-tag '+(isPublic?'pub':'prv')+'">'+
-            (isPublic?'🌎 Público':'👥 Amigos')+'</span></div>' +
-        '</div></div>' +
-      (p.content ? '<div class="post-text">'+esc(p.content)+'</div>' : '') +
-      (p.img_url ? '<img class="post-img" src="'+esc(p.img_url)+'" loading="lazy">' : '') +
-      '<div class="post-footer">' +
-        '<button class="post-act"><svg viewBox="0 0 20 20"><path d="M10 17s-7-4.35-7-9a4 4 0 018 0 4 4 0 018 0c0 4.65-7 9-7 9z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg> 0</button>' +
-        '<button class="post-act"><svg viewBox="0 0 20 20"><path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2H6l-4 3V5z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg> 0</button>' +
-      '</div></div>';
-  }).join('');
+  el.innerHTML = posts.map(p => buildPostCard(p, 'post')).join('');
+}
+
+async function toggleLike(id, type, btn) {
+  if (!loggedInUser) { toast('Faça login para curtir! 👤'); return; }
+  try {
+    const res = await fetch('/api/like', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ id, type })
+    });
+    const d = await res.json();
+    const countEl = $('like-count-'+id);
+    if (countEl) countEl.textContent = d.count;
+    btn.classList.toggle('liked', d.liked);
+    const path = btn.querySelector('path');
+    if (path) path.setAttribute('fill', d.liked ? 'currentColor' : 'none');
+  } catch(e) { toast('Erro ao curtir'); }
+}
+
+async function toggleComments(id, type) {
+  const box = $('comments-'+id);
+  if (!box) return;
+  if (box.style.display !== 'none') { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = '<div style="padding:.3rem 0;color:var(--sub);font-size:.78rem">Carregando...</div>';
+  await loadComments(id, type);
+}
+
+async function loadComments(id, type) {
+  const box = $('comments-'+id);
+  if (!box) return;
+  try {
+    const res = await fetch('/api/comments/'+type+'/'+id);
+    const { comments = [] } = await res.json();
+    const av = loggedInUser
+      ? (loggedInUser.avatarUrl ? '<img src="'+esc(loggedInUser.avatarUrl)+'">' : (loggedInUser.avatar||'👤'))
+      : '👤';
+    box.innerHTML =
+      comments.map(c => {
+        const cav = c.avatar_url ? '<img src="'+esc(c.avatar_url)+'">' : (c.avatar_emoji||'👤');
+        return '<div class="comment-item">' +
+          '<div class="comment-av">'+cav+'</div>' +
+          '<div class="comment-body">' +
+            '<div class="comment-name">'+esc(c.name||c.username||'?')+'</div>' +
+            '<div class="comment-text">'+esc(c.content)+'</div>' +
+            '<div class="comment-time">'+fmtTime(c.created_at)+'</div>' +
+          '</div></div>';
+      }).join('') +
+      '<div class="comment-form">' +
+        '<div class="comment-av">'+av+'</div>' +
+        '<input class="comment-inp" id="cinp-'+id+'" placeholder="Escrever comentário..." onkeydown="if(event.key===&quot;Enter&quot;)submitComment(&quot;'+id+'&quot;,&quot;'+type+'&quot;)">' +
+        '<button class="comment-send" onclick="submitComment(&quot;'+id+'&quot;,&quot;'+type+'&quot;)">' +
+          '<svg viewBox="0 0 20 20"><path d="M17 10L3 4l3 6-3 6 14-6z"/></svg>' +
+        '</button>' +
+      '</div>';
+  } catch(e) { box.innerHTML = '<div style="padding:.3rem;color:var(--sub);font-size:.78rem">Erro ao carregar</div>'; }
+}
+
+async function submitComment(id, type) {
+  if (!loggedInUser) { toast('Faça login para comentar! 👤'); return; }
+  const inp = $('cinp-'+id);
+  const text = inp?.value.trim();
+  if (!text) return;
+  inp.value = '';
+  try {
+    const res = await fetch('/api/comments', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ post_id: id, post_type: type, content: text })
+    });
+    if (res.ok) {
+      await loadComments(id, type);
+      const countEl = $('comment-count-'+id);
+      if (countEl) countEl.textContent = parseInt(countEl.textContent||0) + 1;
+    } else toast('Erro ao comentar');
+  } catch(e) { toast('Erro ao comentar'); }
+}
+
+// Photo modal with likes/comments
+function openPhotoModal(id, url, isPublic) {
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.id = 'photo-modal';
+  overlay.onclick = e => { if(e.target===overlay) overlay.remove(); };
+  overlay.innerHTML = '<div class="modal" style="max-width:600px;padding:0;overflow:hidden;background:var(--s1);">' +
+    '<img src="'+esc(url)+'" style="width:100%;max-height:60vh;object-fit:contain;display:block;background:#000;">' +
+    '<div style="padding:.75rem 1rem;">' +
+      '<div class="post-footer" style="padding:0 0 .5rem;">' +
+        '<button class="post-act" id="photo-like-btn-'+id+'" onclick="toggleLike(&quot;'+id+'&quot;,&quot;photo&quot;,this)">' +
+          '<svg viewBox="0 0 20 20"><path d="M10 17s-7-4.35-7-9a4 4 0 018 0 4 4 0 018 0c0 4.65-7 9-7 9z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>' +
+          ' <span id="like-count-'+id+'">0</span></button>' +
+        '<button class="post-act" onclick="toggleComments(&quot;'+id+'&quot;,&quot;photo&quot;)">' +
+          '<svg viewBox="0 0 20 20"><path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2H6l-4 3V5z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg> Comentar</button>' +
+        '<button class="modal-close" onclick="document.getElementById(&quot;photo-modal&quot;).remove()" style="margin-left:auto">✕</button>' +
+      '</div>' +
+      '<div class="post-comments" id="comments-'+id+'" style="display:none"></div>' +
+    '</div></div>';
+  document.body.appendChild(overlay);
+  // Load like count
+  fetch('/api/likes/photo/'+id).then(r=>r.json()).then(d=>{
+    const el = $('like-count-'+id); if(el) el.textContent = d.count;
+    const btn = $('photo-like-btn-'+id);
+    if(btn) { btn.classList.toggle('liked', d.liked); btn.querySelector('path').setAttribute('fill', d.liked?'currentColor':'none'); }
+  }).catch(()=>{});
 }
 
 async function loadLobbyFeed() {
