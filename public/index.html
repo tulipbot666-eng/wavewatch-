@@ -1533,7 +1533,7 @@ async function openProfileModal(targetUser) {
   const banner = $('prof-banner');
   const bannerUrl = isMyProfile ? loggedInUser.bannerUrl : null;
   banner.style.backgroundImage = bannerUrl ? `url(${esc(bannerUrl)})` : '';
-  $('profile-banner-edit').style.display = isMyProfile ? 'block' : 'none';
+  const bannerEditBtn = document.querySelector('.profile-banner-edit'); if(bannerEditBtn) bannerEditBtn.style.display = isMyProfile ? 'block' : 'none';
   $('prof-av').style.cursor = isMyProfile ? 'pointer' : 'default';
 
   // Info
