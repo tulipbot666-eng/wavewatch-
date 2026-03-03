@@ -781,9 +781,9 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
 .feed-composer-row{display:flex;align-items:center;gap:.65rem;}
 .feed-composer-av{width:36px;height:36px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,var(--accent),var(--a2));display:flex;align-items:center;justify-content:center;font-size:1.1rem;overflow:hidden;border:2px solid rgba(255,255,255,.08);}
 .feed-composer-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
-.feed-composer-input{flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);border-radius:22px;padding:.52rem 1rem;cursor:pointer;transition:all .2s;}
-.feed-composer-input:hover{background:rgba(255,255,255,.09);border-color:rgba(255,45,120,.3);}
-.feed-composer-placeholder{color:rgba(255,255,255,.28);font-size:.88rem;pointer-events:none;}
+.feed-composer-textarea{flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);border-radius:22px;padding:.52rem 1rem;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:.88rem;outline:none;resize:none;min-height:38px;max-height:120px;line-height:1.5;transition:border-color .2s,background .2s;overflow:hidden;}
+.feed-composer-textarea:focus{border-color:rgba(255,45,120,.4);background:rgba(255,255,255,.09);}
+.feed-composer-textarea::placeholder{color:rgba(255,255,255,.28);}
 .feed-composer-actions{display:flex;gap:.2rem;margin-top:.6rem;border-top:1px solid rgba(255,255,255,.05);padding-top:.55rem;}
 .feed-act-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:.4rem;background:none;border:none;border-radius:9px;padding:.42rem .5rem;color:rgba(255,255,255,.45);font-family:'Space Grotesk',sans-serif;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .15s;}
 .feed-act-btn:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.85);}
@@ -985,20 +985,18 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
       <div class="feed-composer" id="feed-composer" style="display:none">
         <div class="feed-composer-row">
           <div class="feed-composer-av" id="feed-composer-av">👤</div>
-          <div class="feed-composer-input" onclick="openFeedPostModal()">
-            <span class="feed-composer-placeholder" id="feed-composer-placeholder">No que você está pensando?</span>
-          </div>
+          <textarea class="feed-composer-textarea" id="feed-composer-textarea" placeholder="No que você está pensando?" rows="1" oninput="this.style.height='';this.style.height=this.scrollHeight+'px'"></textarea>
         </div>
         <div class="feed-composer-actions">
-          <button class="feed-act-btn" onclick="openFeedPostModal('video')">
+          <button class="feed-act-btn" onclick="feedShareVideo()">
             <svg viewBox="0 0 20 20" fill="none" style="width:16px;height:16px"><rect x="2" y="5" width="11" height="10" rx="2" stroke="#ff2d78" stroke-width="1.6"/><path d="M13 8l5-3v10l-5-3V8z" stroke="#ff2d78" stroke-width="1.6" stroke-linejoin="round"/></svg>
             Vídeo
           </button>
-          <button class="feed-act-btn" onclick="openFeedPostModal('photo')">
+          <button class="feed-act-btn" onclick="$('prof-gallery-input').click()">
             <svg viewBox="0 0 20 20" fill="none" style="width:16px;height:16px"><rect x="2" y="4" width="16" height="12" rx="2" stroke="#00e5c0" stroke-width="1.6"/><circle cx="7" cy="9" r="1.5" fill="#00e5c0"/><path d="M2 14l4-4 3 3 3-4 6 5" stroke="#00e5c0" stroke-width="1.4" stroke-linejoin="round"/></svg>
             Foto
           </button>
-          <button class="feed-act-btn" onclick="openFeedPostModal('emoji')">
+          <button class="feed-act-btn" onclick="feedInsertEmoji()">
             <svg viewBox="0 0 20 20" fill="none" style="width:16px;height:16px"><circle cx="10" cy="10" r="7.5" stroke="#f59e0b" stroke-width="1.6"/><path d="M7 12.5s1 1.5 3 1.5 3-1.5 3-1.5" stroke="#f59e0b" stroke-width="1.6" stroke-linecap="round"/><circle cx="7.5" cy="8.5" r="1" fill="#f59e0b"/><circle cx="12.5" cy="8.5" r="1" fill="#f59e0b"/></svg>
             Emoção
           </button>
@@ -1537,37 +1535,45 @@ function profTab(name, el) {
   if(panel) panel.classList.add('on');
 }
 
+// Compress image via canvas before upload (prevents 413)
+function compressImage(dataUrl, maxW, maxH, quality, callback) {
+  const img = new Image();
+  img.onload = () => {
+    let w = img.width, h = img.height;
+    const ratio = Math.min(maxW/w, maxH/h, 1);
+    w = Math.round(w * ratio); h = Math.round(h * ratio);
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    callback(canvas.toDataURL('image/jpeg', quality));
+  };
+  img.src = dataUrl;
+}
+
 function handleProfilePhoto(input) {
   const file = input.files[0]; if(!file) return;
-  if(file.size > 5*1024*1024) { toast('Foto muito grande (máx 5MB)'); return; }
+  if(file.size > 10*1024*1024) { toast('Foto muito grande (máx 10MB)'); return; }
   const reader = new FileReader();
-  reader.onload = async e => {
-    profPhotoData = e.target.result;
-    const avInner = $('prof-av-inner');
-    if(avInner) avInner.outerHTML = `<img id="prof-av-inner" src="${profPhotoData}" style="width:100%;height:100%;object-fit:cover;">`;
-    toast('Salvando foto de perfil...');
-    try {
-      const body = {
-        username: loggedInUser.username || '',
-        avatarEmoji: loggedInUser.avatarEmoji || '🎬',
-        displayName: loggedInUser.name || '',
-        avatarData: profPhotoData
-      };
-      const res = await fetch('/auth/setup-profile', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(body)
-      });
-      if(res.ok) {
-        await loadAuthState();
-        const avEl = $('lobby-user-av');
-        if(avEl) avEl.innerHTML = `<img src="${profPhotoData}" style="width:100%;height:100%;object-fit:cover">`;
-        toast('Foto de perfil salva! 📸');
-        profPhotoData = null;
-      } else {
-        const d = await res.json();
-        toast('Erro ao salvar: ' + (d.error || 'tente novamente'));
-      }
-    } catch { toast('Erro ao salvar foto :('); }
+  reader.onload = e => {
+    compressImage(e.target.result, 400, 400, 0.82, async (compressed) => {
+      profPhotoData = compressed;
+      const avInner = $('prof-av-inner');
+      if(avInner) avInner.outerHTML = `<img id="prof-av-inner" src="${compressed}" style="width:100%;height:100%;object-fit:cover;">`;
+      toast('Salvando foto de perfil...');
+      try {
+        const body = { username: loggedInUser.username || '', avatarEmoji: loggedInUser.avatarEmoji || '🎬', displayName: loggedInUser.name || '', avatarData: compressed };
+        const res = await fetch('/auth/setup-profile', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        if(res.ok) {
+          await loadAuthState();
+          const avEl = $('lobby-user-av');
+          if(avEl) avEl.innerHTML = `<img src="${compressed}" style="width:100%;height:100%;object-fit:cover">`;
+          const chatAv = $('chat-user-av');
+          if(chatAv) chatAv.innerHTML = `<img src="${compressed}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+          toast('Foto de perfil salva! 📸');
+          profPhotoData = null;
+        } else { const d2 = await res.json(); toast('Erro ao salvar: ' + (d2.error || 'tente novamente')); }
+      } catch { toast('Erro ao salvar foto :('); }
+    });
   };
   reader.readAsDataURL(file);
   input.value = '';
@@ -1575,32 +1581,20 @@ function handleProfilePhoto(input) {
 
 function handleBannerPhoto(input) {
   const file = input.files[0]; if(!file) return;
-  if(file.size > 8*1024*1024) { toast('Banner muito grande (máx 8MB)'); return; }
+  if(file.size > 10*1024*1024) { toast('Banner muito grande (máx 10MB)'); return; }
   const reader = new FileReader();
-  reader.onload = async e => {
-    profBannerData = e.target.result;
-    $('prof-banner').style.backgroundImage = `url(${profBannerData})`;
-    toast('Salvando banner...');
-    try {
-      const body = {
-        username: loggedInUser.username || '',
-        avatarEmoji: loggedInUser.avatarEmoji || '🎬',
-        displayName: loggedInUser.name || '',
-        bannerData: profBannerData
-      };
-      const res = await fetch('/auth/setup-profile', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(body)
-      });
-      if(res.ok) {
-        await loadAuthState();
-        toast('Banner salvo! 🖼️');
-        profBannerData = null;
-      } else {
-        const d = await res.json();
-        toast('Erro ao salvar: ' + (d.error || 'tente novamente'));
-      }
-    } catch { toast('Erro ao salvar banner :('); }
+  reader.onload = e => {
+    compressImage(e.target.result, 1200, 400, 0.80, async (compressed) => {
+      profBannerData = compressed;
+      $('prof-banner').style.backgroundImage = `url(${compressed})`;
+      toast('Salvando banner...');
+      try {
+        const body = { username: loggedInUser.username || '', avatarEmoji: loggedInUser.avatarEmoji || '🎬', displayName: loggedInUser.name || '', bannerData: compressed };
+        const res = await fetch('/auth/setup-profile', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        if(res.ok) { await loadAuthState(); toast('Banner salvo! 🖼️'); profBannerData = null; }
+        else { const d2 = await res.json(); toast('Erro ao salvar: ' + (d2.error || 'tente novamente')); }
+      } catch { toast('Erro ao salvar banner :('); }
+    });
   };
   reader.readAsDataURL(file);
   input.value = '';
@@ -1675,8 +1669,8 @@ async function loadProfileFeed(dbId) {
       if(compAv) compAv.innerHTML = loggedInUser.avatarUrl
         ? `<img src="${esc(loggedInUser.avatarUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
         : (loggedInUser.avatarEmoji || '👤');
-      const ph = $('feed-composer-placeholder');
-      if(ph) ph.textContent = 'No que você está pensando, ' + (loggedInUser.name?.split(' ')[0] || '') + '?';
+      const ta = $('feed-composer-textarea');
+      if(ta) ta.placeholder = 'No que você está pensando, ' + (loggedInUser.name?.split(' ')[0] || '') + '?';
     } else { composer.style.display = 'none'; }
   }
   try {
@@ -1709,10 +1703,21 @@ async function loadProfileFeed(dbId) {
   } catch(e) { list.innerHTML = '<div class="prof-empty">Erro ao carregar</div>'; }
 }
 
-function openFeedPostModal(type) {
-  if(type === 'photo') { $('prof-gallery-input')?.click(); return; }
+function feedShareVideo() {
   if($('app').style.display !== 'none') { openAddModal(); closeProfileModal(); }
   else toast('Entre em uma sala para compartilhar vídeos! 🎬');
+}
+
+function feedInsertEmoji() {
+  const ta = $('feed-composer-textarea');
+  if(!ta) return;
+  ta.focus();
+  // Insert a fun emoji
+  const emojis = ['🎬','😂','🔥','❤️','👏','😎','🎮','🎵','😮','💀'];
+  const pos = ta.selectionStart;
+  const e = emojis[Math.floor(Math.random()*emojis.length)];
+  ta.value = ta.value.slice(0,pos) + e + ta.value.slice(pos);
+  ta.selectionStart = ta.selectionEnd = pos + e.length;
 }
 
 async function loadProfilePhotos(dbId) {
