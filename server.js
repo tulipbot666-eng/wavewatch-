@@ -886,6 +886,17 @@ wss.on('connection', (ws) => {
           [currentUser.dbId, payload.video.url||'', payload.video.title||'', payload.video.thumb||'', payload.video.src||'']
         ).catch(()=>{});
       }
+      // Adiciona ao histórico da sala
+      if (payload.video) {
+        currentRoom.history.unshift({
+          url: payload.video.url || '',
+          title: payload.video.title || '',
+          thumb: payload.video.thumb || '',
+          src: payload.video.src || '',
+          addedBy: currentUser.name
+        });
+        if (currentRoom.history.length > 50) currentRoom.history.pop();
+      }
       broadcastAll(currentRoom, { type: 'VIDEO', payload: { video: payload.video, by: currentUser } });
     }
 
