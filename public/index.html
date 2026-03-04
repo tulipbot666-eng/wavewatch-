@@ -742,11 +742,10 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
 .src-opt .ico{font-size:1.3rem;display:block;margin-bottom:.2rem;}
 .yt-search-wrap{position:relative;margin-bottom:.8rem;}
 /* ── YOUTUBE PANEL (drawer lateral) ── */
-#yt-overlay{position:fixed;inset:0;z-index:600;display:none;pointer-events:none;}
-#yt-overlay.on{display:block;}
-#yt-ov-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.55);opacity:0;transition:opacity .28s ease;backdrop-filter:blur(3px);}
-#yt-overlay.on #yt-ov-backdrop{opacity:1;pointer-events:all;}
-#yt-ov-panel{position:absolute;top:0;right:0;bottom:0;width:min(420px,100vw);background:#111;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .3s cubic-bezier(.32,.72,0,1);pointer-events:all;box-shadow:-8px 0 40px rgba(0,0,0,.6);}
+#yt-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:none;justify-content:flex-end;}
+#yt-overlay.on{display:flex;}
+#yt-ov-backdrop{position:absolute;inset:0;}
+#yt-ov-panel{position:relative;width:400px;max-width:100vw;background:#111;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .3s cubic-bezier(.32,.72,0,1);box-shadow:-8px 0 40px rgba(0,0,0,.7);flex-shrink:0;}
 #yt-overlay.on #yt-ov-panel{transform:translateX(0);}
 .yt-ov-topbar{display:flex;align-items:center;gap:.6rem;padding:.8rem .9rem;background:#111;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;}
 .yt-ov-brand{display:flex;align-items:center;gap:.4rem;font-size:.72rem;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1.5px;flex-shrink:0;}
@@ -3612,6 +3611,9 @@ function clearDriveSelection() {
 let ytSelectedVideo = null;
 
 function openYTOverlay(){
+  // Fecha o modal pai primeiro
+  const addModal=document.getElementById('add-modal');
+  if(addModal)addModal.classList.remove('on');
   const ov=document.getElementById('yt-overlay');
   ov.classList.add('on');
   ov.classList.remove('viewer-mode');
