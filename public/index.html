@@ -2837,9 +2837,10 @@ function loadVideo(video,doBroadcast){
   } else {
     const ext=src==='local'?'LOCAL':(url.split('.').pop().split('?')[0].toUpperCase().substring(0,4)||'VID');
     $('src-badge').textContent=ext;
-    // Rotas diretas: usa proxy para evitar erro de CORS
+    // URLs diretas passam pelo proxy para evitar erro de CORS
+    // A URL original é passada como hintUrl para detecção correta do tipo
     const loadUrl = src==='direct' ? `/api/stream?url=${encodeURIComponent(url)}` : url;
-    _loadVjs(wrap, loadUrl);
+    _loadVjs(wrap, loadUrl, null, null, src==='direct' ? url : null);
     $('ctrl').style.display='none';
   }
   if(doBroadcast)send('VIDEO',{video});
@@ -2963,9 +2964,9 @@ function loadTorrent(magnetUri, wrap) {
 }
 
 // ── VIDEO.JS PLAYER ───────────────────────────────────────
-function _loadVjs(wrap, src, typeOverride, extraOpts) {
+function _loadVjs(wrap, src, typeOverride, extraOpts, hintUrl) {
   const isYT = typeOverride === 'youtube';
-  const type  = isYT ? 'video/youtube' : _guessType(src);
+  const type  = isYT ? 'video/youtube' : _guessType(src, hintUrl);
 
   const videoEl = document.createElement('video');
   videoEl.className = 'video-js vjs-city';
@@ -3052,8 +3053,9 @@ function _loadVjs(wrap, src, typeOverride, extraOpts) {
   };
 }
 
-function _guessType(url) {
-  const u = (url||'').toLowerCase();
+function _guessType(url, hintUrl) {
+  // Usa a URL original (antes de proxiar) para detecção mais precisa
+  const u = ((hintUrl || url) || '').toLowerCase();
   const noQ = u.split('?')[0];
   if(noQ.endsWith('.mp4'))  return 'video/mp4';
   if(noQ.endsWith('.webm')) return 'video/webm';
@@ -3062,13 +3064,6 @@ function _guessType(url) {
   if(noQ.endsWith('.mpd')  || u.includes('.mpd')  || u.includes('dash')) return 'application/dash+xml';
   if(noQ.endsWith('.mov'))  return 'video/quicktime';
   if(noQ.endsWith('.mkv') || noQ.endsWith('.avi') || noQ.endsWith('.flv')) return 'video/mp4';
-  // Para proxy /api/stream, detecta pelo parâmetro url original
-  if(u.includes('/api/stream')) {
-    const orig = (u.match(/[?&]url=([^&]+)/)||[])[1]||'';
-    if(orig.includes('.m3u8')||orig.includes('hls')) return 'application/x-mpegURL';
-    if(orig.includes('.mpd')||orig.includes('dash')) return 'application/dash+xml';
-    if(orig.includes('.webm')) return 'video/webm';
-  }
   return 'video/mp4';
 }
 
