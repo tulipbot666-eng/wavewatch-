@@ -742,6 +742,11 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
 .src-opt .ico{font-size:1.3rem;display:block;margin-bottom:.2rem;}
 .yt-search-wrap{position:relative;margin-bottom:.8rem;}
 /* ── YOUTUBE OVERLAY (estilo app YouTube) ── */
+.yt-ov-live-bar{display:flex;align-items:center;gap:.5rem;padding:.45rem 1rem;background:rgba(255,45,120,.08);border-bottom:1px solid rgba(255,45,120,.18);font-size:.75rem;color:rgba(255,255,255,.6);flex-shrink:0;}
+.yt-ov-live-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:pulse 1.2s infinite;flex-shrink:0;}
+#yt-overlay.viewer-mode .yt-ov-searchbox{opacity:.5;pointer-events:none;}
+#yt-overlay.viewer-mode .yt-ov-back{display:none;}
+#yt-overlay.viewer-mode .yt-ov-add-btn{display:none!important;}
 #yt-overlay{position:fixed;inset:0;z-index:600;background:#0f0f0f;display:none;flex-direction:column;}
 #yt-overlay.on{display:flex;}
 .yt-ov-topbar{display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;background:#0f0f0f;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0;}
@@ -1591,6 +1596,10 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
       <input class="yt-ov-inp" id="yt-ov-inp" placeholder="Buscar no YouTube..." autocomplete="off" onkeydown="if(event.key==='Enter')ytOvSearch()">
       <button class="yt-ov-sbtn" onclick="ytOvSearch()">🔍</button>
     </div>
+  </div>
+  <div class="yt-ov-live-bar" id="yt-ov-live-bar" style="display:none">
+    <div class="yt-ov-live-dot"></div>
+    <span id="yt-ov-live-txt">Host está navegando ao vivo...</span>
   </div>
   <div id="yt-ov-sel-preview" class="yt-ov-sel-preview" style="display:none">
     <img id="yt-ov-sel-img" src="">
@@ -2657,6 +2666,37 @@ function handle(msg) {
     isSyncing=true; seekTo(payload.t); isSyncing=false;
   }
 
+  if(type==='YT_BROWSE' && !amIHost){
+    const ov=document.getElementById('yt-overlay');
+    const liveBar=document.getElementById('yt-ov-live-bar');
+    const liveTxt=document.getElementById('yt-ov-live-txt');
+    const list=document.getElementById('yt-ov-list');
+
+    if(payload.action==='open'){
+      ov.classList.add('on','viewer-mode');
+      liveBar.style.display='flex';
+      list.innerHTML='<div class="yt-ov-empty"><span style="font-size:2.5rem">▶️</span>Aguardando o host buscar...</div>';
+    }
+    else if(payload.action==='close'){
+      ov.classList.remove('on','viewer-mode');
+    }
+    else if(payload.action==='searching'){
+      if(!ov.classList.contains('on')){ov.classList.add('on','viewer-mode');liveBar.style.display='flex';}
+      document.getElementById('yt-ov-inp').value=payload.q||'';
+      liveTxt.textContent='Host buscando: "'+esc(payload.q||'')+'"...';
+      list.innerHTML='<div class="yt-ov-empty"><span style="font-size:1.5rem;animation:spin 1s linear infinite;display:inline-block">⏳</span>Buscando...</div>';
+    }
+    else if(payload.action==='results'){
+      if(!ov.classList.contains('on')){ov.classList.add('on','viewer-mode');liveBar.style.display='flex';}
+      document.getElementById('yt-ov-inp').value=payload.q||'';
+      liveTxt.textContent='Host navegando: "'+esc(payload.q||'')+'"';
+      ytOvRenderList(payload.items||[]);
+    }
+    else if(payload.action==='select'){
+      ytOvSelect(payload.item, true);
+    }
+  }
+
   if(type==='SYNC_TICK'){
     applySyncClock(payload.playing,payload.currentTime,payload.serverNow||Date.now());
     if(ytIframe&&!ytReady)return;
@@ -3563,12 +3603,22 @@ function clearDriveSelection() {
 let ytSelectedVideo = null;
 
 function openYTOverlay(){
-  document.getElementById('yt-overlay').classList.add('on');
-  setTimeout(()=>document.getElementById('yt-ov-inp').focus(), 100);
+  const ov=document.getElementById('yt-overlay');
+  ov.classList.add('on');
+  ov.classList.remove('viewer-mode');
+  document.getElementById('yt-ov-live-bar').style.display='none';
+  document.getElementById('yt-ov-add-btn').classList.remove('on');
+  document.getElementById('yt-ov-sel-preview').style.display='none';
+  document.getElementById('yt-ov-list').innerHTML='<div class="yt-ov-empty"><span style="font-size:2.5rem">▶️</span>Busque um vídeo ou cole um link</div>';
+  document.getElementById('yt-ov-inp').value='';
+  if(amIHost) send('YT_BROWSE',{action:'open'});
+  setTimeout(()=>document.getElementById('yt-ov-inp').focus(),100);
 }
 
 function closeYTOverlay(){
-  document.getElementById('yt-overlay').classList.remove('on');
+  const ov=document.getElementById('yt-overlay');
+  ov.classList.remove('on','viewer-mode');
+  if(amIHost) send('YT_BROWSE',{action:'close'});
 }
 
 async function ytOvSearch(){
@@ -3576,6 +3626,7 @@ async function ytOvSearch(){
   if(!q)return;
   const list=document.getElementById('yt-ov-list');
   list.innerHTML='<div class="yt-ov-empty"><span style="font-size:1.5rem;animation:spin 1s linear infinite;display:inline-block">⏳</span>Buscando...</div>';
+  if(amIHost) send('YT_BROWSE',{action:'searching',q});
 
   // Link direto
   const vid=extractYT(q);
@@ -3583,7 +3634,9 @@ async function ytOvSearch(){
     try{
       const res=await fetch('/api/yt/info?url='+encodeURIComponent('https://www.youtube.com/watch?v='+vid));
       const info=await res.json();
-      ytOvRenderList([{id:vid,title:info.title||'YouTube',channel:info.author||'',duration:'',thumb:'https://i.ytimg.com/vi/'+vid+'/mqdefault.jpg'}]);
+      const items=[{id:vid,title:info.title||'YouTube',channel:info.author||'',duration:'',thumb:'https://i.ytimg.com/vi/'+vid+'/mqdefault.jpg'}];
+      ytOvRenderList(items);
+      if(amIHost) send('YT_BROWSE',{action:'results',q,items});
     }catch(e){ list.innerHTML='<div class="yt-ov-empty">Erro ao carregar vídeo</div>'; }
     return;
   }
@@ -3593,6 +3646,7 @@ async function ytOvSearch(){
     const data=await res.json();
     if(!data.items||!data.items.length){ list.innerHTML='<div class="yt-ov-empty">Nenhum resultado</div>'; return; }
     ytOvRenderList(data.items);
+    if(amIHost) send('YT_BROWSE',{action:'results',q,items:data.items});
   }catch(e){ list.innerHTML='<div class="yt-ov-empty">Erro na busca</div>'; }
 }
 
@@ -3617,17 +3671,16 @@ function ytOvRenderList(items){
   });
 }
 
-function ytOvSelect(item){
+function ytOvSelect(item, fromBroadcast){
   ytSelectedVideo=item;
-  // Destaca linha
   document.querySelectorAll('.yt-ov-item').forEach(r=>r.classList.remove('selected'));
   const row=document.querySelector('.yt-ov-item[data-id="'+item.id+'"]');
   if(row){ row.classList.add('selected'); row.scrollIntoView({block:'nearest'}); }
-  // Preview no topo
   document.getElementById('yt-ov-sel-img').src=item.thumb;
   document.getElementById('yt-ov-sel-title').textContent=item.title;
   document.getElementById('yt-ov-sel-preview').style.display='flex';
   document.getElementById('yt-ov-add-btn').classList.add('on');
+  if(amIHost && !fromBroadcast) send('YT_BROWSE',{action:'select',item});
 }
 
 function ytOvConfirm(){
