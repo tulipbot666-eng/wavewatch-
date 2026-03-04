@@ -1193,7 +1193,7 @@ app.get('/api/extract', async (req, res) => {
 
   // --format best garante URL única (sem merge de streams)
   const safeUrl = url.replace(/"/g, '');
-  const cmd = `yt-dlp --no-playlist --format "best[ext=mp4]/best" --print title --print thumbnail --print urls --no-warnings --socket-timeout 10 "${safeUrl}"`;
+  const cmd = `yt-dlp --no-playlist --format "best[ext=mp4]/best" --print title --print thumbnail --print url --no-warnings --socket-timeout 10 "${safeUrl}"`;
 
   exec(cmd, { timeout: 22000 }, (err, stdout, stderr) => {
     clearTimeout(timeout);
@@ -1359,11 +1359,4 @@ app.delete('/api/comments/:id', requireAuth, async (req, res) => {
     await pool.query('DELETE FROM post_comments WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
-});
-
-// Endpoint para aceitar stream URL direta (sem yt-dlp)
-app.post('/api/load-video', async (req, res) => {
-  const { streamUrl, title, thumbnail } = req.body;
-  if (!streamUrl) return res.status(400).json({ error: 'URL do stream obrigatória' });
-  res.json({ ok: true, url: streamUrl, title: title || 'Vídeo', thumb: thumbnail || '' });
 });
