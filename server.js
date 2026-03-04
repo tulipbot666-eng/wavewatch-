@@ -1060,7 +1060,7 @@ app.get('/api/yt/trending', async (req, res) => {
     const r = await fetch('https://www.youtube.com/youtubei/v1/browse?prettyPrint=false', {
       ...innertube,
       body: JSON.stringify({
-        browseId: 'FEtrending',
+        browseId: 'FEwhat_to_watch',
         context: { client: { clientName: 'WEB', clientVersion: '2.20240101.00.00', hl: 'pt', gl: 'BR' } }
       })
     });
@@ -1068,8 +1068,8 @@ app.get('/api/yt/trending', async (req, res) => {
       const data = await r.json();
       const items = [];
       extractVideos(data?.contents, items);
-      if (items.length > 0) { console.log('[trending] InnerTube OK:', items.length); return res.json({ items }); }
-      console.log('[trending] InnerTube returned 0 items, trying fallback');
+      if (items.length > 0) { console.log('[home] InnerTube OK:', items.length); return res.json({ items }); }
+      console.log('[home] returned 0 items, trying fallback');
     }
   } catch (e) { console.error('[trending] InnerTube error:', e.message); }
 
@@ -1191,37 +1191,29 @@ app.get('/api/extract', async (req, res) => {
     if (!res.headersSent) res.status(504).json({ error: 'Timeout ao extrair vídeo' });
   }, 25000);
 
-  const cmd = [
-    'yt-dlp',
-    '--no-playlist',
-    '--format', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-    '--get-url', '--get-title', '--get-thumbnail',
-    '--no-warnings',
-    '--socket-timeout', '10',
-    `"${url.replace(/"/g, '')}"`
-  ].join(' ');
+  // --format best garante URL única (sem merge de streams)
+  const safeUrl = url.replace(/"/g, '');
+  const cmd = `yt-dlp --no-playlist --format "best[ext=mp4]/best" --print title --print thumbnail --print urls --no-warnings --socket-timeout 10 "${safeUrl}"`;
 
-  exec(cmd, { timeout: 22000 }, (err, stdout) => {
+  exec(cmd, { timeout: 22000 }, (err, stdout, stderr) => {
     clearTimeout(timeout);
     if (res.headersSent) return;
-    if (err) return res.status(422).json({ error: 'Site não suportado pelo extrator' });
-
-    const lines = stdout.trim().split('\n').filter(Boolean);
-    if (!lines.length) return res.status(422).json({ error: 'Nenhuma URL encontrada' });
-
-    let title = '', thumb = '', streamUrl = '';
-    if (lines.length >= 3) { title = lines[0]; thumb = lines[1]; streamUrl = lines[2]; }
-    else if (lines.length === 2) { title = lines[0]; streamUrl = lines[1]; }
-    else { streamUrl = lines[0]; }
-
-    // Garante que streamUrl é uma URL válida
-    try { new URL(streamUrl); } catch {
-      streamUrl = lines.find(l => l.startsWith('http')) || '';
-      if (!streamUrl) return res.status(422).json({ error: 'URL extraída inválida' });
+    if (err) {
+      console.error('[extract] yt-dlp error:', stderr?.slice(0, 300));
+      return res.status(422).json({ error: 'Site não suportado pelo extrator' });
     }
 
-    // Envolve a URL num proxy de stream do nosso servidor
-    // Isso resolve CORS e Referer bloqueado no browser
+    const lines = stdout.trim().split('\n').filter(Boolean);
+    console.log('[extract] lines:', lines.length, lines.map(l => l.slice(0,60)));
+
+    const title = lines[0] || '';
+    const thumb = lines[1] || '';
+    // URLs: pode ter 1 (combined) ou 2 (video+audio separados)
+    const urls = lines.slice(2).filter(l => l.startsWith('http'));
+    const streamUrl = urls[0] || '';
+
+    if (!streamUrl) return res.status(422).json({ error: 'Nenhuma URL de stream encontrada' });
+
     const proxiedStream = `/api/stream?url=${encodeURIComponent(streamUrl)}&origin=${encodeURIComponent(new URL(url).origin)}`;
     res.json({ ok: true, url: proxiedStream, title, thumb });
   });
