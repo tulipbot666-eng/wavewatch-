@@ -1025,6 +1025,56 @@ app.get('/api/rooms/public', (req, res) => {
   res.json({ rooms: list });
 });
 
+app.get('/api/yt/trending', async (req, res) => {
+  try {
+    const r = await fetch('https://www.youtube.com/youtubei/v1/browse?prettyPrint=false', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-YouTube-Client-Name': '1',
+        'X-YouTube-Client-Version': '2.20240101.00.00',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      body: JSON.stringify({
+        browseId: 'FEtrending',
+        context: {
+          client: { clientName: 'WEB', clientVersion: '2.20240101.00.00', hl: 'pt', gl: 'BR' }
+        }
+      })
+    });
+    const data = await r.json();
+    const tabs = data?.contents?.twoColumnBrowseResultsRenderer?.tabs || [];
+    const items = [];
+    for (const tab of tabs) {
+      const sections = tab?.tabRenderer?.content?.sectionListRenderer?.contents || [];
+      for (const section of sections) {
+        const contents = section?.itemSectionRenderer?.contents || [];
+        for (const c of contents) {
+          const shelf = c?.shelfRenderer?.content?.expandedShelfContentsRenderer?.items || [];
+          for (const item of shelf) {
+            const v = item?.videoRenderer;
+            if (!v?.videoId) continue;
+            const title    = v.title?.runs?.[0]?.text || '';
+            const duration = v.lengthText?.simpleText || '';
+            const thumb    = `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
+            const views    = v.viewCountText?.simpleText || '';
+            const published = v.publishedTimeText?.simpleText || '';
+            items.push({ id: v.videoId, title, duration, thumb, views, published });
+            if (items.length >= 20) break;
+          }
+          if (items.length >= 20) break;
+        }
+        if (items.length >= 20) break;
+      }
+      if (items.length >= 20) break;
+    }
+    res.json({ items });
+  } catch (e) {
+    console.error('YT trending error:', e.message);
+    res.json({ items: [] });
+  }
+});
+
 app.get('/api/yt/search', async (req, res) => {
   const q = req.query.q;
   if (!q) return res.json({ items: [] });
