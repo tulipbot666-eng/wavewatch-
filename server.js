@@ -1219,7 +1219,20 @@ app.get('/api/stream', async (req, res) => {
     if (!response.ok) return res.status(response.status).send('Stream error');
 
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', response.headers.get('content-type') || 'video/mp4');
+
+    // Infere Content-Type pela extensão da URL se o servidor retornar algo genérico
+    let ct = response.headers.get('content-type') || '';
+    if (!ct.startsWith('video/') && !ct.includes('mpegurl') && !ct.includes('dash+xml')) {
+      const urlNoQ = url.toLowerCase().split('?')[0];
+      if      (urlNoQ.endsWith('.m3u8')) ct = 'application/x-mpegURL';
+      else if (urlNoQ.endsWith('.mpd'))  ct = 'application/dash+xml';
+      else if (urlNoQ.endsWith('.webm')) ct = 'video/webm';
+      else if (urlNoQ.endsWith('.ogg') || urlNoQ.endsWith('.ogv')) ct = 'video/ogg';
+      else if (urlNoQ.endsWith('.mov'))  ct = 'video/quicktime';
+      else ct = 'video/mp4'; // fallback seguro
+    }
+
+    res.setHeader('Content-Type', ct);
     res.setHeader('Accept-Ranges', 'bytes');
     const cl = response.headers.get('content-length');
     const cr = response.headers.get('content-range');
