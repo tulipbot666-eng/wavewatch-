@@ -1193,20 +1193,27 @@ app.get('/api/extract', async (req, res) => {
 
   // --format best garante URL única (sem merge de streams)
   const safeUrl = url.replace(/"/g, '');
-  const cmd = `yt-dlp --no-playlist --format "best[ext=mp4]/best" --print title --print thumbnail --print url --no-warnings --socket-timeout 10 "${safeUrl}"`;
+  const cmd = `yt-dlp --no-playlist -f "best[ext=mp4]/best" -j "${safeUrl}"`;
 
   exec(cmd, { timeout: 22000 }, (err, stdout, stderr) => {
     clearTimeout(timeout);
     if (res.headersSent) return;
     if (err) {
-      console.error('[extract] yt-dlp error:', stderr?.slice(0, 300));
-      return res.status(422).json({ error: 'Site não suportado pelo extrator' });
+      console.error('[extract] erro:', err.message);
+      return res.status(422).json({ error: 'Erro ao extrair' });
     }
 
-    const lines = stdout.trim().split('\n').filter(Boolean);
-    const title = lines[0] || '';
-    const thumb = lines[1] || '';
-    const streamUrl = lines[2] || '';
+    try {
+      const data = JSON.parse(stdout.trim());
+      const title = data.title || '';
+      const thumb = data.thumbnail || '';
+      const streamUrl = data.url || '';
+      
+      console.log('[extract] ok:', title.slice(0,40), streamUrl.slice(0,80));
+    } catch(parseErr) {
+      console.error('[extract] parse erro:', parseErr.message);
+      return res.status(422).json({ error: 'Erro no parse' });
+    }
 
     if (!streamUrl) return res.status(422).json({ error: 'Nenhuma URL de stream encontrada' });
 
