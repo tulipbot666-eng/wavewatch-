@@ -1165,22 +1165,6 @@ app.get('/api/yt/info', async (req, res) => {
 // ─────────────────────────────────────────
 const { exec } = require('child_process');
 
-async function ensureYtDlp() {
-  return new Promise((resolve) => {
-    exec('yt-dlp --version', (err) => {
-      if (!err) return resolve(true);
-      console.log('📦 Instalando yt-dlp...');
-      exec('pip3 install yt-dlp --break-system-packages 2>&1 || pip install yt-dlp 2>&1', (err2) => {
-        if (!err2) { console.log('✅ yt-dlp instalado'); return resolve(true); }
-        exec('curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && chmod +x /usr/local/bin/yt-dlp', (err3) => {
-          console.log(err3 ? '⚠️  yt-dlp falhou: ' + err3.message : '✅ yt-dlp instalado via binário');
-          resolve(!err3);
-        });
-      });
-    });
-  });
-}
-ensureYtDlp();
 
 // Extrai URL direta do stream usando yt-dlp
 app.get('/api/extract', async (req, res) => {
@@ -1193,27 +1177,24 @@ app.get('/api/extract', async (req, res) => {
 
   // --format best garante URL única (sem merge de streams)
   const safeUrl = url.replace(/"/g, '');
-  const cmd = `yt-dlp --no-playlist -f "best[ext=mp4]/best" -j "${safeUrl}"`;
+  const cmd = `yt-dlp --no-playlist --format "best[ext=mp4]/best" --print title --print thumbnail --print urls --no-warnings --socket-timeout 10 "${safeUrl}"`;
 
   exec(cmd, { timeout: 22000 }, (err, stdout, stderr) => {
     clearTimeout(timeout);
     if (res.headersSent) return;
     if (err) {
-      console.error('[extract] erro:', err.message);
-      return res.status(422).json({ error: 'Erro ao extrair' });
+      console.error('[extract] yt-dlp error:', stderr?.slice(0, 300));
+      return res.status(422).json({ error: 'Site não suportado pelo extrator' });
     }
 
-    try {
-      const data = JSON.parse(stdout.trim());
-      const title = data.title || '';
-      const thumb = data.thumbnail || '';
-      const streamUrl = data.url || '';
-      
-      console.log('[extract] ok:', title.slice(0,40), streamUrl.slice(0,80));
-    } catch(parseErr) {
-      console.error('[extract] parse erro:', parseErr.message);
-      return res.status(422).json({ error: 'Erro no parse' });
-    }
+    const lines = stdout.trim().split('\n').filter(Boolean);
+    console.log('[extract] lines:', lines.length, lines.map(l => l.slice(0,60)));
+
+    const title = lines[0] || '';
+    const thumb = lines[1] || '';
+    // URLs: pode ter 1 (combined) ou 2 (video+audio separados)
+    const urls = lines.slice(2).filter(l => l.startsWith('http'));
+    const streamUrl = urls[0] || '';
 
     if (!streamUrl) return res.status(422).json({ error: 'Nenhuma URL de stream encontrada' });
 
@@ -1362,4 +1343,27 @@ app.delete('/api/comments/:id', requireAuth, async (req, res) => {
     await pool.query('DELETE FROM post_comments WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
+});
+
+app.get('/api/extract', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: 'URL obrigatória' });
+
+  exec(`yt-dlp -f best -j "${url}"`, { timeout: 25000, maxBuffer: 5*1024*1024 }, (err, stdout) => {
+    if (err) return res.status(422).json({ error: 'Não conseguiu extrair' });
+    
+    try {
+      const data = JSON.parse(stdout.trim());
+      const streamUrl = data.url || data.formats?.[0]?.url || '';
+      const title = data.title || '';
+      const thumb = data.thumbnail || '';
+      
+      if (!streamUrl) return res.status(422).json({ error: 'Sem URL' });
+      
+      const proxiedStream = `/api/stream?url=${encodeURIComponent(streamUrl)}&origin=${encodeURIComponent(new URL(url).origin)}`;
+      res.json({ ok: true, url: proxiedStream, title, thumb });
+    } catch(e) {
+      res.status(422).json({ error: 'Erro' });
+    }
+  });
 });
