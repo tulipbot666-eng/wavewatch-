@@ -2837,7 +2837,9 @@ function loadVideo(video,doBroadcast){
   } else {
     const ext=src==='local'?'LOCAL':(url.split('.').pop().split('?')[0].toUpperCase().substring(0,4)||'VID');
     $('src-badge').textContent=ext;
-    _loadVjs(wrap, url);
+    // Rotas diretas: usa proxy para evitar erro de CORS
+    const loadUrl = src==='direct' ? `/api/stream?url=${encodeURIComponent(url)}` : url;
+    _loadVjs(wrap, loadUrl);
     $('ctrl').style.display='none';
   }
   if(doBroadcast)send('VIDEO',{video});
@@ -3059,6 +3061,14 @@ function _guessType(url) {
   if(noQ.endsWith('.m3u8') || u.includes('.m3u8') || u.includes('m3u8') || u.includes('hls')) return 'application/x-mpegURL';
   if(noQ.endsWith('.mpd')  || u.includes('.mpd')  || u.includes('dash')) return 'application/dash+xml';
   if(noQ.endsWith('.mov'))  return 'video/quicktime';
+  if(noQ.endsWith('.mkv') || noQ.endsWith('.avi') || noQ.endsWith('.flv')) return 'video/mp4';
+  // Para proxy /api/stream, detecta pelo parâmetro url original
+  if(u.includes('/api/stream')) {
+    const orig = (u.match(/[?&]url=([^&]+)/)||[])[1]||'';
+    if(orig.includes('.m3u8')||orig.includes('hls')) return 'application/x-mpegURL';
+    if(orig.includes('.mpd')||orig.includes('dash')) return 'application/dash+xml';
+    if(orig.includes('.webm')) return 'video/webm';
+  }
   return 'video/mp4';
 }
 
