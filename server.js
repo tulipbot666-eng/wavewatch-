@@ -1167,25 +1167,93 @@ const { exec } = require('child_process');
 
 async function ensureYtDlp() {
   return new Promise((resolve) => {
+    // Tenta primeira vez
     exec('yt-dlp --version', (err) => {
-      if (!err) return resolve(true);
-      console.log('📦 Instalando yt-dlp...');
-      exec('pip3 install yt-dlp --break-system-packages 2>&1 || pip install yt-dlp 2>&1', (err2) => {
-        if (!err2) { console.log('✅ yt-dlp instalado'); return resolve(true); }
-        exec('curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && chmod +x /usr/local/bin/yt-dlp', (err3) => {
-          console.log(err3 ? '⚠️  yt-dlp falhou: ' + err3.message : '✅ yt-dlp instalado via binário');
-          resolve(!err3);
+      if (!err) {
+        console.log('✅ yt-dlp já está instalado');
+        return resolve(true);
+      }
+      
+      console.log('📦 yt-dlp não encontrado. Instalando via pip3...');
+      exec('pip3 install --upgrade yt-dlp 2>&1', (err2, stdout, stderr) => {
+        if (!err2) {
+          console.log('✅ yt-dlp instalado com sucesso via pip3');
+          return resolve(true);
+        }
+        
+        console.log('⚠️ pip3 falhou, tentando pip...');
+        exec('pip install --upgrade yt-dlp 2>&1', (err3, stdout3, stderr3) => {
+          if (!err3) {
+            console.log('✅ yt-dlp instalado com sucesso via pip');
+            return resolve(true);
+          }
+          
+          console.log('⚠️ pip falhou, tentando instalação via curl (binário)...');
+          exec('curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && chmod +x /usr/local/bin/yt-dlp 2>&1', (err4, stdout4, stderr4) => {
+            if (!err4) {
+              console.log('✅ yt-dlp instalado via binário');
+              return resolve(true);
+            }
+            
+            console.error('❌ Falha crítica: yt-dlp não pôde ser instalado');
+            console.error('Tente instalar manualmente: pip install yt-dlp');
+            resolve(false);
+          });
         });
       });
     });
   });
 }
-ensureYtDlp();
+
+ensureYtDlp().then(ok => {
+  if (!ok) console.error('⚠️ AVISO: yt-dlp não está disponível. A extração de vídeos NÃO funcionará!');
+});
 
 // Extrai URL direta do stream usando yt-dlp
 app.get('/api/extract', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'URL obrigatória' });
+
+  const timeout = setTimeout(() => {
+    if (!res.headersSent) res.status(504).json({ error: 'Timeout ao extrair vídeo' });
+  }, 30000);
+
+  try {
+    const escapedUrl = url.replace(/'/g, "'\\''");
+    const cmd = `yt-dlp --no-playlist -f 'best[ext=mp4]/best' -j '${escapedUrl}' 2>/dev/null`;
+
+    const { exec } = require('child_process');
+    exec(cmd, { timeout: 28000, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+      clearTimeout(timeout);
+      if (res.headersSent) return;
+      
+      if (err) {
+        console.error('[extract] yt-dlp error:', err.message?.slice(0, 300));
+        return res.status(422).json({ error: 'Site não suportado ou vídeo não disponível' });
+      }
+
+      try {
+        const data = JSON.parse(stdout.trim());
+        const title = data.title || 'Vídeo';
+        const thumb = data.thumbnail || '';
+        const streamUrl = data.url || '';
+
+        if (!streamUrl) {
+          return res.status(422).json({ error: 'Nenhuma URL de stream encontrada' });
+        }
+
+        const proxiedStream = `/api/stream?url=${encodeURIComponent(streamUrl)}&origin=${encodeURIComponent(new URL(url).origin)}`;
+        res.json({ ok: true, url: proxiedStream, title, thumb });
+      } catch(parseErr) {
+        console.error('[extract] Parse error:', parseErr.message);
+        res.status(422).json({ error: 'Erro ao processar resposta do yt-dlp' });
+      }
+    });
+  } catch(e) {
+    clearTimeout(timeout);
+    res.status(500).json({ error: 'Erro ao extrair vídeo: ' + e.message });
+  }
+});
 
   const timeout = setTimeout(() => {
     if (!res.headersSent) res.status(504).json({ error: 'Timeout ao extrair vídeo' });
