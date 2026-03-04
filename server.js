@@ -865,7 +865,21 @@ wss.on('connection', (ws) => {
       const member = currentRoom?.members.get(wsId);
       if (member) {
         const measured = now - payload.ts;
-        member.rtt = member.rtt ? Math.round(member.rtt * 0.7 + measured * 0.3) : measured;
+        // Acumula ultimas 5 amostras e usa o menor RTT (filtra spikes de rede)
+        if (!member.rttSamples) member.rttSamples = [];
+        member.rttSamples.push(measured);
+        if (member.rttSamples.length > 5) member.rttSamples.shift();
+        member.rtt = Math.min(...member.rttSamples);
+      }
+    }
+
+    // Cliente reporta sua posicao atual para sync condicional
+    if (type === 'CLIENT_TIME' && currentRoom) {
+      const member = currentRoom.members.get(wsId);
+      if (member) {
+        member.clientTime = payload.currentTime;
+        member.clientTimeAt = Date.now();
+        member.clientPlaying = payload.playing;
       }
     }
 
@@ -1143,14 +1157,49 @@ function generateRoomCode() {
 }
 
 // ─────────────────────────────────────────
-// SYNC HEARTBEAT
+// SYNC HEARTBEAT — condicional por drift
 // ─────────────────────────────────────────
+const SYNC_DRIFT_THRESHOLD = 0.25; // segundos — se maior q isso, manda SYNC_TICK
+const SYNC_FORCE_INTERVAL  = 5000; // ms  — mesmo sem drift, confirma a cada 5s
+
 setInterval(() => {
+  const now = Date.now();
   rooms.forEach(room => {
     if (!room.video || room.members.size < 2) return;
-    room.members.forEach(member => sendStateToMember(room, member, 'SYNC_TICK'));
+    const expectedTime = getProjectedTime(room);
+
+    room.members.forEach((member, id) => {
+      if (member.ws.readyState !== 1) return;
+
+      // Forca sync periodico a cada 5s independente do drift
+      const timeSinceForce = now - (member.lastForcedSync || 0);
+      if (timeSinceForce >= SYNC_FORCE_INTERVAL) {
+        sendStateToMember(room, member, 'SYNC_TICK');
+        member.lastForcedSync = now;
+        return;
+      }
+
+      // Se o cliente ainda nao reportou posicao, manda sync
+      if (member.clientTime == null) {
+        sendStateToMember(room, member, 'SYNC_TICK');
+        return;
+      }
+
+      // Projeta onde o cliente deveria estar agora
+      const clientAge    = (now - member.clientTimeAt) / 1000;
+      const projectedClient = member.clientPlaying
+        ? member.clientTime + clientAge
+        : member.clientTime;
+
+      const drift = Math.abs(projectedClient - expectedTime);
+
+      // So manda SYNC_TICK se o drift superar o threshold
+      if (drift > SYNC_DRIFT_THRESHOLD || member.clientPlaying !== room.playing) {
+        sendStateToMember(room, member, 'SYNC_TICK');
+      }
+    });
   });
-}, 1500);
+}, 500); // checa a cada 500ms — mas so transmite quando necessario
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`WaveWatch running on port ${PORT}`));
