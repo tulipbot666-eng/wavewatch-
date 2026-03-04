@@ -1349,18 +1349,22 @@ app.get('/api/extract', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'URL obrigatória' });
 
-  const cmd = `yt-dlp -f best --print title --print thumbnail --print url "${url}"`;
-  
-  exec(cmd, { timeout: 25000, maxBuffer: 5*1024*1024 }, (err, stdout) => {
-    if (err) return res.status(422).json({ error: 'Erro ao extrair' });
+  try {
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
+    const html = await response.text();
     
-    const lines = stdout.trim().split('\n').filter(l => l.trim());
-    const title = lines[0] || '';
-    const thumb = lines[1] || '';
-    const streamUrl = lines[2] || '';
+    // Procura por MP4 no HTML
+    const mp4Match = html.match(/"([^"]*\.mp4[^"]*)"/);
+    const streamUrl = mp4Match ? mp4Match[1] : null;
     
-    if (!streamUrl) return res.status(422).json({ error: 'Sem URL' });
+    if (!streamUrl) return res.status(422).json({ error: 'Sem vídeo encontrado' });
     
-    res.json({ ok: true, url: streamUrl, title, thumb });
-  });
+    const title = html.match(/<title>([^<]+)<\/title>/)?.[1] || 'Vídeo';
+    
+    res.json({ ok: true, url: streamUrl, title: title.split('|')[0].trim(), thumb: '' });
+  } catch(e) {
+    res.status(422).json({ error: 'Erro ao extrair' });
+  }
 });
