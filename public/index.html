@@ -2694,7 +2694,7 @@ function handle(msg) {
     if(payload.action==='open'){
       ov.classList.add('on','viewer-mode');
       liveBar.style.display='flex';
-      list.innerHTML='<div class="yt-ov-empty"><span style="font-size:2.5rem">▶️</span>Aguardando o host buscar...</div>';
+      list.innerHTML='<div class="yt-ov-empty">Aguardando o host...</div>';
     }
     else if(payload.action==='close'){
       ov.classList.remove('on','viewer-mode');
@@ -3631,16 +3631,29 @@ function openYTOverlay(){
   document.getElementById('yt-ov-live-bar').style.display='none';
   document.getElementById('yt-ov-add-btn').classList.remove('on');
   document.getElementById('yt-ov-sel-preview').style.display='none';
-  document.getElementById('yt-ov-list').innerHTML='<div class="yt-ov-empty"><span style="font-size:2.5rem">▶️</span>Busque um vídeo ou cole um link</div>';
   document.getElementById('yt-ov-inp').value='';
   if(amIHost) send('YT_BROWSE',{action:'open'});
   setTimeout(()=>document.getElementById('yt-ov-inp').focus(),100);
+  if(amIHost) ytOvLoadTrending();
 }
 
 function closeYTOverlay(){
   const ov=document.getElementById('yt-overlay');
   ov.classList.remove('on','viewer-mode');
   if(amIHost) send('YT_BROWSE',{action:'close'});
+}
+
+async function ytOvLoadTrending(){
+  const list=document.getElementById('yt-ov-list');
+  list.innerHTML='<div class="yt-ov-empty" style="height:80px"><span style="font-size:1.2rem;opacity:.5">&#9654;</span> Carregando...</div>';
+  try{
+    const res=await fetch('/api/yt/trending');
+    const data=await res.json();
+    if(data.items&&data.items.length) ytOvRenderList(data.items);
+    else list.innerHTML='<div class="yt-ov-empty">Busque um vídeo no YouTube</div>';
+  }catch(e){
+    list.innerHTML='<div class="yt-ov-empty">Busque um vídeo no YouTube</div>';
+  }
 }
 
 async function ytOvSearch(){
