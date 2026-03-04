@@ -1349,21 +1349,19 @@ app.get('/api/extract', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'URL obrigatória' });
 
-  exec(`yt-dlp -f best -j "${url}"`, { timeout: 25000, maxBuffer: 5*1024*1024 }, (err, stdout) => {
-    if (err) return res.status(422).json({ error: 'Não conseguiu extrair' });
+  const cmd = `yt-dlp -f best --print title --print thumbnail --print url "${url}"`;
+  
+  exec(cmd, { timeout: 25000, maxBuffer: 5*1024*1024 }, (err, stdout) => {
+    if (err) return res.status(422).json({ error: 'Erro ao extrair' });
     
-    try {
-      const data = JSON.parse(stdout.trim());
-      const streamUrl = data.url || data.formats?.[0]?.url || '';
-      const title = data.title || '';
-      const thumb = data.thumbnail || '';
-      
-      if (!streamUrl) return res.status(422).json({ error: 'Sem URL' });
-      
-      const proxiedStream = `/api/stream?url=${encodeURIComponent(streamUrl)}&origin=${encodeURIComponent(new URL(url).origin)}`;
-      res.json({ ok: true, url: proxiedStream, title, thumb });
-    } catch(e) {
-      res.status(422).json({ error: 'Erro' });
-    }
+    const lines = stdout.trim().split('\n').filter(l => l.trim());
+    const title = lines[0] || '';
+    const thumb = lines[1] || '';
+    const streamUrl = lines[2] || '';
+    
+    if (!streamUrl) return res.status(422).json({ error: 'Sem URL' });
+    
+    const proxiedStream = `/api/stream?url=${encodeURIComponent(streamUrl)}&origin=${encodeURIComponent(new URL(url).origin)}`;
+    res.json({ ok: true, url: proxiedStream, title, thumb });
   });
 });
