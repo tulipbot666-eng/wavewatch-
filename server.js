@@ -1043,31 +1043,26 @@ app.get('/api/yt/trending', async (req, res) => {
       })
     });
     const data = await r.json();
-    const tabs = data?.contents?.twoColumnBrowseResultsRenderer?.tabs || [];
     const items = [];
-    for (const tab of tabs) {
-      const sections = tab?.tabRenderer?.content?.sectionListRenderer?.contents || [];
-      for (const section of sections) {
-        const contents = section?.itemSectionRenderer?.contents || [];
-        for (const c of contents) {
-          const shelf = c?.shelfRenderer?.content?.expandedShelfContentsRenderer?.items || [];
-          for (const item of shelf) {
-            const v = item?.videoRenderer;
-            if (!v?.videoId) continue;
-            const title    = v.title?.runs?.[0]?.text || '';
-            const duration = v.lengthText?.simpleText || '';
-            const thumb    = `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
-            const views    = v.viewCountText?.simpleText || '';
-            const published = v.publishedTimeText?.simpleText || '';
-            items.push({ id: v.videoId, title, duration, thumb, views, published });
-            if (items.length >= 20) break;
-          }
-          if (items.length >= 20) break;
-        }
-        if (items.length >= 20) break;
+    // Percorre o JSON recursivamente procurando videoRenderer
+    function extractVideos(obj) {
+      if (!obj || typeof obj !== 'object' || items.length >= 20) return;
+      if (Array.isArray(obj)) { for (const x of obj) extractVideos(x); return; }
+      if (obj.videoRenderer && obj.videoRenderer.videoId) {
+        const v = obj.videoRenderer;
+        items.push({
+          id: v.videoId,
+          title: v.title?.runs?.[0]?.text || '',
+          duration: v.lengthText?.simpleText || '',
+          thumb: 'https://i.ytimg.com/vi/' + v.videoId + '/hqdefault.jpg',
+          views: v.viewCountText?.simpleText || v.shortViewCountText?.simpleText || '',
+          published: v.publishedTimeText?.simpleText || ''
+        });
+        return;
       }
-      if (items.length >= 20) break;
+      for (const val of Object.values(obj)) extractVideos(val);
     }
+    extractVideos(data?.contents);
     res.json({ items });
   } catch (e) {
     console.error('YT trending error:', e.message);
