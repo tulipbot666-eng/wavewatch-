@@ -1026,48 +1026,72 @@ app.get('/api/rooms/public', (req, res) => {
 });
 
 app.get('/api/yt/trending', async (req, res) => {
+  // Helper recursivo — funciona pra qualquer estrutura InnerTube
+  function extractVideos(obj, items, max = 20) {
+    if (!obj || typeof obj !== 'object' || items.length >= max) return;
+    if (Array.isArray(obj)) { for (const x of obj) extractVideos(x, items, max); return; }
+    if (obj.videoRenderer?.videoId) {
+      const v = obj.videoRenderer;
+      items.push({
+        id: v.videoId,
+        title: v.title?.runs?.[0]?.text || '',
+        duration: v.lengthText?.simpleText || '',
+        thumb: 'https://i.ytimg.com/vi/' + v.videoId + '/hqdefault.jpg',
+        views: v.viewCountText?.simpleText || v.shortViewCountText?.simpleText || '',
+        published: v.publishedTimeText?.simpleText || ''
+      });
+      return;
+    }
+    for (const val of Object.values(obj)) extractVideos(val, items, max);
+  }
+
+  const innertube = {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-YouTube-Client-Name': '1',
+      'X-YouTube-Client-Version': '2.20240101.00.00',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0'
+    }
+  };
+
+  // Tenta 1: browse FEtrending WEB
   try {
     const r = await fetch('https://www.youtube.com/youtubei/v1/browse?prettyPrint=false', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-YouTube-Client-Name': '1',
-        'X-YouTube-Client-Version': '2.20240101.00.00',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      },
+      ...innertube,
       body: JSON.stringify({
         browseId: 'FEtrending',
-        context: {
-          client: { clientName: 'WEB', clientVersion: '2.20240101.00.00', hl: 'pt', gl: 'BR' }
-        }
+        context: { client: { clientName: 'WEB', clientVersion: '2.20240101.00.00', hl: 'pt', gl: 'BR' } }
       })
     });
-    const data = await r.json();
-    const items = [];
-    // Percorre o JSON recursivamente procurando videoRenderer
-    function extractVideos(obj) {
-      if (!obj || typeof obj !== 'object' || items.length >= 20) return;
-      if (Array.isArray(obj)) { for (const x of obj) extractVideos(x); return; }
-      if (obj.videoRenderer && obj.videoRenderer.videoId) {
-        const v = obj.videoRenderer;
-        items.push({
-          id: v.videoId,
-          title: v.title?.runs?.[0]?.text || '',
-          duration: v.lengthText?.simpleText || '',
-          thumb: 'https://i.ytimg.com/vi/' + v.videoId + '/hqdefault.jpg',
-          views: v.viewCountText?.simpleText || v.shortViewCountText?.simpleText || '',
-          published: v.publishedTimeText?.simpleText || ''
-        });
-        return;
-      }
-      for (const val of Object.values(obj)) extractVideos(val);
+    if (r.ok) {
+      const data = await r.json();
+      const items = [];
+      extractVideos(data?.contents, items);
+      if (items.length > 0) { console.log('[trending] InnerTube OK:', items.length); return res.json({ items }); }
+      console.log('[trending] InnerTube returned 0 items, trying fallback');
     }
-    extractVideos(data?.contents);
-    res.json({ items });
-  } catch (e) {
-    console.error('YT trending error:', e.message);
-    res.json({ items: [] });
-  }
+  } catch (e) { console.error('[trending] InnerTube error:', e.message); }
+
+  // Fallback: busca por "trending brasil" via search
+  try {
+    const r2 = await fetch('https://www.youtube.com/youtubei/v1/search?prettyPrint=false', {
+      ...innertube,
+      body: JSON.stringify({
+        query: 'trending brasil 2025',
+        context: { client: { clientName: 'WEB', clientVersion: '2.20240101.00.00', hl: 'pt', gl: 'BR' } }
+      })
+    });
+    if (r2.ok) {
+      const data2 = await r2.json();
+      const items2 = [];
+      extractVideos(data2?.contents, items2);
+      console.log('[trending] fallback search:', items2.length);
+      return res.json({ items: items2 });
+    }
+  } catch (e) { console.error('[trending] fallback error:', e.message); }
+
+  res.json({ items: [] });
 });
 
 app.get('/api/yt/search', async (req, res) => {
