@@ -1204,13 +1204,9 @@ app.get('/api/extract', async (req, res) => {
     }
 
     const lines = stdout.trim().split('\n').filter(Boolean);
-    console.log('[extract] lines:', lines.length, lines.map(l => l.slice(0,60)));
-
     const title = lines[0] || '';
     const thumb = lines[1] || '';
-    // URLs: pode ter 1 (combined) ou 2 (video+audio separados)
-    const urls = lines.slice(2).filter(l => l.startsWith('http'));
-    const streamUrl = urls[0] || '';
+    const streamUrl = lines[2] || '';
 
     if (!streamUrl) return res.status(422).json({ error: 'Nenhuma URL de stream encontrada' });
 
