@@ -741,6 +741,29 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
 .src-opt:hover,.src-opt.on{border-color:rgba(255,45,120,.4);color:var(--accent);background:rgba(255,45,120,.06);}
 .src-opt .ico{font-size:1.3rem;display:block;margin-bottom:.2rem;}
 .yt-search-wrap{position:relative;margin-bottom:.8rem;}
+.yt-browser{display:flex;flex-direction:column;gap:0;height:420px;}
+.yt-search-row{display:flex;gap:.5rem;align-items:center;padding:.6rem 0 .5rem;}
+.yt-search-row input{flex:1;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);border-radius:10px;padding:.6rem 1rem;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:.9rem;outline:none;transition:all .2s;}
+.yt-search-row input:focus{border-color:rgba(255,45,120,.5);box-shadow:0 0 0 3px rgba(255,45,120,.07);}
+.yt-search-row button{background:var(--accent);border:none;border-radius:10px;color:#fff;padding:.6rem 1rem;cursor:pointer;font-size:.9rem;font-weight:600;white-space:nowrap;transition:opacity .15s;}
+.yt-search-row button:hover{opacity:.85;}
+.yt-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:.55rem;padding:.3rem 0 .5rem;}
+.yt-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:10px;overflow:hidden;cursor:pointer;transition:all .18s;display:flex;flex-direction:column;}
+.yt-card:hover{border-color:rgba(255,45,120,.45);background:rgba(255,45,120,.06);transform:translateY(-1px);}
+.yt-card.selected{border-color:var(--accent);background:rgba(255,45,120,.1);}
+.yt-card-thumb{position:relative;width:100%;padding-top:56.25%;background:var(--s3);}
+.yt-card-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+.yt-card-dur{position:absolute;bottom:.3rem;right:.3rem;background:rgba(0,0,0,.8);color:#fff;font-size:.6rem;font-family:'JetBrains Mono',monospace;padding:.1rem .3rem;border-radius:4px;}
+.yt-card-info{padding:.45rem .5rem .5rem;}
+.yt-card-title{font-size:.72rem;font-weight:600;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.yt-card-ch{font-size:.62rem;color:var(--sub);margin-top:.2rem;font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.yt-selected-bar{display:none;align-items:center;gap:.6rem;padding:.55rem .7rem;background:rgba(255,45,120,.08);border:1px solid rgba(255,45,120,.25);border-radius:10px;margin-top:.4rem;}
+.yt-selected-bar.on{display:flex;}
+.yt-selected-bar img{width:52px;height:32px;border-radius:5px;object-fit:cover;flex-shrink:0;}
+.yt-selected-bar-info{flex:1;min-width:0;}
+.yt-selected-bar-title{font-size:.78rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.yt-selected-bar-ch{font-size:.65rem;color:var(--sub);font-family:'JetBrains Mono',monospace;}
+.yt-empty{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;padding:2rem;color:var(--sub);font-size:.8rem;font-family:'JetBrains Mono',monospace;}
 .yt-search-inp{width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:11px;padding:.7rem 2.5rem .7rem 1rem;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:.9rem;outline:none;transition:all .2s;}
 .yt-search-inp:focus{border-color:rgba(255,45,120,.5);box-shadow:0 0 0 3px rgba(255,45,120,.07);}
 .yt-search-btn{position:absolute;right:.5rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--sub);padding:.2rem;}
@@ -1565,12 +1588,23 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
       <div class="src-opt" data-s="torrent" onclick="selSrc(this,'torrent')"><span class="ico">🧲</span>Torrent</div>
     </div>
     <div id="yt-section">
-      <div class="yt-search-wrap">
-        <input class="yt-search-inp" id="yt-q" placeholder="Buscar no YouTube ou colar link..." onkeydown="ytSearchKey(event)" oninput="ytUrlPreview(this.value)">
-        <button class="yt-search-btn" onclick="ytSearch()">🔍</button>
+      <div class="yt-browser">
+        <div class="yt-search-row">
+          <input id="yt-q" placeholder="Buscar no YouTube..." onkeydown="if(event.key==='Enter')ytSearch()" oninput="ytUrlPreview(this.value)" autocomplete="off">
+          <button onclick="ytSearch()">🔍 Buscar</button>
+        </div>
+        <div id="yt-grid" class="yt-grid">
+          <div class="yt-empty"><span style="font-size:2rem">▶️</span>Busque um vídeo ou cole um link do YouTube</div>
+        </div>
+        <div class="yt-selected-bar" id="yt-selected-bar">
+          <img id="yt-sel-thumb" src="">
+          <div class="yt-selected-bar-info">
+            <div class="yt-selected-bar-title" id="yt-sel-title"></div>
+            <div class="yt-selected-bar-ch" id="yt-sel-ch"></div>
+          </div>
+          <span style="color:var(--ok);font-size:.8rem;font-weight:700">✓ Selecionado</span>
+        </div>
       </div>
-      <div id="yt-preview-wrap" style="display:none"></div>
-      <div id="yt-results"></div>
     </div>
     <div id="url-section" style="display:none">
       <span class="mlabel" id="url-mlabel">URL do vídeo</span>
@@ -1700,8 +1734,9 @@ function curDur(){if(nativeVid)return nativeVid.duration||0;return 0;}
 
 // Avatar HTML helper — supports both Google photo URL and emoji
 function avatarHTML(user, size=28) {
-  if (user?.avatarUrl) return `<img src="${esc(user.avatarUrl)}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='<span>${esc(user.avatar||'👤')}</span>'">`;
-  return `<span style="font-size:${Math.round(size*0.6)}px">${esc(user?.avatar||'👤')}</span>`;
+  const fallback = esc(user?.avatar || '👤');
+  if (user?.avatarUrl) return `<img src="${esc(user.avatarUrl)}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='<span>${fallback}</span>'">`;
+  return `<span style="font-size:${Math.round(size*0.6)}px">${fallback}</span>`;
 }
 
 // ── AUTH TABS ─────────────────────────────────────────────
@@ -2491,7 +2526,6 @@ function startPing(){
   pingInterval=setInterval(()=>{
     pingTs=Date.now();
     send('PING',{ts:pingTs});
-    // Reporta posicao atual pro servidor para sync condicional
     const ct=curTime();
     if(ct>0||syncPlaying) send('CLIENT_TIME',{currentTime:ct,playing:isPlaying});
   },1000);
@@ -3401,7 +3435,14 @@ function updateLiveLbl(n){$('live-lbl').textContent=(n||1)+' online';}
 
 // ── MODAL ─────────────────────────────────────────────────
 function openAddModal(){$('add-modal').classList.add('on');}
-function closeModal(id){$(id).classList.remove('on');}
+function closeModal(id){
+  $(id).classList.remove('on');
+  if(id==='add-modal'){
+    ytSelectedVideo=null;
+    if($('yt-selected-bar'))$('yt-selected-bar').classList.remove('on');
+    if($('yt-grid'))$('yt-grid').innerHTML='<div class="yt-empty"><span style="font-size:2rem">\u25b6\ufe0f</span>Busque um v\u00eddeo ou cole um link do YouTube</div>';
+  }
+}
 const SRC_LABELS={vimeo:'URL do Vimeo',twitch:'Canal Twitch',direct:'URL do vídeo',proxy:'URL do site'};
 const SRC_PLACEHOLDERS={vimeo:'https://vimeo.com/...',twitch:'nome do canal',direct:'https://exemplo.com/video.mp4',proxy:'https://tokyvideo.com/video/...'};
 
@@ -3486,32 +3527,83 @@ function clearDriveSelection() {
   $('gdrive-url').value = '';
 }
 
+// ── YOUTUBE BROWSER ───────────────────────────────────────
+let ytSelectedVideo = null;
+
 async function ytSearch(){
-  const q=$('yt-q').value.trim();if(!q)return;
-  $('yt-results').innerHTML='<div class="yt-loading"><span class="spin">⏳</span> Buscando...</div>';
-  $('yt-preview-wrap').style.display='none';
+  const q=$('yt-q').value.trim();
+  if(!q)return;
+
+  // Se for link direto do YouTube, seleciona imediatamente
+  const vid=extractYT(q);
+  if(vid){
+    $('yt-grid').innerHTML='<div class="yt-empty"><span class="spin" style="font-size:1.5rem">⏳</span>Carregando...</div>';
+    try{
+      const res=await fetch('/api/yt/info?url='+encodeURIComponent('https://www.youtube.com/watch?v='+vid));
+      const info=await res.json();
+      const item={id:vid,title:info.title||'YouTube',channel:info.author||'',duration:'',thumb:'https://i.ytimg.com/vi/'+vid+'/mqdefault.jpg',views:''};
+      renderYTGrid([item]);
+      selectYTVideo(item);
+    }catch(e){
+      $('yt-grid').innerHTML='<div class="yt-empty">Erro ao carregar vídeo</div>';
+    }
+    return;
+  }
+
+  $('yt-grid').innerHTML='<div class="yt-empty"><span class="spin" style="font-size:1.5rem">⏳</span>Buscando...</div>';
   try{
-    const vid=extractYT(q);
-    if(vid){await loadYTPreview(`https://www.youtube.com/watch?v=${vid}`);$('yt-results').innerHTML='';return;}
-    const res=await fetch(`/api/yt/search?q=${encodeURIComponent(q)}`);
-    const data=await res.json();renderYTSuggestions(data.suggestions||[]);
-  }catch(e){$('yt-results').innerHTML='<div class="yt-loading">Erro na busca</div>';}
+    const res=await fetch('/api/yt/search?q='+encodeURIComponent(q));
+    const data=await res.json();
+    if(!data.items||!data.items.length){
+      $('yt-grid').innerHTML='<div class="yt-empty">Nenhum resultado encontrado</div>';
+      return;
+    }
+    renderYTGrid(data.items);
+  }catch(e){
+    $('yt-grid').innerHTML='<div class="yt-empty">Erro na busca. Tente novamente.</div>';
+  }
 }
-function ytSearchKey(e){if(e.key==='Enter')ytSearch();}
-async function ytUrlPreview(val){const vid=extractYT(val);if(!vid){$('yt-preview-wrap').style.display='none';return;}await loadYTPreview(`https://www.youtube.com/watch?v=${vid}`);}
-async function loadYTPreview(url){
-  if(ytInfoCache[url]){showYTPreview(url,ytInfoCache[url]);return;}
-  try{const res=await fetch(`/api/yt/info?url=${encodeURIComponent(url)}`);if(!res.ok)return;const info=await res.json();ytInfoCache[url]=info;showYTPreview(url,info);}catch(e){}
+
+function renderYTGrid(items){
+  const grid=$('yt-grid');
+  grid.innerHTML='';
+  items.forEach(item=>{
+    const card=document.createElement('div');
+    card.className='yt-card';
+    card.dataset.id=item.id;
+    card.innerHTML=
+      '<div class="yt-card-thumb">'+
+        '<img src="'+esc(item.thumb)+'" loading="lazy" onerror="this.style.display=\'none\'">'+
+        (item.duration?'<span class="yt-card-dur">'+esc(item.duration)+'</span>':'')+
+      '</div>'+
+      '<div class="yt-card-info">'+
+        '<div class="yt-card-title">'+esc(item.title)+'</div>'+
+        '<div class="yt-card-ch">'+esc(item.channel)+'</div>'+
+      '</div>';
+    card.onclick=()=>selectYTVideo(item);
+    grid.appendChild(card);
+  });
 }
-function showYTPreview(url,info){
-  const wrap=$('yt-preview-wrap');wrap.style.display='block';
-  wrap.innerHTML=`<div class="yt-preview"><img src="${esc(info.thumb)}" onerror="this.style.display='none'"><div class="yt-preview-info"><div class="yt-preview-title">${esc(info.title)}</div><div class="yt-preview-ch">${esc(info.author)}</div></div></div>`;
-  wrap._url=url;wrap._info=info;
+
+function selectYTVideo(item){
+  ytSelectedVideo=item;
+  // Marca o card selecionado
+  document.querySelectorAll('.yt-card').forEach(c=>c.classList.remove('selected'));
+  const card=document.querySelector('.yt-card[data-id="'+item.id+'"]');
+  if(card)card.classList.add('selected');
+  // Mostra barra de seleção
+  $('yt-sel-thumb').src=item.thumb;
+  $('yt-sel-title').textContent=item.title;
+  $('yt-sel-ch').textContent=item.channel;
+  $('yt-selected-bar').classList.add('on');
 }
-function renderYTSuggestions(suggestions){
-  if(!suggestions.length){$('yt-results').innerHTML='<div class="yt-loading">Nenhum resultado. Tente colar um link do YouTube.</div>';return;}
-  $('yt-results').innerHTML='';
-  suggestions.forEach(s=>{const d=document.createElement('div');d.className='yt-item';d.innerHTML=`<div style="width:90px;height:56px;border-radius:6px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0">▶️</div><div class="yt-item-info"><div class="yt-item-title">${esc(s)}</div><div class="yt-item-ch">Clique para buscar</div></div>`;d.onclick=()=>{$('yt-q').value=s;ytSearch();};$('yt-results').appendChild(d);});
+
+async function ytUrlPreview(val){
+  const vid=extractYT(val);
+  if(!vid)return;
+  // Não bloqueia o campo enquanto digita
+  ytSelectedVideo=null;
+  $('yt-selected-bar').classList.remove('on');
 }
 
 function dzO(e,on){e.preventDefault();$('dz').classList.toggle('drag',on);}
@@ -3523,12 +3615,15 @@ function merr(m){$('merr').textContent=m;}
 async function addVideo(){
   let video=null;
   if(currentSrc==='youtube'){
-    const previewWrap=$('yt-preview-wrap');let url=$('yt-q').value.trim();
-    if(!url){merr('Cole um link ou busque um vídeo');return;}
-    const vid=extractYT(url);if(!vid){merr('URL do YouTube inválida');return;}
-    url=`https://www.youtube.com/watch?v=${vid}`;
-    const info=ytInfoCache[url]||previewWrap?._info||{};
-    video={src:'youtube',url,title:info.title||`YouTube: ${vid}`,thumb:info.thumb||`https://i.ytimg.com/vi/${vid}/mqdefault.jpg`,author:info.author||''};
+    if(!ytSelectedVideo){
+      // Tenta extrair do campo de busca como fallback
+      const q=$('yt-q').value.trim();
+      const vid=extractYT(q);
+      if(!vid){merr('Selecione um vídeo ou cole um link do YouTube');return;}
+      ytSelectedVideo={id:vid,title:'YouTube: '+vid,thumb:'https://i.ytimg.com/vi/'+vid+'/mqdefault.jpg',channel:''};
+    }
+    const v=ytSelectedVideo;
+    video={src:'youtube',url:'https://www.youtube.com/watch?v='+v.id,title:v.title,thumb:v.thumb,author:v.channel||''};
   }else if(currentSrc==='gdrive'){
     // Priority: picker selection > manual URL
     let fileId=null, title='Vídeo do Drive';
