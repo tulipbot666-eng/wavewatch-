@@ -1170,10 +1170,36 @@ const { exec } = require('child_process');
 
 
 // Proxy de stream — repassa o vídeo/HLS com headers corretos
-app.get('/api/extract', (req, res) => {
+app.get('/api/extract', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'URL obrigatória' });
-  res.json({ ok: true, url, title: url.split('/').pop(), thumb: '' });
+
+  try {
+    // Valida se a URL é acessível e obtém metadados básicos
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+    };
+    const probe = await fetch(url, { method: 'HEAD', headers, redirect: 'follow' });
+    const ct = probe.headers.get('content-type') || '';
+    const isVideo = ct.startsWith('video/') || ct.includes('mpegurl') || ct.includes('octet-stream') || ct.includes('mp4');
+
+    // Extrai título do nome do arquivo na URL
+    const rawName = url.split('/').pop().split('?')[0] || 'Vídeo';
+    const title = decodeURIComponent(rawName).replace(/\.[a-z0-9]{2,5}$/i, '') || 'Vídeo';
+
+    if (!probe.ok) {
+      return res.status(400).json({ error: `URL retornou status ${probe.status}` });
+    }
+
+    // Retorna a URL original — o player vai carregar via /api/stream (proxy)
+    res.json({ ok: true, url, title, thumb: '', contentType: ct, isVideo });
+  } catch (e) {
+    // Se não conseguiu fazer HEAD, tenta mesmo assim (alguns servidores bloqueiam HEAD)
+    const rawName = url.split('/').pop().split('?')[0] || 'Vídeo';
+    const title = decodeURIComponent(rawName).replace(/\.[a-z0-9]{2,5}$/i, '') || 'Vídeo';
+    res.json({ ok: true, url, title, thumb: '' });
+  }
 });
 
 app.get('/api/stream', async (req, res) => {
