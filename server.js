@@ -1167,43 +1167,6 @@ const { exec } = require('child_process');
 
 
 // Extrai URL direta do stream usando yt-dlp
-app.get('/api/extract', async (req, res) => {
-  const { url } = req.query;
-  if (!url) return res.status(400).json({ error: 'URL obrigatória' });
-
-  const timeout = setTimeout(() => {
-    if (!res.headersSent) res.status(504).json({ error: 'Timeout ao extrair vídeo' });
-  }, 25000);
-
-  // --format best garante URL única (sem merge de streams)
-  const safeUrl = url.replace(/"/g, '');
-  const cmd = `yt-dlp --no-playlist --format "best[ext=mp4]/best" --print title --print thumbnail --print urls --no-warnings --socket-timeout 10 "${safeUrl}"`;
-
-  exec(cmd, { timeout: 22000 }, (err, stdout, stderr) => {
-    clearTimeout(timeout);
-    if (res.headersSent) return;
-    if (err) {
-      console.error('[extract] yt-dlp error:', stderr?.slice(0, 300));
-      return res.status(422).json({ error: 'Site não suportado pelo extrator' });
-    }
-
-    const lines = stdout.trim().split('\n').filter(Boolean);
-    console.log('[extract] lines:', lines.length, lines.map(l => l.slice(0,60)));
-
-    const title = lines[0] || '';
-    const thumb = lines[1] || '';
-    // URLs: pode ter 1 (combined) ou 2 (video+audio separados)
-    const urls = lines.slice(2).filter(l => l.startsWith('http'));
-    const streamUrl = urls[0] || '';
-
-    if (!streamUrl) return res.status(422).json({ error: 'Nenhuma URL de stream encontrada' });
-
-    const proxiedStream = `/api/stream?url=${encodeURIComponent(streamUrl)}&origin=${encodeURIComponent(new URL(url).origin)}`;
-    res.json({ ok: true, url: proxiedStream, title, thumb });
-  });
-});
-
-// Proxy de stream — repassa o vídeo/HLS com headers corretos
 app.get('/api/stream', async (req, res) => {
   const { url, origin } = req.query;
   if (!url) return res.status(400).send('URL obrigatória');
@@ -1345,16 +1308,8 @@ app.delete('/api/comments/:id', requireAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
 });
 
-app.get('/api/extract', async (req, res) => {
+app.get('/api/extract', (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'URL obrigatória' });
-
-  exec(`yt-dlp -f best --print url "${url}" 2>/dev/null`, { timeout: 30000 }, (err, stdout) => {
-    const streamUrl = stdout.trim();
-    if (err || !streamUrl) {
-      console.error('[extract] erro:', err?.message);
-      return res.status(422).json({ error: 'Não conseguiu extrair' });
-    }
-    res.json({ ok: true, url: streamUrl, title: 'Vídeo', thumb: '' });
-  });
+  res.json({ ok: true, url, title: 'Vídeo', thumb: '' });
 });
