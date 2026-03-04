@@ -2488,7 +2488,13 @@ function send(type,payload){if(ws&&ws.readyState===1)ws.send(JSON.stringify({typ
 
 function startPing(){
   if(pingInterval)clearInterval(pingInterval);
-  pingInterval=setInterval(()=>{pingTs=Date.now();send('PING',{ts:pingTs});},2000);
+  pingInterval=setInterval(()=>{
+    pingTs=Date.now();
+    send('PING',{ts:pingTs});
+    // Reporta posicao atual pro servidor para sync condicional
+    const ct=curTime();
+    if(ct>0||syncPlaying) send('CLIENT_TIME',{currentTime:ct,playing:isPlaying});
+  },1000);
 }
 
 // ── WS HANDLER ────────────────────────────────────────────
@@ -2549,7 +2555,13 @@ function handle(msg) {
     }
   }
   if(type==='USER_LEFT'){sysMsg(`${payload.user?.avatar||'👤'} ${payload.user?.name||'Alguém'} saiu`);updateLiveLbl(payload.memberCount);}
-  if(type==='PONG'){const m=Date.now()-payload.ts;rtt=Math.round(rtt*0.7+m*0.3);}
+  if(type==='PONG'){
+    const m=Date.now()-payload.ts;
+    if(!window._rttSamples)window._rttSamples=[];
+    window._rttSamples.push(m);
+    if(window._rttSamples.length>5)window._rttSamples.shift();
+    rtt=Math.min(...window._rttSamples);
+  }
   if(type==='CHAT'){renderChatMsg(payload);}
   if(type==='REACTION'){spawnFloat(payload.emoji);}
 
