@@ -1202,33 +1202,35 @@ app.get('/api/extract', async (req, res) => {
 
   const timeout = setTimeout(() => {
     if (!res.headersSent) res.status(504).json({ error: 'Timeout ao extrair vídeo' });
-  }, 25000);
+  }, 30000);
 
-  // --format best garante URL única (sem merge de streams)
-  const safeUrl = url.replace(/"/g, '');
-  const cmd = `yt-dlp --no-playlist --format "best[ext=mp4]/best" --print title --print thumbnail --print urls --no-warnings --socket-timeout 10 "${safeUrl}"`;
+  const cmd = `yt-dlp -f 'best[ext=mp4]/best' -j "${url.replace(/"/g, '\\"')}" 2>/dev/null`;
 
-  exec(cmd, { timeout: 22000 }, (err, stdout, stderr) => {
+  exec(cmd, { timeout: 28000, maxBuffer: 5*1024*1024 }, (err, stdout, stderr) => {
     clearTimeout(timeout);
     if (res.headersSent) return;
+    
     if (err) {
-      console.error('[extract] yt-dlp error:', stderr?.slice(0, 300));
-      return res.status(422).json({ error: 'Site não suportado pelo extrator' });
+      console.error('[extract] yt-dlp error:', err.message);
+      return res.status(422).json({ error: 'Erro ao extrair vídeo' });
     }
 
-    const lines = stdout.trim().split('\n').filter(Boolean);
-    console.log('[extract] lines:', lines.length, lines.map(l => l.slice(0,60)));
+    try {
+      const data = JSON.parse(stdout.trim());
+      const title = data.title || 'Vídeo';
+      const thumb = data.thumbnail || '';
+      const streamUrl = data.url || '';
 
-    const title = lines[0] || '';
-    const thumb = lines[1] || '';
-    // URLs: pode ter 1 (combined) ou 2 (video+audio separados)
-    const urls = lines.slice(2).filter(l => l.startsWith('http'));
-    const streamUrl = urls[0] || '';
+      if (!streamUrl) {
+        return res.status(422).json({ error: 'Sem URL de stream' });
+      }
 
-    if (!streamUrl) return res.status(422).json({ error: 'Nenhuma URL de stream encontrada' });
-
-    const proxiedStream = `/api/stream?url=${encodeURIComponent(streamUrl)}&origin=${encodeURIComponent(new URL(url).origin)}`;
-    res.json({ ok: true, url: proxiedStream, title, thumb });
+      const proxiedStream = `/api/stream?url=${encodeURIComponent(streamUrl)}&origin=${encodeURIComponent(new URL(url).origin)}`;
+      res.json({ ok: true, url: proxiedStream, title, thumb });
+    } catch(e) {
+      console.error('[extract] parse error:', e.message);
+      res.status(422).json({ error: 'Erro ao processar resposta' });
+    }
   });
 });
 
