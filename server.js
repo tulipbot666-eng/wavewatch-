@@ -18,6 +18,10 @@ const wss = new WebSocketServer({ server });
 // ─────────────────────────────────────────
 // DATABASE
 // ─────────────────────────────────────────
+if (!process.env.DATABASE_URL) {
+  console.error('\u274c DATABASE_URL nao definida! Configure no Railway: Settings > Variables.');
+  process.exit(1);
+}
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
@@ -180,6 +184,7 @@ passport.use(new LocalStrategy({ usernameField: 'email' }, async (email, passwor
   } catch(e) { done(e); }
 }));
 
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -209,34 +214,36 @@ passport.use(new GoogleStrategy({
     done(null, user);
   } catch(e) { done(e); }
 }));
+} // end if GOOGLE_CLIENT_ID
 
 // ─────────────────────────────────────────
 // AUTH ROUTES
 // ─────────────────────────────────────────
-app.get('/auth/google',
-  passport.authenticate('google', { scope: ['profile', 'email', 'https://www.googleapis.com/auth/drive.readonly'] })
-);
-
-// Re-auth just to get Drive token (user already logged in)
-app.get('/auth/google/drive',
-  passport.authenticate('google', {
-    scope: ['profile', 'email', 'https://www.googleapis.com/auth/drive.readonly'],
-    accessType: 'offline',
-    prompt: 'consent'
-  })
-);
-
-app.get('/auth/google/callback',
-  passport.authenticate('google', { failureRedirect: '/?error=auth' }),
-  (req, res) => {
-    // Token is stored on req.user._googleAccessToken during strategy
-    // Save it to session so it persists
-    if (req.user._googleAccessToken) {
-      req.session.googleAccessToken = req.user._googleAccessToken;
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  app.get('/auth/google',
+    passport.authenticate('google', { scope: ['profile', 'email', 'https://www.googleapis.com/auth/drive.readonly'] })
+  );
+  app.get('/auth/google/drive',
+    passport.authenticate('google', {
+      scope: ['profile', 'email', 'https://www.googleapis.com/auth/drive.readonly'],
+      accessType: 'offline',
+      prompt: 'consent'
+    })
+  );
+  app.get('/auth/google/callback',
+    passport.authenticate('google', { failureRedirect: '/?error=auth' }),
+    (req, res) => {
+      if (req.user._googleAccessToken) {
+        req.session.googleAccessToken = req.user._googleAccessToken;
+      }
+      res.redirect('/');
     }
-    res.redirect('/');
-  }
-);
+  );
+} else {
+  app.get('/auth/google', (req, res) => res.redirect('/?error=google_not_configured'));
+  app.get('/auth/google/drive', (req, res) => res.redirect('/?error=google_not_configured'));
+  app.get('/auth/google/callback', (req, res) => res.redirect('/?error=google_not_configured'));
+}
 
 app.get('/auth/logout', (req, res) => {
   req.logout(() => res.redirect('/'));
@@ -886,7 +893,7 @@ wss.on('connection', (ws) => {
           [currentUser.dbId, payload.video.url||'', payload.video.title||'', payload.video.thumb||'', payload.video.src||'']
         ).catch(()=>{});
       }
-      // Adiciona ao histórico da sala
+      // Adiciona ao historico da sala
       if (payload.video) {
         currentRoom.history.unshift({
           url: payload.video.url || '',
@@ -1076,8 +1083,7 @@ app.get('/api/extract', async (req, res) => {
     if (res.headersSent) return;
     if (err) return res.status(422).json({ error: 'Site não suportado pelo extrator' });
 
-    const lines = stdout.trim().split('
-').filter(Boolean);
+    const lines = stdout.trim().split('\n').filter(Boolean);
     if (!lines.length) return res.status(422).json({ error: 'Nenhuma URL encontrada' });
 
     let title = '', thumb = '', streamUrl = '';
