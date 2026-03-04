@@ -1361,7 +1361,6 @@ app.get('/api/extract', async (req, res) => {
     
     if (!streamUrl) return res.status(422).json({ error: 'Sem URL' });
     
-    const proxiedStream = `/api/stream?url=${encodeURIComponent(streamUrl)}&origin=${encodeURIComponent(new URL(url).origin)}`;
-    res.json({ ok: true, url: proxiedStream, title, thumb });
+    res.json({ ok: true, url: streamUrl, title, thumb });
   });
 });
