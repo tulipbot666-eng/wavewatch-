@@ -1061,12 +1061,15 @@ app.get('/api/yt/search', async (req, res) => {
     for (const c of contents) {
       const v = c.videoRenderer;
       if (!v || !v.videoId) continue;
-      const title  = v.title?.runs?.[0]?.text || '';
-      const channel = v.ownerText?.runs?.[0]?.text || v.longBylineText?.runs?.[0]?.text || '';
+      const title    = v.title?.runs?.[0]?.text || '';
+      const channel  = v.ownerText?.runs?.[0]?.text || v.longBylineText?.runs?.[0]?.text || '';
       const duration = v.lengthText?.simpleText || '';
-      const thumb  = `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`;
-      const views  = v.viewCountText?.simpleText || '';
-      items.push({ id: v.videoId, title, channel, duration, thumb, views });
+      const thumb    = `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
+      const views    = v.viewCountText?.simpleText || v.shortViewCountText?.simpleText || '';
+      const published = v.publishedTimeText?.simpleText || '';
+      const channelAvatar = v.channelThumbnailSupportedRenderers
+        ?.channelThumbnailWithLinkRenderer?.thumbnail?.thumbnails?.[0]?.url || '';
+      items.push({ id: v.videoId, title, channel, duration, thumb, views, published, channelAvatar });
       if (items.length >= 12) break;
     }
 
