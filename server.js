@@ -1200,7 +1200,8 @@ app.get('/api/extract', async (req, res) => {
     clearTimeout(timeout);
     if (res.headersSent) return;
     if (err) {
-      console.error('[extract] yt-dlp error:', stderr?.slice(0, 300));
+      console.error('[extract] yt-dlp stderr:', stderr?.slice(0, 500));
+      console.error('[extract] yt-dlp err:', err.message);
       return res.status(422).json({ error: 'Site não suportado pelo extrator' });
     }
 
