@@ -1349,22 +1349,12 @@ app.get('/api/extract', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'URL obrigatória' });
 
-  try {
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-    const html = await response.text();
-    
-    // Procura por MP4 no HTML
-    const mp4Match = html.match(/"([^"]*\.mp4[^"]*)"/);
-    const streamUrl = mp4Match ? mp4Match[1] : null;
-    
-    if (!streamUrl) return res.status(422).json({ error: 'Sem vídeo encontrado' });
-    
-    const title = html.match(/<title>([^<]+)<\/title>/)?.[1] || 'Vídeo';
-    
-    res.json({ ok: true, url: streamUrl, title: title.split('|')[0].trim(), thumb: '' });
-  } catch(e) {
-    res.status(422).json({ error: 'Erro ao extrair' });
-  }
+  exec(`yt-dlp -f best --print url "${url}" 2>/dev/null`, { timeout: 30000 }, (err, stdout) => {
+    const streamUrl = stdout.trim();
+    if (err || !streamUrl) {
+      console.error('[extract] erro:', err?.message);
+      return res.status(422).json({ error: 'Não conseguiu extrair' });
+    }
+    res.json({ ok: true, url: streamUrl, title: 'Vídeo', thumb: '' });
+  });
 });
