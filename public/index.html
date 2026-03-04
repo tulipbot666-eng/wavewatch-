@@ -763,7 +763,7 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
 .yt-ov-sel-info{flex:1;min-width:0;}
 .yt-ov-sel-title{font-size:.78rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;}
 .yt-ov-sel-ch{font-size:.68rem;color:#aaa;margin-top:.1rem;}
-.yt-ov-list{flex:1;overflow-y:auto;padding:.75rem .6rem 5rem;background:#0f0f0f;display:grid;grid-template-columns:1fr 1fr;gap:.85rem .5rem;align-content:start;}
+.yt-ov-list{flex:1;overflow-y:auto;padding:.75rem .6rem .75rem;background:#0f0f0f;display:grid;grid-template-columns:1fr 1fr;gap:.85rem .5rem;align-content:start;}
 .yt-ov-list::-webkit-scrollbar{width:8px;}
 .yt-ov-list::-webkit-scrollbar-track{background:#0f0f0f;}
 .yt-ov-list::-webkit-scrollbar-thumb{background:#3f3f3f;border-radius:4px;}
@@ -776,13 +776,9 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
 .yt-ov-dur{position:absolute;bottom:.25rem;right:.3rem;background:rgba(0,0,0,.9);color:#fff;font-size:.68rem;font-weight:500;padding:.1rem .3rem;border-radius:2px;}
 .yt-ov-title{font-size:.78rem;font-weight:500;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#fff;}
 .yt-ov-meta{font-size:.68rem;color:#aaa;}
-.yt-ov-add-btn{position:absolute;bottom:0;left:0;right:0;padding:.65rem .75rem .8rem;background:linear-gradient(transparent,#0f0f0f 35%);display:none;}
-.yt-ov-add-btn.on{display:block;}
-.yt-ov-add-btn button{width:100%;padding:.6rem;background:#ff0000;border:none;border-radius:2px;color:#fff;font-size:.88rem;font-weight:500;cursor:pointer;font-family:'Roboto',sans-serif;transition:background .15s;}
-.yt-ov-add-btn button:hover{background:#cc0000;}
+
 #yt-overlay.viewer-mode .yt-ov-searchbox{opacity:.45;pointer-events:none;}
 #yt-overlay.viewer-mode .yt-ov-back{display:none;}
-#yt-overlay.viewer-mode .yt-ov-add-btn{display:none!important;}
 .yt-search-inp{width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:11px;padding:.7rem 2.5rem .7rem 1rem;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:.9rem;outline:none;transition:all .2s;}
 .yt-search-inp:focus{border-color:rgba(255,45,120,.5);box-shadow:0 0 0 3px rgba(255,45,120,.07);}
 .yt-search-btn{position:absolute;right:.5rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;color:var(--sub);padding:.2rem;}
@@ -1611,6 +1607,13 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
         <svg viewBox="0 0 90 20" width="72" height="16"><path fill="#ff0000" d="M27.9 3.5a3.5 3.5 0 00-2.5-2.5C23.2.5 14.5.5 14.5.5s-8.7 0-10.9.6A3.5 3.5 0 001.1 3.5C.5 5.7.5 10 .5 10s0 4.3.6 6.5a3.5 3.5 0 002.5 2.5C5.8 19.5 14.5 19.5 14.5 19.5s8.7 0 10.9-.5a3.5 3.5 0 002.5-2.5c.6-2.2.6-6.5.6-6.5s0-4.3-.6-6.5z"/><path fill="#fff" d="M11.5 14.5l7-4.5-7-4.5v9z"/><path fill="#fff" d="M37 15.6c-.5-.3-.8-.8-1-1.5-.2-.7-.3-1.6-.3-2.8v-1.6c0-1.2.1-2.2.4-2.9.2-.7.6-1.2 1.1-1.5s1.2-.5 2-.5c.8 0 1.4.2 1.9.5.5.3.9.8 1.1 1.5.2.7.4 1.7.4 2.9v1.6c0 1.2-.1 2.1-.3 2.8-.2.7-.6 1.2-1.1 1.5-.5.3-1.2.5-2 .5-.9 0-1.6-.2-2.2-.5zm3-.9c.2-.4.4-1.3.4-2.6v-3c0-1.3-.1-2.1-.4-2.6-.2-.4-.6-.7-1.1-.7s-.8.2-1.1.7c-.2.4-.4 1.3-.4 2.6v3c0 1.3.1 2.2.4 2.6.2.4.6.6 1.1.6s.9-.2 1.1-.6zM61.3 5v11h-1.4l-.2-1.4c-.3.5-.7.9-1.1 1.2-.5.3-1 .4-1.5.4-.8 0-1.4-.3-1.7-.8-.3-.5-.5-1.4-.5-2.5V5h1.8v7.5c0 .7.1 1.2.2 1.5.2.3.4.4.8.4.4 0 .7-.1 1-.3.3-.2.6-.5.7-.8V5h1.9zM53.2 1.9h-1.8v14.1h-1.8V1.9H47.8V.4h5.4v1.5zM45.2 5.4c-.4-.3-.9-.4-1.6-.4-.6 0-1.1.2-1.5.5-.4.3-.8.8-1 1.4V5h-1.8v11h1.8V8.7c.2-.6.4-1 .7-1.3.3-.3.7-.5 1.2-.5.4 0 .7.1.9.3.2.2.3.6.3 1.1V16h1.8V8.2c0-.9-.1-1.6-.3-2.1-.2-.4-.5-.7-.9-.7h.4zM71 11.7c0 1.4-.1 2.4-.4 3-.5 1.1-1.4 1.6-2.6 1.6-.6 0-1.1-.2-1.5-.5-.5-.3-.8-.8-1-1.3l-.1 1.5h-1.7V.4h1.8v5.7c.2-.5.6-.9 1-1.2.4-.3.9-.5 1.4-.5 1.2 0 2 .5 2.5 1.5.4.8.6 2.1.6 3.8zm-1.8.3V11c0-1.2-.1-2-.4-2.5-.3-.5-.7-.7-1.3-.7-.4 0-.8.1-1.1.3-.3.2-.5.5-.7.9v4.5c.2.4.5.8.8 1 .3.2.7.4 1.1.4.6 0 1-.3 1.3-.8.2-.5.3-1.2.3-2.1zM82.7 11.7h-5.4c0 1 .2 1.8.5 2.3.4.6.9.8 1.7.8.5 0 1-.1 1.3-.4.4-.3.6-.7.7-1.2l1.1.7c-.3.7-.7 1.2-1.3 1.6-.6.4-1.3.6-2 .6-1.2 0-2.1-.4-2.7-1.3-.6-.9-.9-2.1-.9-3.7v-1.5c0-1.6.3-2.8.9-3.7.6-.9 1.5-1.3 2.6-1.3 1.1 0 2 .4 2.5 1.3.5.9.8 2.1.8 3.8l.2 1zm-1.8-1.4c0-1-.1-1.7-.4-2.2-.3-.5-.7-.7-1.3-.7-.6 0-1 .2-1.3.7-.3.5-.5 1.2-.5 2.2h3.5z"/></svg>
       </div>
     </div>
+    <div style="display:flex;align-items:center;gap:.4rem;padding:.45rem .75rem;border-bottom:1px solid #1f1f1f;flex-shrink:0;background:#0f0f0f;">
+      <input id="yt-ov-url" placeholder="Cole qualquer link de vídeo..." autocomplete="off"
+        style="flex:1;background:#1a1a1a;border:1px solid #303030;border-radius:2px;color:#fff;font-size:.78rem;padding:.38rem .6rem;outline:none;font-family:'Roboto',sans-serif;min-width:0;"
+        onkeydown="if(event.key==='Enter')ytOvAddUrl()"
+        onfocus="this.style.borderColor='#1c62b9'" onblur="this.style.borderColor='#303030'">
+      <button onclick="ytOvAddUrl()" style="background:#272727;border:1px solid #303030;color:#aaa;border-radius:2px;padding:.38rem .7rem;cursor:pointer;font-size:.75rem;white-space:nowrap;transition:background .15s;" onmouseover="this.style.background='#3f3f3f'" onmouseout="this.style.background='#272727'">▶ Rodar</button>
+    </div>
     <div id="yt-ov-live-bar" class="yt-ov-live-bar" style="display:none">
       <div class="yt-ov-live-dot"></div>
       <span id="yt-ov-live-txt">Host navegando ao vivo</span>
@@ -1629,9 +1632,7 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
         <span>Busque um vídeo no YouTube</span>
       </div>
     </div>
-    <div class="yt-ov-add-btn" id="yt-ov-add-btn">
-      <button onclick="ytOvConfirm()">Adicionar à sala</button>
-    </div>
+
   </div>
 </div>
 
@@ -3643,6 +3644,48 @@ function closeYTOverlay(){
   if(amIHost) send('YT_BROWSE',{action:'close'});
 }
 
+async function ytOvAddUrl(){
+  const url=document.getElementById('yt-ov-url').value.trim();
+  if(!url)return;
+
+  const vid=extractYT(url);
+  if(vid){
+    // Link do YouTube — usa iframe player normal
+    const ytUrl='https://www.youtube.com/watch?v='+vid;
+    try{
+      const res=await fetch('/api/yt/info?url='+encodeURIComponent(ytUrl));
+      const info=await res.json();
+      const video={src:'youtube',url:ytUrl,title:info.title||'YouTube',thumb:info.thumb||'https://i.ytimg.com/vi/'+vid+'/hqdefault.jpg',author:info.author||''};
+      closeYTOverlay();closeModal('add-modal');
+      localQueue.push(video);send('QUEUE_UPDATE',{queue:localQueue.filter(q=>q.src!=='local')});
+      renderQueue(localQueue);loadVideo(video,true);
+    }catch(e){
+      const video={src:'youtube',url:ytUrl,title:'YouTube',thumb:'https://i.ytimg.com/vi/'+vid+'/hqdefault.jpg'};
+      closeYTOverlay();closeModal('add-modal');
+      localQueue.push(video);send('QUEUE_UPDATE',{queue:localQueue.filter(q=>q.src!=='local')});
+      renderQueue(localQueue);loadVideo(video,true);
+    }
+  } else {
+    // Qualquer outro link — extrai stream via yt-dlp no servidor
+    const btn=document.querySelector('#yt-ov-panel button[onclick="ytOvAddUrl()"]');
+    if(btn){btn.textContent='\u23f3';btn.disabled=true;}
+    try{
+      const res=await fetch('/api/extract?url='+encodeURIComponent(url));
+      const data=await res.json();
+      if(!data.url){toast('N\u00e3o foi poss\u00edvel extrair o v\u00eddeo');if(btn){btn.textContent='\u25b6 Rodar';btn.disabled=false;}return;}
+      const video={src:'direct',url:data.url,title:data.title||url.split('/').pop().split('?')[0]||'V\u00eddeo',thumb:data.thumb||''};
+      closeYTOverlay();closeModal('add-modal');
+      localQueue.push(video);send('QUEUE_UPDATE',{queue:localQueue.filter(q=>q.src!=='local')});
+      renderQueue(localQueue);loadVideo(video,true);
+    }catch(e){
+      toast('Erro ao extrair: '+e.message);
+    }finally{
+      if(btn){btn.textContent='\u25b6 Rodar';btn.disabled=false;}
+    }
+  }
+  document.getElementById('yt-ov-url').value='';
+}
+
 async function ytOvLoadTrending(){
   const list=document.getElementById('yt-ov-list');
   list.innerHTML='<div class="yt-ov-empty" style="height:80px"><span style="font-size:1.2rem;opacity:.5">&#9654;</span> Carregando...</div>';
@@ -3707,32 +3750,26 @@ function ytOvRenderList(items){
 
 function ytOvSelect(item, fromBroadcast){
   ytSelectedVideo=item;
+  // Destaca card brevemente e adiciona
   document.querySelectorAll('.yt-ov-item').forEach(r=>r.classList.remove('selected'));
   const row=document.querySelector('.yt-ov-item[data-id="'+item.id+'"]');
-  if(row){ row.classList.add('selected'); row.scrollIntoView({block:'nearest'}); }
-  document.getElementById('yt-ov-sel-img').src=item.thumb;
-  document.getElementById('yt-ov-sel-title').textContent=item.title;
-  document.getElementById('yt-ov-sel-preview').style.display='flex';
-  document.getElementById('yt-ov-add-btn').classList.add('on');
+  if(row) row.classList.add('selected');
   if(amIHost && !fromBroadcast) send('YT_BROWSE',{action:'select',item});
+  // Viewer só destaca, host já adiciona
+  if(!fromBroadcast) ytOvConfirm();
 }
 
 function ytOvConfirm(){
   if(!ytSelectedVideo)return;
   const v=ytSelectedVideo;
-  // Mostra selecionado no modal principal
-  document.getElementById('yt-sel-thumb').src=v.thumb;
-  document.getElementById('yt-sel-title').textContent=v.title;
-  document.getElementById('yt-sel-ch').textContent=v.channel;
-  document.getElementById('yt-selected-bar').style.display='flex';
   closeYTOverlay();
-  // Adiciona direto à sala
+  closeModal('add-modal');
   const video={src:'youtube',url:'https://www.youtube.com/watch?v='+v.id,title:v.title,thumb:v.thumb,author:v.channel||''};
   localQueue.push(video);
   send('QUEUE_UPDATE',{queue:localQueue.filter(q=>q.src!=='local')});
   renderQueue(localQueue);
   loadVideo(video,true);
-  closeModal('add-modal');
+  ytSelectedVideo=null;
 }
 
 async function ytSearch(){ ytOvSearch(); }
