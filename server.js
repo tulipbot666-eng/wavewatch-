@@ -1168,14 +1168,13 @@ const { exec } = require('child_process');
 async function ensureYtDlp() {
   return new Promise((resolve) => {
     exec('yt-dlp --version', (err) => {
-      if (!err) { console.log('✅ yt-dlp instalado'); return resolve(true); }
+      if (!err) return resolve(true);
       console.log('📦 Instalando yt-dlp...');
-      exec('pip install yt-dlp', (err2) => {
+      exec('pip3 install yt-dlp --break-system-packages 2>&1 || pip install yt-dlp 2>&1', (err2) => {
         if (!err2) { console.log('✅ yt-dlp instalado'); return resolve(true); }
-        exec('pip3 install yt-dlp', (err3) => {
-          if (!err3) { console.log('✅ yt-dlp instalado'); return resolve(true); }
-          console.error('❌ yt-dlp falhou ao instalar');
-          resolve(false);
+        exec('curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && chmod +x /usr/local/bin/yt-dlp', (err3) => {
+          console.log(err3 ? '⚠️  yt-dlp falhou: ' + err3.message : '✅ yt-dlp instalado via binário');
+          resolve(!err3);
         });
       });
     });
@@ -1200,8 +1199,7 @@ app.get('/api/extract', async (req, res) => {
     clearTimeout(timeout);
     if (res.headersSent) return;
     if (err) {
-      console.error('[extract] yt-dlp stderr:', stderr?.slice(0, 500));
-      console.error('[extract] yt-dlp err:', err.message);
+      console.error('[extract] yt-dlp error:', stderr?.slice(0, 300));
       return res.status(422).json({ error: 'Site não suportado pelo extrator' });
     }
 
@@ -1361,4 +1359,11 @@ app.delete('/api/comments/:id', requireAuth, async (req, res) => {
     await pool.query('DELETE FROM post_comments WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
+});
+
+// Endpoint para aceitar stream URL direta (sem yt-dlp)
+app.post('/api/load-video', async (req, res) => {
+  const { streamUrl, title, thumbnail } = req.body;
+  if (!streamUrl) return res.status(400).json({ error: 'URL do stream obrigatória' });
+  res.json({ ok: true, url: streamUrl, title: title || 'Vídeo', thumb: thumbnail || '' });
 });
