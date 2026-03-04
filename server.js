@@ -865,7 +865,6 @@ wss.on('connection', (ws) => {
       const member = currentRoom?.members.get(wsId);
       if (member) {
         const measured = now - payload.ts;
-        // Acumula ultimas 5 amostras e usa o menor RTT (filtra spikes de rede)
         if (!member.rttSamples) member.rttSamples = [];
         member.rttSamples.push(measured);
         if (member.rttSamples.length > 5) member.rttSamples.shift();
@@ -873,7 +872,6 @@ wss.on('connection', (ws) => {
       }
     }
 
-    // Cliente reporta sua posicao atual para sync condicional
     if (type === 'CLIENT_TIME' && currentRoom) {
       const member = currentRoom.members.get(wsId);
       if (member) {
@@ -907,7 +905,6 @@ wss.on('connection', (ws) => {
           [currentUser.dbId, payload.video.url||'', payload.video.title||'', payload.video.thumb||'', payload.video.src||'']
         ).catch(()=>{});
       }
-      // Adiciona ao historico da sala
       if (payload.video) {
         currentRoom.history.unshift({
           url: payload.video.url || '',
@@ -1032,12 +1029,52 @@ app.get('/api/yt/search', async (req, res) => {
   const q = req.query.q;
   if (!q) return res.json({ items: [] });
   try {
-    const url = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(q)}&callback=f`;
-    const r = await fetch(url);
-    const text = await r.text();
-    const json = JSON.parse(text.slice(2, -1));
-    res.json({ suggestions: (json[1] || []).slice(0, 8).map(s => s[0]) });
-  } catch (e) { res.json({ suggestions: [] }); }
+    // InnerTube API — retorna resultados reais com thumbnail, titulo, canal, duracao
+    const r = await fetch('https://www.youtube.com/youtubei/v1/search?prettyPrint=false', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-YouTube-Client-Name': '1',
+        'X-YouTube-Client-Version': '2.20240101.00.00',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      body: JSON.stringify({
+        query: q,
+        context: {
+          client: {
+            clientName: 'WEB',
+            clientVersion: '2.20240101.00.00',
+            hl: 'pt',
+            gl: 'BR'
+          }
+        }
+      })
+    });
+    const data = await r.json();
+
+    const contents =
+      data?.contents?.twoColumnSearchResultsRenderer?.primaryContents
+           ?.sectionListRenderer?.contents?.[0]
+           ?.itemSectionRenderer?.contents || [];
+
+    const items = [];
+    for (const c of contents) {
+      const v = c.videoRenderer;
+      if (!v || !v.videoId) continue;
+      const title  = v.title?.runs?.[0]?.text || '';
+      const channel = v.ownerText?.runs?.[0]?.text || v.longBylineText?.runs?.[0]?.text || '';
+      const duration = v.lengthText?.simpleText || '';
+      const thumb  = `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`;
+      const views  = v.viewCountText?.simpleText || '';
+      items.push({ id: v.videoId, title, channel, duration, thumb, views });
+      if (items.length >= 12) break;
+    }
+
+    res.json({ items });
+  } catch (e) {
+    console.error('YT search error:', e.message);
+    res.json({ items: [] });
+  }
 });
 
 app.get('/api/yt/info', async (req, res) => {
@@ -1159,47 +1196,32 @@ function generateRoomCode() {
 // ─────────────────────────────────────────
 // SYNC HEARTBEAT — condicional por drift
 // ─────────────────────────────────────────
-const SYNC_DRIFT_THRESHOLD = 0.25; // segundos — se maior q isso, manda SYNC_TICK
-const SYNC_FORCE_INTERVAL  = 5000; // ms  — mesmo sem drift, confirma a cada 5s
+const SYNC_DRIFT_THRESHOLD = 0.25;
+const SYNC_FORCE_INTERVAL  = 5000;
 
 setInterval(() => {
   const now = Date.now();
   rooms.forEach(room => {
     if (!room.video || room.members.size < 2) return;
     const expectedTime = getProjectedTime(room);
-
-    room.members.forEach((member, id) => {
+    room.members.forEach((member) => {
       if (member.ws.readyState !== 1) return;
-
-      // Forca sync periodico a cada 5s independente do drift
       const timeSinceForce = now - (member.lastForcedSync || 0);
       if (timeSinceForce >= SYNC_FORCE_INTERVAL) {
         sendStateToMember(room, member, 'SYNC_TICK');
         member.lastForcedSync = now;
         return;
       }
-
-      // Se o cliente ainda nao reportou posicao, manda sync
-      if (member.clientTime == null) {
-        sendStateToMember(room, member, 'SYNC_TICK');
-        return;
-      }
-
-      // Projeta onde o cliente deveria estar agora
-      const clientAge    = (now - member.clientTimeAt) / 1000;
-      const projectedClient = member.clientPlaying
-        ? member.clientTime + clientAge
-        : member.clientTime;
-
+      if (member.clientTime == null) { sendStateToMember(room, member, 'SYNC_TICK'); return; }
+      const clientAge = (now - member.clientTimeAt) / 1000;
+      const projectedClient = member.clientPlaying ? member.clientTime + clientAge : member.clientTime;
       const drift = Math.abs(projectedClient - expectedTime);
-
-      // So manda SYNC_TICK se o drift superar o threshold
       if (drift > SYNC_DRIFT_THRESHOLD || member.clientPlaying !== room.playing) {
         sendStateToMember(room, member, 'SYNC_TICK');
       }
     });
   });
-}, 500); // checa a cada 500ms — mas so transmite quando necessario
+}, 500);
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`WaveWatch running on port ${PORT}`));
