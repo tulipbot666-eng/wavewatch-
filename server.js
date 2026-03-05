@@ -144,6 +144,23 @@ initDB().catch(console.error);
 // ─────────────────────────────────────────
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+
+// ── CSP: permite scripts/media necessários sem unsafe-eval ──
+app.use((req, res, next) => {
+  res.setHeader('Content-Security-Policy',
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.youtube.com https://s.ytimg.com; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
+    "font-src 'self' https://fonts.gstatic.com; " +
+    "frame-src https://www.youtube.com https://player.vimeo.com https://player.twitch.tv https://www.twitch.tv; " +
+    "media-src 'self' blob: data: *; " +
+    "img-src 'self' blob: data: *; " +
+    "connect-src 'self' wss: https:; " +
+    "worker-src 'self' blob:;"
+  );
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.set('trust proxy', 1); // necessário para cookies seguros atrás do proxy do Render
