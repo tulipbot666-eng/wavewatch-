@@ -3029,57 +3029,65 @@ function _loadDirectVideo(wrap, url) {
     if(d > 0) { $('prog-fill').style.width=(t/d*100)+'%'; $('tlbl-cur').textContent=fmt(t); $('tlbl-dur').textContent=fmt(d); }
   });
 
+  // Se a URL vier de yt-dlp (tem token que expira), re-extrai na hora
   function onReady() {
     const t = expectedNow();
     if(t > 0.5) { isSyncing=true; videoEl.currentTime=t; isSyncing=false; }
     if(syncPlaying) videoEl.play().catch(()=>{});
   }
 
-  const isHLS = url.includes('.m3u8') || url.includes('m3u8') || url.includes('hls');
+  // Re-extrai URL se tiver token que expira (secure=, token=, expires= etc)
+  async function getFreshUrl(sourceUrl) {
+    const hasToken = /[?&](secure|token|expires|sig|signature|auth)=/i.test(sourceUrl);
+    if (!hasToken) return sourceUrl;
+    try {
+      const r = await fetch(`/api/extract?url=${encodeURIComponent(sourceUrl)}`);
+      const info = await r.json();
+      if (info.ok && info.url) return info.url;
+    } catch(e) {}
+    return sourceUrl;
+  }
 
-  function doLoad() {
+  function doLoad(streamUrl) {
+    const isHLS = streamUrl.includes('.m3u8') || streamUrl.includes('m3u8') || streamUrl.includes('hls');
+
     if (isHLS && typeof Hls !== 'undefined' && Hls.isSupported()) {
-      // HLS via hls.js — faz proxy de cada segmento automaticamente
       const hls = new Hls({
-        xhrSetup: (xhr, segUrl) => {
-          // Redireciona cada segmento pelo proxy para evitar CORS
-          xhr.open('GET', `/api/stream?url=${encodeURIComponent(segUrl)}`);
-        },
         loader: class extends Hls.DefaultConfig.loader {
           load(ctx, config, callbacks) {
-            // Proxy a URL do manifest e dos segmentos
             ctx.url = `/api/stream?url=${encodeURIComponent(ctx.url)}`;
             super.load(ctx, config, callbacks);
           }
         }
       });
-      hls.loadSource(url); // hls.js busca via loader acima (já proxiado)
+      hls.loadSource(streamUrl);
       hls.attachMedia(videoEl);
       hls.on(Hls.Events.MANIFEST_PARSED, onReady);
       hls.on(Hls.Events.ERROR, (e, data) => {
         if (data.fatal) toast('Erro no stream HLS ⚠️');
       });
     } else if (isHLS && videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-      // Safari suporta HLS nativo
-      videoEl.src = url;
+      videoEl.src = streamUrl;
       videoEl.addEventListener('canplay', onReady, {once: true});
     } else {
-      // MP4 / WebM / outros — proxy direto
-      videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`;
+      videoEl.src = `/api/stream?url=${encodeURIComponent(streamUrl)}`;
       videoEl.addEventListener('canplay', onReady, {once: true});
     }
   }
 
-  // Carrega hls.js dinamicamente se necessário
-  if (isHLS && typeof Hls === 'undefined') {
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js';
-    s.onload = doLoad;
-    s.onerror = () => { videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`; videoEl.addEventListener('canplay', onReady, {once: true}); };
-    document.head.appendChild(s);
-  } else {
-    doLoad();
-  }
+  // Obtém URL fresca e carrega, carregando hls.js se necessário
+  getFreshUrl(url).then(streamUrl => {
+    const needsHls = (streamUrl.includes('.m3u8') || streamUrl.includes('hls')) && typeof Hls === 'undefined';
+    if (needsHls) {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js';
+      s.onload = () => doLoad(streamUrl);
+      s.onerror = () => { videoEl.src = `/api/stream?url=${encodeURIComponent(streamUrl)}`; videoEl.addEventListener('canplay', onReady, {once: true}); };
+      document.head.appendChild(s);
+    } else {
+      doLoad(streamUrl);
+    }
+  });
 
   videoEl.addEventListener('error', async () => {
     try {
