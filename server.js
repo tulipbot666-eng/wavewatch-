@@ -164,6 +164,23 @@ app.use((req, res, next) => {
   next();
 });
 
+// Serve index.html explicitamente para garantir nossos headers CSP
+app.get('/', (req, res) => {
+  res.removeHeader('Content-Security-Policy');
+  res.removeHeader('X-Content-Security-Policy');
+  res.setHeader('Content-Security-Policy',
+    "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; " +
+    "script-src * 'unsafe-inline' 'unsafe-eval' data: blob:; " +
+    "connect-src * data: blob: wss:; " +
+    "img-src * data: blob:; " +
+    "media-src * data: blob:; " +
+    "font-src * data:; " +
+    "frame-src *; " +
+    "worker-src * blob:;"
+  );
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.set('trust proxy', 1); // necessário para cookies seguros atrás do proxy do Render
