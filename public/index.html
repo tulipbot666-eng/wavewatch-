@@ -2837,11 +2837,13 @@ function loadVideo(video,doBroadcast){
   } else {
     const ext=src==='local'?'LOCAL':(url.split('.').pop().split('?')[0].toUpperCase().substring(0,4)||'VID');
     $('src-badge').textContent=ext;
-    // URLs diretas passam pelo proxy para evitar erro de CORS
-    // A URL original é passada como hintUrl para detecção correta do tipo
-    const loadUrl = src==='direct' ? `/api/stream?url=${encodeURIComponent(url)}` : url;
-    _loadVjs(wrap, loadUrl, null, null, src==='direct' ? url : null);
-    $('ctrl').style.display='none';
+    if(src==='direct'){
+      _loadDirect(wrap, url);
+      $('ctrl').style.display='flex';
+    } else {
+      _loadVjs(wrap, url);
+      $('ctrl').style.display='none';
+    }
   }
   if(doBroadcast)send('VIDEO',{video});
 }
@@ -2961,6 +2963,64 @@ function loadTorrent(magnetUri, wrap) {
   s.onload = doLoad;
   s.onerror = () => toast('Erro ao carregar WebTorrent');
   document.head.appendChild(s);
+}
+
+// ── DIRECT URL PLAYER (native <video>, sem Video.js) ─────
+function _loadDirect(wrap, url) {
+  const videoEl = document.createElement('video');
+  videoEl.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:#000;';
+  videoEl.controls = false;
+  videoEl.preload = 'auto';
+  videoEl.setAttribute('playsinline', '');
+
+  function attachEl(src) {
+    videoEl.src = src;
+    wrap.insertBefore(videoEl, wrap.firstChild);
+    nativeVid = videoEl;
+
+    // Permissões host/spectator
+    if(!amIHost) {
+      videoEl.addEventListener('click', e => { e.stopImmediatePropagation(); toast('Apenas o host pode controlar o vídeo ▶'); });
+    }
+
+    videoEl.addEventListener('play', () => {
+      if(isSyncing) return;
+      isPlaying = true; $('pbtn').textContent = '⏸';
+      if(amIHost) send('STATE', {playing: true,  currentTime: videoEl.currentTime});
+      else { isSyncing=true; if(!syncPlaying) videoEl.pause(); isSyncing=false; }
+    });
+    videoEl.addEventListener('pause', () => {
+      if(isSyncing) return;
+      isPlaying = false; $('pbtn').textContent = '▶';
+      if(amIHost) send('STATE', {playing: false, currentTime: videoEl.currentTime});
+      else { isSyncing=true; if(syncPlaying) videoEl.play().catch(()=>{}); isSyncing=false; }
+    });
+    videoEl.addEventListener('seeked', () => {
+      if(isSyncing) return;
+      if(amIHost) send('SEEK', {t: videoEl.currentTime});
+    });
+    videoEl.addEventListener('timeupdate', () => {
+      const t = videoEl.currentTime, d = videoEl.duration || 0;
+      if(d > 0) { $('prog-fill').style.width=(t/d*100)+'%'; $('tlbl-cur').textContent=fmt(t); $('tlbl-dur').textContent=fmt(d); }
+    });
+    videoEl.addEventListener('canplay', () => {
+      const t = expectedNow();
+      if(t > 0.5) { isSyncing=true; videoEl.currentTime=t; isSyncing=false; }
+      if(syncPlaying) videoEl.play().catch(()=>{});
+    });
+
+    // Primeiro tenta direto; se der erro de rede/CORS, usa o proxy
+    videoEl.addEventListener('error', () => {
+      if(videoEl.src.includes('/api/stream')) {
+        toast('Erro ao carregar vídeo ⚠️'); return; // já estava no proxy, desiste
+      }
+      console.warn('Direct load failed, trying proxy…');
+      videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`;
+      videoEl.load();
+    });
+  }
+
+  attachEl(url);
 }
 
 // ── VIDEO.JS PLAYER ───────────────────────────────────────
