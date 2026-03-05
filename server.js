@@ -1202,6 +1202,38 @@ app.get('/api/extract', async (req, res) => {
   }
 });
 
+// ── PROBE: testa se a URL é acessível e retorna diagnóstico ──
+app.get('/api/probe', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: 'URL obrigatória' });
+  try {
+    new URL(url); // valida formato
+  } catch(e) { return res.status(400).json({ error: 'URL inválida' }); }
+
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Accept': '*/*',
+  };
+
+  try {
+    const r = await fetch(url, { method: 'HEAD', headers, redirect: 'follow', signal: AbortSignal.timeout(8000) });
+    const ct = r.headers.get('content-type') || '';
+    const cl = r.headers.get('content-length') || '';
+    res.json({ ok: r.ok, status: r.status, contentType: ct, contentLength: cl, finalUrl: r.url });
+  } catch(e) {
+    // HEAD não suportado por alguns — tenta GET com abort rápido
+    try {
+      const ctrl = new AbortController();
+      const r = await fetch(url, { method: 'GET', headers, redirect: 'follow', signal: ctrl.signal });
+      ctrl.abort();
+      const ct = r.headers.get('content-type') || '';
+      res.json({ ok: r.ok, status: r.status, contentType: ct, finalUrl: r.url });
+    } catch(e2) {
+      res.json({ ok: false, error: e2.message });
+    }
+  }
+});
+
 app.get('/api/stream', async (req, res) => {
   const { url, origin } = req.query;
   if (!url) return res.status(400).send('URL obrigatória');
@@ -1209,18 +1241,28 @@ app.get('/api/stream', async (req, res) => {
   try {
     const headers = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      'Accept': '*/*',
+      'Accept': 'video/*,*/*;q=0.9',
       'Accept-Encoding': 'identity',
     };
     if (origin) { headers['Referer'] = origin + '/'; headers['Origin'] = origin; }
     if (req.headers.range) headers['Range'] = req.headers.range;
 
-    const response = await fetch(url, { headers });
-    if (!response.ok) return res.status(response.status).send('Stream error');
+    const response = await fetch(url, {
+      headers,
+      redirect: 'follow',
+      signal: AbortSignal.timeout(30000)
+    });
+
+    if (!response.ok) {
+      const hint = response.status === 403 ? 'Acesso negado — o servidor bloqueou a requisicao'
+                 : response.status === 404 ? 'Video nao encontrado'
+                 : response.status === 401 ? 'URL requer autenticacao'
+                 : 'Erro no servidor remoto';
+      return res.status(response.status).json({ error: `Servidor retornou ${response.status}`, hint });
+    }
 
     res.setHeader('Access-Control-Allow-Origin', '*');
 
-    // Infere Content-Type pela extensão da URL se o servidor retornar algo genérico
     let ct = response.headers.get('content-type') || '';
     if (!ct.startsWith('video/') && !ct.includes('mpegurl') && !ct.includes('dash+xml')) {
       const urlNoQ = url.toLowerCase().split('?')[0];
@@ -1229,7 +1271,7 @@ app.get('/api/stream', async (req, res) => {
       else if (urlNoQ.endsWith('.webm')) ct = 'video/webm';
       else if (urlNoQ.endsWith('.ogg') || urlNoQ.endsWith('.ogv')) ct = 'video/ogg';
       else if (urlNoQ.endsWith('.mov'))  ct = 'video/quicktime';
-      else ct = 'video/mp4'; // fallback seguro
+      else ct = 'video/mp4';
     }
 
     res.setHeader('Content-Type', ct);
@@ -1243,7 +1285,12 @@ app.get('/api/stream', async (req, res) => {
     const { Readable } = require('stream');
     Readable.fromWeb(response.body).pipe(res);
   } catch(e) {
-    if (!res.headersSent) res.status(500).send('Stream proxy error: ' + e.message);
+    if (!res.headersSent) {
+      const msg = e.name === 'TimeoutError' ? 'Timeout — servidor demorou demais'
+                : (e.cause && e.cause.code === 'ENOTFOUND') ? 'Dominio nao encontrado'
+                : e.message;
+      res.status(500).json({ error: msg });
+    }
   }
 });
 
