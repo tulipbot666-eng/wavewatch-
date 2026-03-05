@@ -1779,8 +1779,8 @@ let ytReady = false, ytCurrentTime = 0, ytPendingSeek = null, ytPendingState = n
 
 // Soft sync
 let softSyncInterval = null;
-const SOFT_SYNC_THRESHOLD = 0.3;
-const HARD_SEEK_THRESHOLD = 2.5;
+const SOFT_SYNC_THRESHOLD = 0.5;   // era 0.3 — menos troca de rate desnecessária
+const HARD_SEEK_THRESHOLD = 3.5;   // era 2.5 — só faz seek em drift grave
 const RATE_FAST = 1.08, RATE_SLOW = 0.92, RATE_NORMAL = 1.0;
 
 // ── UTILS ─────────────────────────────────────────────────
@@ -2744,22 +2744,47 @@ function applyPlayState(playing,t){
 }
 
 // ── SOFT SYNC ─────────────────────────────────────────────
+// Hysteresis: exige N ticks consecutivos antes de mudar rate
+let _driftDir = 0, _driftCount = 0;
+const DRIFT_CONFIRM_TICKS = 2; // precisa de 2 ticks seguidos no mesmo sentido
+
 function startSoftSync(){
   if(softSyncInterval)clearInterval(softSyncInterval);
   softSyncInterval=setInterval(()=>{
     if(!syncPlaying||syncWall===0)return;
     if(ytIframe&&!ytReady)return;
     const expected=expectedNow(), current=curTime();
-    // Only skip if video literally hasn't started loading yet
     if(current===0&&expected<1)return;
+
+    // Não corrigir se o vídeo está bufferizando (readyState < 3)
+    const isBuffering = nativeVid && !nativeVid._isVjs && nativeVid.readyState < 3;
+    if(isBuffering) return;
+
     const drift=current-expected;
+
+    // Hard seek apenas para drift muito grande
     if(Math.abs(drift)>HARD_SEEK_THRESHOLD){
+      _driftDir=0; _driftCount=0;
       isSyncing=true;seekTo(Math.max(0,expected));setRate(RATE_NORMAL);isSyncing=false;
+      return;
     }
-    else if(drift>SOFT_SYNC_THRESHOLD)setRate(RATE_SLOW);
-    else if(drift<-SOFT_SYNC_THRESHOLD)setRate(RATE_FAST);
-    else setRate(RATE_NORMAL);
-  },500);
+
+    // Hysteresis: acumula ticks no mesmo sentido antes de agir
+    const newDir = drift > SOFT_SYNC_THRESHOLD ? 1 : drift < -SOFT_SYNC_THRESHOLD ? -1 : 0;
+    if(newDir !== 0 && newDir === _driftDir){
+      _driftCount++;
+    } else {
+      _driftDir = newDir;
+      _driftCount = newDir !== 0 ? 1 : 0;
+    }
+
+    if(_driftCount >= DRIFT_CONFIRM_TICKS){
+      if(_driftDir === 1) setRate(RATE_SLOW);
+      else if(_driftDir === -1) setRate(RATE_FAST);
+    } else if(newDir === 0){
+      setRate(RATE_NORMAL);
+    }
+  }, 1500); // era 500ms — intervalo maior reduz thrashing do decoder
 }
 
 // ── VIDEO LOADING ─────────────────────────────────────────
