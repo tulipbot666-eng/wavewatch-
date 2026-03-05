@@ -1202,6 +1202,30 @@ app.get('/api/extract', async (req, res) => {
   res.json({ ok: true, url, title, thumb: '' });
 });
 
+app.get('/api/probe', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: 'URL obrigatória' });
+  try {
+    const r = await fetch(url, {
+      method: 'HEAD',
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(8000)
+    });
+    res.json({ ok: r.ok, status: r.status, contentType: r.headers.get('content-type') || '' });
+  } catch(e) {
+    // HEAD não suportado — tenta GET abortado
+    try {
+      const ctrl = new AbortController();
+      const r = await fetch(url, { method: 'GET', headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'follow', signal: ctrl.signal });
+      ctrl.abort();
+      res.json({ ok: r.ok, status: r.status, contentType: r.headers.get('content-type') || '' });
+    } catch(e2) {
+      res.json({ ok: false, error: e2.message });
+    }
+  }
+});
+
 app.get('/api/stream', async (req, res) => {
   const { url, origin } = req.query;
   if (!url) return res.status(400).send('URL obrigatória');
