@@ -1266,8 +1266,8 @@ function generateRoomCode() {
 // ─────────────────────────────────────────
 // SYNC HEARTBEAT — condicional por drift
 // ─────────────────────────────────────────
-const SYNC_DRIFT_THRESHOLD = 0.25;
-const SYNC_FORCE_INTERVAL  = 5000;
+const SYNC_DRIFT_THRESHOLD = 0.5;  // era 0.25 — menos mensagens desnecessárias
+const SYNC_FORCE_INTERVAL  = 8000; // era 5000 — sync forçado menos frequente
 
 setInterval(() => {
   const now = Date.now();
