@@ -968,21 +968,6 @@ wss.on('connection', (ws) => {
         }));
       }
     }
-
-    // P2P video relay
-    if (type === 'P2P_REQUEST' && currentRoom) {
-      // Spectator asks host to start P2P — forward to room host
-      const hostMember = currentRoom.members.get(currentRoom.host);
-      if (hostMember && hostMember.ws.readyState === 1) {
-        hostMember.ws.send(JSON.stringify({ type: 'P2P_REQUEST', payload: { fromId: wsId } }));
-      }
-    }
-    if ((type === 'P2P_OFFER' || type === 'P2P_ANSWER' || type === 'P2P_ICE') && currentRoom) {
-      const target = currentRoom.members.get(payload.targetId);
-      if (target && target.ws.readyState === 1) {
-        target.ws.send(JSON.stringify({ type, payload: { ...payload, fromId: wsId } }));
-      }
-    }
   });
 
   ws.on('close', () => {
@@ -1191,7 +1176,6 @@ app.get('/api/extract', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'URL obrigatória' });
 
-  // Tenta yt-dlp
   try {
     const info = await new Promise((resolve, reject) => {
       exec(`${YT_DLP} --no-playlist --dump-json --no-warnings "${url}"`,
@@ -1202,19 +1186,32 @@ app.get('/api/extract', async (req, res) => {
         }
       );
     });
+
+    // Pega o melhor formato com vídeo
     const fmt = (info.formats || [])
       .filter(f => f.vcodec && f.vcodec !== 'none' && f.url)
       .sort((a,b) => (b.height||0)-(a.height||0))[0];
+
     const streamUrl = fmt?.url || info.url;
     if (!streamUrl) throw new Error('no url');
-    return res.json({ ok: true, url: streamUrl, title: info.title || 'Vídeo', thumb: info.thumbnail || '' });
+
+    // Inclui os http_headers que o yt-dlp extraiu (Referer, cookies, User-Agent etc.)
+    // O /api/stream vai usar esses headers para conseguir fazer o proxy do stream
+    const httpHeaders = fmt?.http_headers || info.http_headers || {};
+
+    return res.json({
+      ok: true,
+      url: streamUrl,
+      title: info.title || 'Vídeo',
+      thumb: info.thumbnail || '',
+      headers: httpHeaders
+    });
   } catch(e) {
     console.warn('yt-dlp:', e.message);
+    // Não retorna a URL original como sucesso — isso causaria tentar
+    // fazer stream de uma página HTML
+    return res.json({ ok: false, error: 'Não foi possível extrair o vídeo. yt-dlp pode não estar instalado ou o site não é suportado.' });
   }
-
-  // Fallback: retorna a URL como veio
-  const title = decodeURIComponent(url.split('/').pop().split('?')[0]).replace(/\.[a-z0-9]{2,5}$/i,'') || 'Vídeo';
-  res.json({ ok: true, url, title, thumb: '' });
 });
 
 app.get('/api/probe', async (req, res) => {
@@ -1242,7 +1239,7 @@ app.get('/api/probe', async (req, res) => {
 });
 
 app.get('/api/stream', async (req, res) => {
-  const { url, origin } = req.query;
+  const { url, origin, h } = req.query;
   if (!url) return res.status(400).send('URL obrigatória');
 
   try {
@@ -1252,6 +1249,13 @@ app.get('/api/stream', async (req, res) => {
       'Accept-Encoding': 'identity',
     };
     if (origin) { headers['Referer'] = origin + '/'; headers['Origin'] = origin; }
+    // Headers extras extraídos pelo yt-dlp (Referer específico, cookies, tokens)
+    if (h) {
+      try {
+        const extra = JSON.parse(h);
+        Object.assign(headers, extra);
+      } catch(e) {}
+    }
     if (req.headers.range) headers['Range'] = req.headers.range;
 
     const response = await fetch(url, { headers });
