@@ -2966,33 +2966,48 @@ function loadTorrent(magnetUri, wrap) {
 }
 
 // ── DIRECT URL PLAYER (native <video>, sem Video.js) ─────
+function _showVideoError(wrap, msg) {
+  wrap.innerHTML = `<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;color:rgba(255,255,255,.7);font-size:.85rem;text-align:center;padding:2rem;">
+    <span style="font-size:2rem">⚠️</span>
+    <span>${msg}</span>
+  </div>`;
+}
+
 async function _loadDirect(wrap, url) {
-  // Primeiro verifica se é uma página HTML ou arquivo de vídeo
+  // Tenta extrair via yt-dlp primeiro (funciona para páginas e arquivos)
+  toast('⏳ Carregando...');
   try {
+    const er = await fetch(`/api/extract?url=${encodeURIComponent(url)}`);
+    const einfo = await er.json();
+
+    if (einfo.ok && einfo.url && einfo.url !== url) {
+      // yt-dlp extraiu com sucesso
+      if (einfo.title) $('vi-title').textContent = einfo.title;
+      _loadDirectVideo(wrap, einfo.url);
+      return;
+    }
+
+    // yt-dlp não extraiu (não instalado ou URL direta) — checa se é arquivo ou página
     const r = await fetch(`/api/probe?url=${encodeURIComponent(url)}`);
     const info = await r.json();
 
-    if (info.ok && (info.contentType || '').includes('text/html')) {
-      // É uma página web — tenta extrair o stream via yt-dlp no servidor
-      toast('⏳ Extraindo stream...');
-      try {
-        const er = await fetch(`/api/extract?url=${encodeURIComponent(url)}`);
-        const einfo = await er.json();
-        if (einfo.ok && einfo.url) {
-          _loadDirectVideo(wrap, einfo.url);
-          if (einfo.title) $('vi-title').textContent = einfo.title;
-          if (einfo.thumb) { $('vi-sub').textContent = ''; $('vinfo').style.display = 'block'; }
-          return;
-        }
-      } catch(e) {}
-      toast('❌ Não foi possível extrair o vídeo deste site');
+    if (!info.ok) {
+      _showVideoError(wrap, info.hint || `Erro ${info.status}: vídeo não encontrado`);
       return;
     }
-  } catch(e) {
-    // probe falhou, tenta carregar como vídeo mesmo assim
-  }
 
-  _loadDirectVideo(wrap, url);
+    if ((info.contentType || '').includes('text/html')) {
+      _showVideoError(wrap, 'Este site não permite incorporação.<br>Use um link direto para o arquivo de vídeo (.mp4, .m3u8 etc.)');
+      return;
+    }
+
+    // É um arquivo de vídeo direto
+    _loadDirectVideo(wrap, url);
+
+  } catch(e) {
+    // Se tudo falhar, tenta carregar direto mesmo assim
+    _loadDirectVideo(wrap, url);
+  }
 }
 
 function _loadDirectVideo(wrap, url) {
@@ -3053,6 +3068,7 @@ function _loadDirectVideo(wrap, url) {
 
     if (isHLS && typeof Hls !== 'undefined' && Hls.isSupported()) {
       const hls = new Hls({
+        enableWorker: false,
         loader: class extends Hls.DefaultConfig.loader {
           load(ctx, config, callbacks) {
             ctx.url = `/api/stream?url=${encodeURIComponent(ctx.url)}`;
@@ -3067,14 +3083,12 @@ function _loadDirectVideo(wrap, url) {
         if (data.fatal) toast('Erro no stream HLS ⚠️');
       });
     } else if (isHLS && videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-      // Safari — HLS nativo direto
-      videoEl.src = streamUrl;
+      // Safari — HLS nativo via proxy
+      videoEl.src = `/api/stream?url=${encodeURIComponent(streamUrl)}`;
       videoEl.addEventListener('canplay', onReady, {once: true});
     } else {
-      // MP4/WebM — token vinculado ao IP do usuário, tenta direto no browser primeiro
-      // Se der CORS, cai no error handler que tenta o proxy
-      videoEl.src = streamUrl;
-      videoEl._directUrl = streamUrl; // guarda para o error handler
+      // MP4/WebM — sempre via proxy (evita CORB e CORS)
+      videoEl.src = `/api/stream?url=${encodeURIComponent(streamUrl)}`;
       videoEl.addEventListener('canplay', onReady, {once: true});
     }
   }
@@ -3084,7 +3098,7 @@ function _loadDirectVideo(wrap, url) {
     const needsHls = (streamUrl.includes('.m3u8') || streamUrl.includes('hls')) && typeof Hls === 'undefined';
     if (needsHls) {
       const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js';
+      s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.light.min.js';
       s.onload = () => doLoad(streamUrl);
       s.onerror = () => { videoEl.src = `/api/stream?url=${encodeURIComponent(streamUrl)}`; videoEl.addEventListener('canplay', onReady, {once: true}); };
       document.head.appendChild(s);
@@ -3093,44 +3107,19 @@ function _loadDirectVideo(wrap, url) {
     }
   });
 
-  let _errorRetried = false;
   videoEl.addEventListener('error', async () => {
-    // 1ª tentativa: direto no browser falhou (CORS?) — tenta via proxy
-    if (!_errorRetried && videoEl._directUrl) {
-      _errorRetried = true;
-      console.log('Direto falhou, tentando proxy...');
-      videoEl.src = `/api/stream?url=${encodeURIComponent(videoEl._directUrl)}`;
-      videoEl.load();
-      return;
-    }
-
-    // 2ª tentativa: proxy também falhou — diagnóstica o erro real
     try {
       const r = await fetch(`/api/probe?url=${encodeURIComponent(url)}`);
       const info = await r.json();
-      if (info.ok && (info.contentType || '').includes('text/html')) {
-        toast('⏳ Extraindo stream...');
-        try {
-          const er = await fetch(`/api/extract?url=${encodeURIComponent(url)}`);
-          const einfo = await er.json();
-          if (einfo.ok && einfo.url && einfo.url !== url) {
-            _errorRetried = false;
-            videoEl._directUrl = einfo.url;
-            videoEl.src = einfo.url;
-            videoEl.load();
-            return;
-          }
-        } catch(e) {}
-        toast('❌ Este site bloqueia incorporação. Instale o yt-dlp no servidor.');
-        return;
-      }
       if (!info.ok) {
-        toast(`❌ ${info.hint || info.error || 'Servidor retornou ' + info.status}`);
+        _showVideoError(wrap, info.hint || `Erro ${info.status || ''}: vídeo não acessível`);
+      } else if ((info.contentType || '').includes('text/html')) {
+        _showVideoError(wrap, 'Este site não permite incorporação.<br>Use um link direto para o arquivo (.mp4, .m3u8 etc.)');
       } else {
-        toast(`❌ Formato não suportado (${info.contentType || 'desconhecido'})`);
+        _showVideoError(wrap, `Formato não suportado pelo servidor<br><small style="opacity:.5">${info.contentType || ''}</small>`);
       }
     } catch(e) {
-      toast('Erro ao carregar vídeo ⚠️');
+      _showVideoError(wrap, 'Erro ao carregar vídeo');
     }
   });
 }
