@@ -2973,18 +2973,19 @@ async function _loadDirect(wrap, url) {
     const info = await r.json();
 
     if (info.ok && (info.contentType || '').includes('text/html')) {
-      // É uma página web — abre como iframe
-      const iframe = document.createElement('iframe');
-      iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
-      iframe.src = url;
-      iframe.allow = 'autoplay; fullscreen; accelerometer; encrypted-media';
-      iframe.allowFullscreen = true;
-      wrap.insertBefore(iframe, wrap.firstChild);
-      proxyIframe = iframe;
-      $('src-badge').textContent = '🌐';
-      $('ctrl').style.display = 'none';
-      window.removeEventListener('message', onProxyMsg);
-      window.addEventListener('message', onProxyMsg);
+      // É uma página web — tenta extrair o stream via yt-dlp no servidor
+      toast('⏳ Extraindo stream...');
+      try {
+        const er = await fetch(`/api/extract?url=${encodeURIComponent(url)}`);
+        const einfo = await er.json();
+        if (einfo.ok && einfo.url) {
+          _loadDirectVideo(wrap, einfo.url);
+          if (einfo.title) $('vi-title').textContent = einfo.title;
+          if (einfo.thumb) { $('vi-sub').textContent = ''; $('vinfo').style.display = 'block'; }
+          return;
+        }
+      } catch(e) {}
+      toast('❌ Não foi possível extrair o vídeo deste site');
       return;
     }
   } catch(e) {
