@@ -3008,7 +3008,21 @@ function _loadDirect(wrap, url) {
     if(t > 0.5) { isSyncing=true; videoEl.currentTime=t; isSyncing=false; }
     if(syncPlaying) videoEl.play().catch(()=>{});
   });
-  videoEl.addEventListener('error', () => toast('Erro ao carregar vídeo ⚠️'));
+  videoEl.addEventListener('error', async () => {
+    // Consulta o probe para saber o que aconteceu de verdade
+    try {
+      const r = await fetch(`/api/probe?url=${encodeURIComponent(url)}`);
+      const info = await r.json();
+      if (!info.ok) {
+        const msg = info.hint || info.error || `Servidor retornou ${info.status}`;
+        toast(`❌ ${msg}`);
+      } else {
+        toast('Erro ao carregar vídeo — formato não suportado pelo browser ⚠️');
+      }
+    } catch(e) {
+      toast('Erro ao carregar vídeo ⚠️');
+    }
+  });
 }
 
 // ── VIDEO.JS PLAYER ───────────────────────────────────────
