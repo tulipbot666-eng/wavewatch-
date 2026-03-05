@@ -145,14 +145,17 @@ initDB().catch(console.error);
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
-// ── CSP: permite scripts/media necessários sem unsafe-eval ──
+// ── CSP: permite scripts/media necessários ──
 app.use((req, res, next) => {
+  res.removeHeader('Content-Security-Policy');
+  res.removeHeader('X-Content-Security-Policy');
+  res.removeHeader('X-WebKit-CSP');
   res.setHeader('Content-Security-Policy',
     "default-src 'self'; " +
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.youtube.com https://s.ytimg.com https://apis.google.com; " +
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
     "font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
-    "frame-src https://www.youtube.com https://player.vimeo.com https://player.twitch.tv https://www.twitch.tv; " +
+    "frame-src *; " +
     "media-src 'self' blob: data: *; " +
     "img-src 'self' blob: data: *; " +
     "connect-src 'self' wss: https:; " +
