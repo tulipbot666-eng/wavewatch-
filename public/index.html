@@ -1779,8 +1779,8 @@ let ytReady = false, ytCurrentTime = 0, ytPendingSeek = null, ytPendingState = n
 
 // Soft sync
 let softSyncInterval = null;
-const SOFT_SYNC_THRESHOLD = 0.5;   // era 0.3 — menos troca de rate desnecessária
-const HARD_SEEK_THRESHOLD = 3.5;   // era 2.5 — só faz seek em drift grave
+const SOFT_SYNC_THRESHOLD = 0.3;
+const HARD_SEEK_THRESHOLD = 2.5;
 const RATE_FAST = 1.08, RATE_SLOW = 0.92, RATE_NORMAL = 1.0;
 
 // ── UTILS ─────────────────────────────────────────────────
@@ -2649,6 +2649,19 @@ function handle(msg) {
       ssViewerPc.addIceCandidate(new RTCIceCandidate(payload.candidate)).catch(()=>{});
     }
   }
+  // ── P2P handlers ──────────────────────────────────────────────────
+  if(type==='P2P_REQUEST' && amIHost){ p2pOnRequest(payload.fromId); }
+  if(type==='P2P_OFFER' && !amIHost){ p2pViewerHandleOffer(payload).catch(e=>{ console.warn('[P2P] offer err',e); if(p2pFallbackFn) p2pFallbackFn(); }); }
+  if(type==='P2P_ANSWER' && amIHost){
+    const peer = p2pPeers[payload.fromId];
+    if(peer) peer.pc.setRemoteDescription(new RTCSessionDescription(payload.sdp)).catch(()=>{});
+  }
+  if(type==='P2P_ICE'){
+    const cand = payload.candidate ? new RTCIceCandidate(payload.candidate) : null;
+    if(!cand) return;
+    if(amIHost){ const peer=p2pPeers[payload.fromId]; if(peer) peer.pc.addIceCandidate(cand).catch(()=>{}); }
+    else if(p2pViewerPc){ p2pViewerPc.addIceCandidate(cand).catch(()=>{}); }
+  }
   if(type==='USER_LEFT'){sysMsg(`${payload.user?.avatar||'👤'} ${payload.user?.name||'Alguém'} saiu`);updateLiveLbl(payload.memberCount);}
   if(type==='PONG'){
     const m=Date.now()-payload.ts;
@@ -2744,52 +2757,206 @@ function applyPlayState(playing,t){
 }
 
 // ── SOFT SYNC ─────────────────────────────────────────────
-// Hysteresis: exige N ticks consecutivos antes de mudar rate
-let _driftDir = 0, _driftCount = 0;
-const DRIFT_CONFIRM_TICKS = 2; // precisa de 2 ticks seguidos no mesmo sentido
-
 function startSoftSync(){
   if(softSyncInterval)clearInterval(softSyncInterval);
   softSyncInterval=setInterval(()=>{
     if(!syncPlaying||syncWall===0)return;
     if(ytIframe&&!ytReady)return;
     const expected=expectedNow(), current=curTime();
+    // Only skip if video literally hasn't started loading yet
     if(current===0&&expected<1)return;
-
-    // Não corrigir se o vídeo está bufferizando (readyState < 3)
-    const isBuffering = nativeVid && !nativeVid._isVjs && nativeVid.readyState < 3;
-    if(isBuffering) return;
-
     const drift=current-expected;
-
-    // Hard seek apenas para drift muito grande
     if(Math.abs(drift)>HARD_SEEK_THRESHOLD){
-      _driftDir=0; _driftCount=0;
       isSyncing=true;seekTo(Math.max(0,expected));setRate(RATE_NORMAL);isSyncing=false;
-      return;
     }
+    else if(drift>SOFT_SYNC_THRESHOLD)setRate(RATE_SLOW);
+    else if(drift<-SOFT_SYNC_THRESHOLD)setRate(RATE_FAST);
+    else setRate(RATE_NORMAL);
+  },500);
+}
 
-    // Hysteresis: acumula ticks no mesmo sentido antes de agir
-    const newDir = drift > SOFT_SYNC_THRESHOLD ? 1 : drift < -SOFT_SYNC_THRESHOLD ? -1 : 0;
-    if(newDir !== 0 && newDir === _driftDir){
-      _driftCount++;
-    } else {
-      _driftDir = newDir;
-      _driftCount = newDir !== 0 ? 1 : 0;
-    }
+// ── P2P VIDEO RELAY ─────────────────────────────────────────────────
+// Host baixa o vídeo UMA vez e distribui para todos os espectadores via
+// WebRTC data channel. Espectadores usam MediaSource API para reproduzir.
+// Fallback automático para /api/stream se P2P não estabelecer em 12s.
 
-    if(_driftCount >= DRIFT_CONFIRM_TICKS){
-      if(_driftDir === 1) setRate(RATE_SLOW);
-      else if(_driftDir === -1) setRate(RATE_FAST);
-    } else if(newDir === 0){
-      setRate(RATE_NORMAL);
+const P2P_CHUNK   = 65536;           // 64 KB por mensagem
+const P2P_MAX_BUF = 2 * 1024 * 1024;// pausa envio se DC buffer > 2MB
+const P2P_TIMEOUT = 12000;           // fallback após 12s sem P2P
+
+let p2pBlob       = null;   // host: blob do vídeo
+let p2pBlobMime   = 'video/mp4';
+let p2pPeers      = {};     // host: wsId → { pc, dc, offset, paused }
+let p2pPending    = [];     // wsIds esperando blob ficar pronto
+let p2pFetching   = false;
+
+let p2pViewerPc       = null;
+let p2pMS             = null; // MediaSource
+let p2pSB             = null; // SourceBuffer
+let p2pQueue          = [];   // chunks aguardando append
+let p2pFallbackTimer  = null;
+let p2pFallbackFn     = null; // definido em _loadDirectVideo
+
+// ── HOST ──────────────────────────────────────────────────
+async function p2pFetchBlob(proxyUrl, mime) {
+  if (p2pFetching || p2pBlob) return;
+  p2pFetching = true;
+  p2pBlobMime = mime || 'video/mp4';
+  try {
+    const r = await fetch(proxyUrl);
+    if (!r.ok) throw new Error('fetch ' + r.status);
+    p2pBlob = await r.blob();
+    p2pFetching = false;
+    // Conectar todos que estavam esperando
+    const ids = [...p2pPending]; p2pPending = [];
+    ids.forEach(id => p2pHostConnect(id));
+  } catch(e) {
+    p2pFetching = false;
+    console.warn('[P2P] blob fetch falhou:', e.message);
+  }
+}
+
+function p2pOnRequest(fromId) {
+  if (!amIHost) return;
+  if (p2pBlob) p2pHostConnect(fromId);
+  else if (!p2pPending.includes(fromId)) p2pPending.push(fromId);
+}
+
+function p2pHostConnect(viewerId) {
+  if (!p2pBlob) return;
+  if (p2pPeers[viewerId]) {
+    try { p2pPeers[viewerId].pc.close(); } catch(e) {}
+    delete p2pPeers[viewerId];
+  }
+  const pc = new RTCPeerConnection(SS_ICE);
+  const dc = pc.createDataChannel('p2pvid', { ordered: true });
+  dc.binaryType = 'arraybuffer';
+  dc.bufferedAmountLowThreshold = P2P_MAX_BUF / 2;
+  p2pPeers[viewerId] = { pc, dc, offset: 0, paused: false };
+
+  dc.onopen = () => {
+    dc.send(JSON.stringify({ type: 'P2P_META', mime: p2pBlobMime, size: p2pBlob.size }));
+    p2pSendLoop(viewerId);
+  };
+  dc.onbufferedamountlow = () => {
+    const peer = p2pPeers[viewerId];
+    if (peer?.paused) { peer.paused = false; p2pSendLoop(viewerId); }
+  };
+  pc.onicecandidate = e => {
+    if (e.candidate) send('P2P_ICE', { targetId: viewerId, candidate: e.candidate });
+  };
+  pc.createOffer().then(offer => {
+    pc.setLocalDescription(offer);
+    send('P2P_OFFER', { targetId: viewerId, sdp: offer });
+  }).catch(console.error);
+}
+
+async function p2pSendLoop(viewerId) {
+  const peer = p2pPeers[viewerId];
+  if (!peer || !p2pBlob) return;
+  const { dc } = peer;
+  while (peer.offset < p2pBlob.size) {
+    if (dc.readyState !== 'open') return;
+    if (dc.bufferedAmount > P2P_MAX_BUF) { peer.paused = true; return; }
+    const end = Math.min(peer.offset + P2P_CHUNK, p2pBlob.size);
+    const buf = await p2pBlob.slice(peer.offset, end).arrayBuffer();
+    dc.send(buf);
+    peer.offset = end;
+  }
+  if (dc.readyState === 'open') dc.send(JSON.stringify({ type: 'P2P_DONE' }));
+}
+
+function p2pHostCleanup() {
+  p2pBlob = null; p2pFetching = false; p2pPending = [];
+  Object.values(p2pPeers).forEach(p => { try { p.pc.close(); } catch(e) {} });
+  p2pPeers = {};
+}
+
+// ── SPECTATOR ─────────────────────────────────────────────
+function p2pViewerRequest() {
+  clearTimeout(p2pFallbackTimer);
+  p2pFallbackTimer = setTimeout(() => {
+    if (!p2pSB) { // P2P não estabeleceu
+      console.warn('[P2P] timeout — fallback para proxy');
+      if (p2pFallbackFn) p2pFallbackFn();
     }
-  }, 1500); // era 500ms — intervalo maior reduz thrashing do decoder
+  }, P2P_TIMEOUT);
+  send('P2P_REQUEST', {});
+}
+
+async function p2pViewerHandleOffer(payload) {
+  clearTimeout(p2pFallbackTimer);
+  p2pViewerCleanup();
+  p2pViewerPc = new RTCPeerConnection(SS_ICE);
+  p2pViewerPc.onicecandidate = e => {
+    if (e.candidate) send('P2P_ICE', { targetId: payload.fromId, candidate: e.candidate });
+  };
+  p2pViewerPc.ondatachannel = e => {
+    const dc = e.channel;
+    dc.binaryType = 'arraybuffer';
+    let done = false;
+    dc.onmessage = evt => {
+      if (typeof evt.data === 'string') {
+        const msg = JSON.parse(evt.data);
+        if (msg.type === 'P2P_META') p2pSetupMS(msg.mime);
+        if (msg.type === 'P2P_DONE') {
+          done = true;
+          if (p2pMS?.readyState === 'open' && p2pSB && !p2pSB.updating && p2pQueue.length === 0)
+            try { p2pMS.endOfStream(); } catch(e) {}
+        }
+      } else {
+        p2pQueue.push(evt.data);
+        if (p2pSB && !p2pSB.updating) p2pFlush();
+      }
+    };
+  };
+  await p2pViewerPc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+  const ans = await p2pViewerPc.createAnswer();
+  await p2pViewerPc.setLocalDescription(ans);
+  send('P2P_ANSWER', { targetId: payload.fromId, sdp: ans });
+}
+
+function p2pSetupMS(mime) {
+  const candidates = [
+    mime,
+    'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',
+    'video/mp4',
+    'video/webm; codecs="vp8,vorbis"',
+    'video/webm'
+  ];
+  const useMime = candidates.find(m => { try { return MediaSource.isTypeSupported(m); } catch(e) { return false; } }) || 'video/mp4';
+  p2pMS = new MediaSource();
+  const objUrl = URL.createObjectURL(p2pMS);
+  if (nativeVid) nativeVid.src = objUrl;
+  p2pMS.addEventListener('sourceopen', () => {
+    try {
+      p2pSB = p2pMS.addSourceBuffer(useMime);
+      p2pSB.mode = 'sequence';
+      p2pSB.addEventListener('updateend', p2pFlush);
+      p2pFlush();
+    } catch(e) {
+      console.error('[P2P] SourceBuffer error:', e);
+      if (p2pFallbackFn) p2pFallbackFn();
+    }
+  });
+}
+
+function p2pFlush() {
+  if (!p2pSB || p2pSB.updating || p2pQueue.length === 0) return;
+  try { p2pSB.appendBuffer(p2pQueue.shift()); } catch(e) {}
+}
+
+function p2pViewerCleanup() {
+  clearTimeout(p2pFallbackTimer);
+  if (p2pViewerPc) { try { p2pViewerPc.close(); } catch(e) {} p2pViewerPc = null; }
+  p2pMS = null; p2pSB = null; p2pQueue = [];
 }
 
 // ── VIDEO LOADING ─────────────────────────────────────────
 function loadVideo(video,doBroadcast){
   const{src,url,title,author}=video;
+  // Limpa P2P anterior
+  if(amIHost) p2pHostCleanup(); else p2pViewerCleanup();
   if(ytIframe){ytIframe=null;}
   ytReady=false;ytCurrentTime=0;ytPendingSeek=null;
   if(vjsPlayer){try{vjsPlayer.dispose();}catch(e){}vjsPlayer=null;nativeVid=null;}
@@ -3005,45 +3172,69 @@ function _loadDirectVideo(wrap, url) {
   videoEl.addEventListener('timeupdate',()=>{const t=videoEl.currentTime,d=videoEl.duration||0;if(d>0){$('prog-fill').style.width=(t/d*100)+'%';$('tlbl-cur').textContent=fmt(t);$('tlbl-dur').textContent=fmt(d);}});
   videoEl.addEventListener('canplay',()=>{const t=expectedNow();if(t>0.5){isSyncing=true;videoEl.currentTime=t;isSyncing=false;}if(syncPlaying)videoEl.play().catch(()=>{});videoEl.volume=parseFloat($('vol').value)||1;});
   videoEl.addEventListener('error',()=>{
-    if(videoEl._ytdlpTried){toast('Erro ao carregar \u26a0\ufe0f');return;}
+    if(videoEl._ytdlpTried){toast('Erro ao carregar ⚠️');return;}
     videoEl._ytdlpTried=true;
     fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json()).then(info=>{
       if(info.ok&&info.url&&info.url!==url){
         videoEl.src=`/api/stream?url=${encodeURIComponent(info.url)}`;
         if(info.title)$('vi-title').textContent=info.title;
         videoEl.load();
-      } else { toast('Erro ao carregar \u26a0\ufe0f'); }
-    }).catch(()=>toast('Erro ao carregar \u26a0\ufe0f'));
+      } else { toast('Erro ao carregar ⚠️'); }
+    }).catch(()=>toast('Erro ao carregar ⚠️'));
   });
 
-  // URL com extensão conhecida -> proxy direto, sem probe
-  const noQ = url.toLowerCase().split('?')[0];
-  const videoExts = ['.mp4','.webm','.m3u8','.mpd','.ogg','.mov','.mkv','.avi','.flv'];
-  if (videoExts.some(e => noQ.endsWith(e))) {
-    videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`;
-    return;
+  // ── ESPECTADOR: P2P primeiro, proxy como fallback ──────────────────
+  if (!amIHost) {
+    // Fallback caso P2P não funcione em 12s
+    p2pFallbackFn = () => {
+      toast('⏳ Carregando via servidor...');
+      _setDirectSrc(videoEl, url);
+    };
+    p2pViewerCleanup();
+    p2pViewerRequest();
+    return; // src será setado via P2P ou fallback
   }
 
-  // URL sem extensão -> probe para detectar se é página HTML
-  toast('\u23f3 Carregando...');
-  fetch(`/api/probe?url=${encodeURIComponent(url)}`)
-    .then(r => r.json())
-    .then(info => {
-      if (info.ok && (info.contentType||'').includes('text/html')) {
-        toast('\u23f3 Extraindo stream...');
-        videoEl._ytdlpTried = true;
-        fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json()).then(einfo=>{
-          if(einfo.ok && einfo.url && einfo.url !== url){
-            videoEl.src = `/api/stream?url=${encodeURIComponent(einfo.url)}`;
-            if(einfo.title) $('vi-title').textContent = einfo.title;
-            videoEl.load();
-          } else { toast('\u274c N\u00e3o foi poss\u00edvel extrair'); }
-        });
-      } else {
-        videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`;
-      }
-    })
-    .catch(() => { videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`; });
+  // ── HOST: carrega via proxy + busca blob em background para P2P ────
+  function _setDirectSrc(el, rawUrl) {
+    const noQ = rawUrl.toLowerCase().split('?')[0];
+    const videoExts = ['.mp4','.webm','.m3u8','.mpd','.ogg','.mov','.mkv','.avi','.flv'];
+    if (videoExts.some(e => noQ.endsWith(e))) {
+      const proxyUrl = `/api/stream?url=${encodeURIComponent(rawUrl)}`;
+      el.src = proxyUrl;
+      // Blob para P2P (em background — não bloqueia a reprodução)
+      const ext = noQ.split('.').pop();
+      const mime = {mp4:'video/mp4',webm:'video/webm',ogg:'video/ogg',m3u8:'application/x-mpegURL'}[ext] || 'video/mp4';
+      if (amIHost) { p2pHostCleanup(); p2pFetchBlob(proxyUrl, mime); }
+      return;
+    }
+    // URL sem extensão → probe
+    toast('⏳ Carregando...');
+    fetch(`/api/probe?url=${encodeURIComponent(rawUrl)}`)
+      .then(r => r.json())
+      .then(info => {
+        if (info.ok && (info.contentType||'').includes('text/html')) {
+          toast('⏳ Extraindo stream...');
+          el._ytdlpTried = true;
+          fetch(`/api/extract?url=${encodeURIComponent(rawUrl)}`).then(r=>r.json()).then(einfo=>{
+            if(einfo.ok && einfo.url && einfo.url !== rawUrl){
+              const proxyUrl = `/api/stream?url=${encodeURIComponent(einfo.url)}`;
+              el.src = proxyUrl;
+              if(einfo.title) $('vi-title').textContent = einfo.title;
+              el.load();
+              if (amIHost) { p2pHostCleanup(); p2pFetchBlob(proxyUrl, 'video/mp4'); }
+            } else { toast('❌ Não foi possível extrair'); }
+          });
+        } else {
+          const proxyUrl = `/api/stream?url=${encodeURIComponent(rawUrl)}`;
+          el.src = proxyUrl;
+          if (amIHost) { p2pHostCleanup(); p2pFetchBlob(proxyUrl, info.contentType||'video/mp4'); }
+        }
+      })
+      .catch(() => { el.src = `/api/stream?url=${encodeURIComponent(rawUrl)}`; });
+  }
+
+  _setDirectSrc(videoEl, url);
 }
 // ── VIDEO.JS PLAYER ───────────────────────────────────────
 function _loadVjs(wrap, src, typeOverride, extraOpts) {
