@@ -3049,6 +3049,9 @@ function _loadDirectVideo(wrap, url) {
     const t = expectedNow();
     if(t > 0.5) { isSyncing=true; videoEl.currentTime=t; isSyncing=false; }
     if(syncPlaying) videoEl.play().catch(()=>{});
+    // Aplica volume atual
+    try { videoEl.volume = parseFloat($('vol').value) || 1; } catch(e) {}
+    console.log('Direct video ready, nativeVid:', !!nativeVid, 'duration:', videoEl.duration);
   }
 
   // Re-extrai URL se tiver token que expira (secure=, token=, expires= etc)
