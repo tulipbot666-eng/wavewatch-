@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WaveWatch</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<!-- YouTube iframe API (sem eval) -->
-<script src="https://www.youtube.com/iframe_api"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.10.0/video-js.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@videojs/themes@1/dist/city/index.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.10.0/video.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/videojs-youtube@3.0.1/dist/Youtube.min.js"></script>
 <style>
 /* ── Video.js City overrides para combinar com WaveWatch ── */
 .vjs-city.video-js {
@@ -1747,8 +1749,8 @@ function sendProxy(type, data={}) {
 function onProxyMsg(e) {
   if(!e.data || !e.data.type) return;
   if(e.data.type==='WW_READY'){if(syncPlaying)sendProxy('WW_PLAY');}
-  if(e.data.type==='WW_PLAYING'){if(isSyncing)return;isPlaying=true;$('pbtn') && ($('pbtn').textContent='⏸');if(amIHost)send('STATE',{playing:true,currentTime:e.data.time||0});}
-  if(e.data.type==='WW_PAUSED'){if(isSyncing)return;isPlaying=false;$('pbtn') && ($('pbtn').textContent='▶');if(amIHost)send('STATE',{playing:false,currentTime:e.data.time||0});}
+  if(e.data.type==='WW_PLAYING'){if(isSyncing)return;isPlaying=true;$('pbtn').textContent='⏸';if(amIHost)send('STATE',{playing:true,currentTime:e.data.time||0});}
+  if(e.data.type==='WW_PAUSED'){if(isSyncing)return;isPlaying=false;$('pbtn').textContent='▶';if(amIHost)send('STATE',{playing:false,currentTime:e.data.time||0});}
   if(e.data.type==='WW_SEEKED'){if(isSyncing)return;if(amIHost)send('SEEK',{t:e.data.time||0});}
   if(e.data.type==='WW_TIME'){if(nativeVid===null&&proxyIframe){const t=e.data.time||0;const d=e.data.duration||0;if(d>0){$('prog-fill').style.width=(t/d*100)+'%';$('tlbl-cur').textContent=fmt(t);$('tlbl-dur').textContent=fmt(d);}}}
 }
@@ -2782,7 +2784,7 @@ function loadVideo(video,doBroadcast){
   $('vph').style.display='none'; wrap.style.display='block';
   $('vi-title').textContent=title||''; $('vi-sub').textContent=author||'';
   $('vinfo').style.display=title?'block':'none';
-  isPlaying=false; $('pbtn') && ($('pbtn').textContent='▶');
+  isPlaying=false; $('pbtn').textContent='▶';
   $('prog-fill').style.width='0%'; $('tlbl-cur').textContent='0:00'; $('tlbl-dur').textContent='0:00';
 
   if(src==='youtube'){
@@ -2790,7 +2792,8 @@ function loadVideo(video,doBroadcast){
     $('ctrl').style.display='none';
     const vid=extractYT(url); if(!vid){toast('URL inválida');return;}
     const startAt=Math.floor(Math.max(0,expectedNow()));
-    _loadYouTube(wrap, vid, startAt);
+    const ytUrl=`https://www.youtube.com/watch?v=${vid}`;
+    _loadVjs(wrap, ytUrl, 'youtube', { youtube: { ytControls: 0, rel: 0, modestbranding: 1, start: startAt } });
   } else if(src==='vimeo'){
     $('src-badge').textContent='VM';
     const m=url.match(/vimeo\.com\/(\d+)/); if(!m){toast('URL Vimeo inválida');return;}
@@ -2823,8 +2826,8 @@ function loadVideo(video,doBroadcast){
     if(!fileIdMatch){ toast('URL do Google Drive inválida'); return; }
     const fileId = fileIdMatch[1].replace(/[^a-zA-Z0-9_-]/g, '');
     const streamUrl = `/api/drive/stream/${fileId}?room=${roomId}`;
-    _loadDirectVideo(wrap, streamUrl);
-    $('ctrl').style.display='flex';
+    _loadVjs(wrap, streamUrl);
+    $('ctrl').style.display='none';
   } else if(src==='torrent'){
     $('src-badge').textContent='🧲';
     $('ctrl').style.display='flex';
@@ -2835,11 +2838,11 @@ function loadVideo(video,doBroadcast){
     const ext=src==='local'?'LOCAL':(url.split('.').pop().split('?')[0].toUpperCase().substring(0,4)||'VID');
     $('src-badge').textContent=ext;
     if(src==='direct'){
-      _loadDirect(wrap, url);
-      $('ctrl').style.display='flex';
-    } else {
       _loadDirectVideo(wrap, url);
       $('ctrl').style.display='flex';
+    } else {
+      _loadVjs(wrap, url);
+      $('ctrl').style.display='none';
     }
   }
   if(doBroadcast)send('VIDEO',{video});
@@ -2929,8 +2932,8 @@ function loadTorrent(magnetUri, wrap) {
         wrap.appendChild(videoEl);
         nativeVid = videoEl;
 
-        videoEl.addEventListener('play',  () => { isPlaying=true;  $('pbtn') && ($('pbtn').textContent='⏸'); if(amIHost) send('STATE',{playing:true,  currentTime:videoEl.currentTime}); });
-        videoEl.addEventListener('pause', () => { isPlaying=false; $('pbtn') && ($('pbtn').textContent='▶'); if(amIHost) send('STATE',{playing:false, currentTime:videoEl.currentTime}); });
+        videoEl.addEventListener('play',  () => { isPlaying=true;  $('pbtn').textContent='⏸'; if(amIHost) send('STATE',{playing:true,  currentTime:videoEl.currentTime}); });
+        videoEl.addEventListener('pause', () => { isPlaying=false; $('pbtn').textContent='▶'; if(amIHost) send('STATE',{playing:false, currentTime:videoEl.currentTime}); });
         videoEl.addEventListener('timeupdate', () => {
           const t=videoEl.currentTime, d=videoEl.duration||0;
           if(d>0){ $('prog-fill').style.width=(t/d*100)+'%'; $('tlbl-cur').textContent=fmt(t); $('tlbl-dur').textContent=fmt(d); }
@@ -2962,253 +2965,129 @@ function loadTorrent(magnetUri, wrap) {
   document.head.appendChild(s);
 }
 
-// ── DIRECT URL PLAYER (native <video>, sem Video.js) ─────
-function _showVideoError(wrap, msg) {
-  wrap.innerHTML = `<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.75rem;color:rgba(255,255,255,.7);font-size:.85rem;text-align:center;padding:2rem;">
-    <span style="font-size:2rem">⚠️</span>
-    <span>${msg}</span>
-  </div>`;
-}
-
-async function _loadDirect(wrap, url) {
-  // URLs do YouTube nunca devem chegar aqui — redireciona para o player correto
-  const ytId = extractYT(url);
-  if (ytId) {
-    _loadYouTube(wrap, ytId, Math.floor(Math.max(0, expectedNow())));
-    return;
-  }
-
-  // URLs com extensão de vídeo conhecida: carrega direto sem probe
-  const noQ = url.toLowerCase().split('?')[0];
-  const directExts = ['.mp4','.webm','.ogg','.ogv','.m3u8','.mpd','.mov','.mkv','.avi','.flv'];
-  if (directExts.some(e => noQ.endsWith(e))) {
-    _loadDirectVideo(wrap, url);
-    return;
-  }
-
-  // Outros: tenta yt-dlp e probe
-  toast('⏳ Carregando...');
-  try {
-    const er = await fetch(`/api/extract?url=${encodeURIComponent(url)}`);
-    const einfo = await er.json();
-
-    if (einfo.ok && einfo.url && einfo.url !== url) {
-      if (einfo.title) $('vi-title').textContent = einfo.title;
-      _loadDirectVideo(wrap, einfo.url);
-      return;
-    }
-
-    const r = await fetch(`/api/probe?url=${encodeURIComponent(url)}`);
-    const info = await r.json();
-
-    if (!info.ok) {
-      _showVideoError(wrap, info.hint || `Erro ${info.status}: vídeo não encontrado`);
-      return;
-    }
-
-    if ((info.contentType || '').includes('text/html')) {
-      _showVideoError(wrap, 'Este site não permite incorporação.<br>Use um link direto para o arquivo (.mp4, .m3u8 etc.)');
-      return;
-    }
-
-    _loadDirectVideo(wrap, url);
-
-  } catch(e) {
-    _loadDirectVideo(wrap, url);
-  }
-}
-
+// ── DIRECT URL PLAYER ────────────────────────────────────
 function _loadDirectVideo(wrap, url) {
   const videoEl = document.createElement('video');
-  videoEl.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:#000;';
-  videoEl.controls = false;
-  videoEl.preload = 'auto';
-  videoEl.setAttribute('playsinline', '');
+  videoEl.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;background:#000;';
+  videoEl.controls=false; videoEl.preload='auto'; videoEl.setAttribute('playsinline','');
   wrap.insertBefore(videoEl, wrap.firstChild);
   nativeVid = videoEl;
 
-  if(!amIHost) {
-    videoEl.addEventListener('click', e => { e.stopImmediatePropagation(); toast('Apenas o host pode controlar o vídeo ▶'); });
+  videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`;
+
+  if(!amIHost) videoEl.addEventListener('click', e=>{e.stopImmediatePropagation();toast('Apenas o host pode controlar o vídeo ▶');});
+
+  videoEl.addEventListener('play',()=>{if(isSyncing)return;isPlaying=true;$('pbtn').textContent='⏸';if(amIHost)send('STATE',{playing:true,currentTime:videoEl.currentTime});else{isSyncing=true;if(!syncPlaying)videoEl.pause();isSyncing=false;}});
+  videoEl.addEventListener('pause',()=>{if(isSyncing)return;isPlaying=false;$('pbtn').textContent='▶';if(amIHost)send('STATE',{playing:false,currentTime:videoEl.currentTime});else{isSyncing=true;if(syncPlaying)videoEl.play().catch(()=>{});isSyncing=false;}});
+  videoEl.addEventListener('seeked',()=>{if(isSyncing)return;if(amIHost)send('SEEK',{t:videoEl.currentTime});});
+  videoEl.addEventListener('timeupdate',()=>{const t=videoEl.currentTime,d=videoEl.duration||0;if(d>0){$('prog-fill').style.width=(t/d*100)+'%';$('tlbl-cur').textContent=fmt(t);$('tlbl-dur').textContent=fmt(d);}});
+  videoEl.addEventListener('canplay',()=>{const t=expectedNow();if(t>0.5){isSyncing=true;videoEl.currentTime=t;isSyncing=false;}if(syncPlaying)videoEl.play().catch(()=>{});videoEl.volume=parseFloat($('vol').value)||1;});
+  videoEl.addEventListener('error',()=>{
+    // Tenta via yt-dlp se falhar
+    if(videoEl._ytdlpTried){toast('Erro ao carregar vídeo ⚠️');return;}
+    videoEl._ytdlpTried=true;
+    fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json()).then(info=>{
+      if(info.ok&&info.url&&info.url!==url){
+        videoEl.src=`/api/stream?url=${encodeURIComponent(info.url)}`;
+        if(info.title)$('vi-title').textContent=info.title;
+        videoEl.load();
+      } else { toast('Erro ao carregar vídeo ⚠️'); }
+    }).catch(()=>toast('Erro ao carregar vídeo ⚠️'));
+  });
+}
+
+// ── VIDEO.JS PLAYER ───────────────────────────────────────
+function _loadVjs(wrap, src, typeOverride, extraOpts) {
+  const isYT = typeOverride === 'youtube';
+  const type  = isYT ? 'video/youtube' : _guessType(src);
+
+  const videoEl = document.createElement('video');
+  videoEl.className = 'video-js vjs-city';
+  videoEl.setAttribute('playsinline', '');
+  wrap.insertBefore(videoEl, wrap.firstChild);
+
+  vjsPlayer = videojs(videoEl, Object.assign({
+    autoplay: false,
+    controls: true,
+    fluid: false,
+    responsive: false,
+    preload: isYT ? 'none' : 'metadata',
+    playbackRates: isYT ? [] : [0.5, 1, 1.25, 1.5, 2],
+    techOrder: isYT ? ['youtube', 'html5'] : ['html5'],
+    sources: [{ src, type }],
+    youtube: { ytControls: 0, rel: 0, modestbranding: 1 }
+  }, extraOpts || {}));
+
+  function applyPerms() {
+    try {
+      const el = vjsPlayer.el();
+      if(amIHost){ 
+        el.classList.remove('ww-spectator'); 
+        vjsPlayer.controlBar.progressControl.enable(); 
+        vjsPlayer.controlBar.playToggle.enable();
+      } else { 
+        el.classList.add('ww-spectator'); 
+        vjsPlayer.controlBar.progressControl.disable(); 
+        vjsPlayer.controlBar.playToggle.disable();
+        // Bloquear big play button para não-host
+        vjsPlayer.bigPlayButton.off('click');
+        vjsPlayer.bigPlayButton.on('click', (e) => {
+          e.stopImmediatePropagation();
+          toast('Apenas o host pode controlar o vídeo ▶');
+        });
+        // Bloquear click no vídeo para não-host
+        vjsPlayer.off('click');
+        vjsPlayer.on('click', (e) => {
+          e.stopImmediatePropagation();
+          toast('Apenas o host pode controlar o vídeo ▶');
+        });
+      }
+    } catch(e){}
   }
 
-  videoEl.addEventListener('play', () => {
-    if(isSyncing) return;
-    isPlaying = true; $('pbtn').textContent = '⏸';
-    if(amIHost) send('STATE', {playing: true, currentTime: videoEl.currentTime});
-    else { isSyncing=true; if(!syncPlaying) videoEl.pause(); isSyncing=false; }
-  });
-  videoEl.addEventListener('pause', () => {
-    if(isSyncing) return;
-    isPlaying = false; $('pbtn').textContent = '▶';
-    if(amIHost) send('STATE', {playing: false, currentTime: videoEl.currentTime});
-    else { isSyncing=true; if(syncPlaying) videoEl.play().catch(()=>{}); isSyncing=false; }
-  });
-  videoEl.addEventListener('seeked', () => {
-    if(isSyncing) return;
-    if(amIHost) send('SEEK', {t: videoEl.currentTime});
-  });
-  videoEl.addEventListener('timeupdate', () => {
-    const t = videoEl.currentTime, d = videoEl.duration || 0;
-    if(d > 0) { $('prog-fill').style.width=(t/d*100)+'%'; $('tlbl-cur').textContent=fmt(t); $('tlbl-dur').textContent=fmt(d); }
-  });
-
-  // Se a URL vier de yt-dlp (tem token que expira), re-extrai na hora
-  function onReady() {
+  vjsPlayer.on('ready', () => {
+    applyPerms();
+    if(isYT) { ytReady = true; } // não setar ytIframe — controle via nativeVid proxy
     const t = expectedNow();
-    if(t > 0.5) { isSyncing=true; videoEl.currentTime=t; isSyncing=false; }
-    if(syncPlaying) videoEl.play().catch(()=>{});
-    // Aplica volume atual
-    try { videoEl.volume = parseFloat($('vol').value) || 1; } catch(e) {}
-    console.log('Direct video ready, nativeVid:', !!nativeVid, 'duration:', videoEl.duration);
-  }
-
-  // Re-extrai URL se tiver token que expira (secure=, token=, expires= etc)
-  async function getFreshUrl(sourceUrl) {
-    const hasToken = /[?&](secure|token|expires|sig|signature|auth)=/i.test(sourceUrl);
-    if (!hasToken) return sourceUrl;
-    try {
-      const r = await fetch(`/api/extract?url=${encodeURIComponent(sourceUrl)}`);
-      const info = await r.json();
-      if (info.ok && info.url) return info.url;
-    } catch(e) {}
-    return sourceUrl;
-  }
-
-  function doLoad(streamUrl) {
-    const isHLS = streamUrl.includes('.m3u8') || streamUrl.includes('m3u8') || streamUrl.includes('hls');
-
-    if (isHLS && typeof Hls !== 'undefined' && Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: false,
-        loader: class extends Hls.DefaultConfig.loader {
-          load(ctx, config, callbacks) {
-            ctx.url = `/api/stream?url=${encodeURIComponent(ctx.url)}`;
-            super.load(ctx, config, callbacks);
-          }
-        }
-      });
-      hls.loadSource(streamUrl);
-      hls.attachMedia(videoEl);
-      hls.on(Hls.Events.MANIFEST_PARSED, onReady);
-      hls.on(Hls.Events.ERROR, (e, data) => {
-        if (data.fatal) toast('Erro no stream HLS ⚠️');
-      });
-    } else if (isHLS && videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-      // Safari — HLS nativo via proxy
-      videoEl.src = `/api/stream?url=${encodeURIComponent(streamUrl)}`;
-      videoEl.addEventListener('canplay', onReady, {once: true});
-    } else {
-      // MP4/WebM — sempre via proxy (evita CORB e CORS)
-      videoEl.src = `/api/stream?url=${encodeURIComponent(streamUrl)}`;
-      videoEl.addEventListener('canplay', onReady, {once: true});
-    }
-  }
-
-  // Obtém URL fresca e carrega, carregando hls.js se necessário
-  getFreshUrl(url).then(streamUrl => {
-    const needsHls = (streamUrl.includes('.m3u8') || streamUrl.includes('hls')) && typeof Hls === 'undefined';
-    if (needsHls) {
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.light.min.js';
-      s.onload = () => doLoad(streamUrl);
-      s.onerror = () => { videoEl.src = `/api/stream?url=${encodeURIComponent(streamUrl)}`; videoEl.addEventListener('canplay', onReady, {once: true}); };
-      document.head.appendChild(s);
-    } else {
-      doLoad(streamUrl);
-    }
+    if(t > 0.5) { isSyncing=true; vjsPlayer.currentTime(t); isSyncing=false; }
+    if(syncPlaying) vjsPlayer.play().catch(()=>{});
   });
 
-  videoEl.addEventListener('error', async () => {
-    try {
-      const r = await fetch(`/api/probe?url=${encodeURIComponent(url)}`);
-      const info = await r.json();
-      if (!info.ok) {
-        _showVideoError(wrap, info.hint || `Erro ${info.status || ''}: vídeo não acessível`);
-      } else if ((info.contentType || '').includes('text/html')) {
-        _showVideoError(wrap, 'Este site não permite incorporação.<br>Use um link direto para o arquivo (.mp4, .m3u8 etc.)');
-      } else {
-        _showVideoError(wrap, `Formato não suportado pelo servidor<br><small style="opacity:.5">${info.contentType || ''}</small>`);
-      }
-    } catch(e) {
-      _showVideoError(wrap, 'Erro ao carregar vídeo');
-    }
+  vjsPlayer.on('play', () => {
+    if(isSyncing) return;
+    isPlaying = true;
+    if(amIHost) send('STATE', {playing: true, currentTime: vjsPlayer.currentTime()});
+    else { isSyncing=true; if(!syncPlaying) vjsPlayer.pause(); isSyncing=false; }
   });
+  vjsPlayer.on('pause', () => {
+    if(isSyncing) return;
+    isPlaying = false;
+    if(amIHost) send('STATE', {playing: false, currentTime: vjsPlayer.currentTime()});
+    else { isSyncing=true; if(syncPlaying) vjsPlayer.play().catch(()=>{}); isSyncing=false; }
+  });
+  vjsPlayer.on('seeked', () => {
+    if(isSyncing) return;
+    if(amIHost) send('SEEK', {t: vjsPlayer.currentTime()});
+  });
+  vjsPlayer.on('error', () => toast('Erro ao carregar vídeo ⚠️'));
+  vjsPlayer.volume(parseFloat($('vol').value));
+
+  nativeVid = {
+    get currentTime() { return vjsPlayer ? vjsPlayer.currentTime() : 0; },
+    set currentTime(t) { if(vjsPlayer) vjsPlayer.currentTime(t); },
+    get duration()    { return vjsPlayer ? (vjsPlayer.duration()||0) : 0; },
+    get volume()      { return vjsPlayer ? vjsPlayer.volume() : 1; },
+    set volume(v)     { if(vjsPlayer) vjsPlayer.volume(v); },
+    get playbackRate(){ return vjsPlayer ? vjsPlayer.playbackRate() : 1; },
+    set playbackRate(r){ if(vjsPlayer) vjsPlayer.playbackRate(r); },
+    play()  { return vjsPlayer ? vjsPlayer.play() : Promise.resolve(); },
+    pause() { if(vjsPlayer) vjsPlayer.pause(); },
+    _isVjs: true
+  };
 }
 
-// ── YOUTUBE IFRAME API (sem eval, sem Video.js) ───────────
-let _ytPlayer = null;
-
-function _loadYouTube(wrap, videoId, startAt) {
-  // Cria div container para o player
-  const div = document.createElement('div');
-  div.id = 'yt-player-el';
-  div.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;';
-  wrap.insertBefore(div, wrap.firstChild);
-
-  if(_ytPlayer) { try { _ytPlayer.destroy(); } catch(e){} _ytPlayer = null; }
-
-  function createPlayer() {
-    _ytPlayer = new YT.Player('yt-player-el', {
-      videoId,
-      playerVars: { autoplay: 0, controls: amIHost ? 1 : 0, rel: 0, modestbranding: 1, start: startAt, playsinline: 1 },
-      events: {
-        onReady: (e) => {
-          ytIframe = e.target;
-          ytReady = true;
-          if(startAt > 0.5) e.target.seekTo(startAt, true);
-          if(syncPlaying) e.target.playVideo();
-        },
-        onStateChange: (e) => {
-          if(e.data === YT.PlayerState.PLAYING) {
-            if(isSyncing) return;
-            isPlaying = true; $('pbtn') && ($('pbtn') && ($('pbtn').textContent='⏸'));
-            if(amIHost) send('STATE', {playing: true, currentTime: _ytPlayer.getCurrentTime()});
-            else { isSyncing=true; if(!syncPlaying) _ytPlayer.pauseVideo(); isSyncing=false; }
-          } else if(e.data === YT.PlayerState.PAUSED) {
-            if(isSyncing) return;
-            isPlaying = false; $('pbtn') && ($('pbtn') && ($('pbtn').textContent='▶'));
-            if(amIHost) send('STATE', {playing: false, currentTime: _ytPlayer.getCurrentTime()});
-            else { isSyncing=true; if(syncPlaying) _ytPlayer.playVideo(); isSyncing=false; }
-          }
-        }
-      }
-    });
-
-    // Proxy nativeVid para o player do YouTube
-    nativeVid = {
-      get currentTime() { return _ytPlayer ? _ytPlayer.getCurrentTime() : 0; },
-      set currentTime(t) { if(_ytPlayer && ytReady) _ytPlayer.seekTo(t, true); },
-      get duration()    { return _ytPlayer ? (_ytPlayer.getDuration()||0) : 0; },
-      get volume()      { return _ytPlayer ? _ytPlayer.getVolume()/100 : 1; },
-      set volume(v)     { if(_ytPlayer) _ytPlayer.setVolume(v*100); },
-      get playbackRate(){ return _ytPlayer ? _ytPlayer.getPlaybackRate() : 1; },
-      set playbackRate(r){ if(_ytPlayer) _ytPlayer.setPlaybackRate(r); },
-      play()  { if(_ytPlayer && ytReady) _ytPlayer.playVideo(); return Promise.resolve(); },
-      pause() { if(_ytPlayer && ytReady) _ytPlayer.pauseVideo(); },
-      _isVjs: false
-    };
-
-    // Atualiza barra de progresso
-    setInterval(() => {
-      if(!_ytPlayer || !nativeVid || nativeVid._isVjs) return;
-      try {
-        const t = _ytPlayer.getCurrentTime(), d = _ytPlayer.getDuration();
-        if(d > 0) { $('prog-fill').style.width=(t/d*100)+'%'; $('tlbl-cur').textContent=fmt(t); $('tlbl-dur').textContent=fmt(d); }
-      } catch(e){}
-    }, 500);
-  }
-
-  // YT API pode já estar carregada ou ainda carregando
-  if(typeof YT !== 'undefined' && YT.Player) {
-    createPlayer();
-  } else {
-    window.onYouTubeIframeAPIReady = createPlayer;
-  }
-}
-
-function _guessType(url, hintUrl) {
-  // Usa a URL original (antes de proxiar) para detecção mais precisa
-  const u = ((hintUrl || url) || '').toLowerCase();
+function _guessType(url) {
+  const u = (url||'').toLowerCase();
   const noQ = u.split('?')[0];
   if(noQ.endsWith('.mp4'))  return 'video/mp4';
   if(noQ.endsWith('.webm')) return 'video/webm';
@@ -3216,7 +3095,6 @@ function _guessType(url, hintUrl) {
   if(noQ.endsWith('.m3u8') || u.includes('.m3u8') || u.includes('m3u8') || u.includes('hls')) return 'application/x-mpegURL';
   if(noQ.endsWith('.mpd')  || u.includes('.mpd')  || u.includes('dash')) return 'application/dash+xml';
   if(noQ.endsWith('.mov'))  return 'video/quicktime';
-  if(noQ.endsWith('.mkv') || noQ.endsWith('.avi') || noQ.endsWith('.flv')) return 'video/mp4';
   return 'video/mp4';
 }
 
@@ -3243,8 +3121,8 @@ function onYTMsg(e){
     if(!d.info)return;
     if(d.info.currentTime!==undefined){ytCurrentTime=d.info.currentTime;ytLastInfoTs=Date.now();}
     if(!ytReady&&d.info.playerState!==undefined&&d.info.playerState!==-1){onYTReady();}
-    if(d.info.playerState===1&&!isSyncing){isPlaying=true;$('pbtn') && ($('pbtn').textContent='⏸');if(amIHost)send('STATE',{playing:true,currentTime:ytCurrentTime});else{isSyncing=true;if(!syncPlaying)ytCmd('pauseVideo');isSyncing=false;}}
-    if(d.info.playerState===2&&!isSyncing){isPlaying=false;$('pbtn') && ($('pbtn').textContent='▶');if(amIHost)send('STATE',{playing:false,currentTime:ytCurrentTime});else{isSyncing=true;if(syncPlaying)ytCmd('playVideo');isSyncing=false;}}
+    if(d.info.playerState===1&&!isSyncing){isPlaying=true;$('pbtn').textContent='⏸';if(amIHost)send('STATE',{playing:true,currentTime:ytCurrentTime});else{isSyncing=true;if(!syncPlaying)ytCmd('pauseVideo');isSyncing=false;}}
+    if(d.info.playerState===2&&!isSyncing){isPlaying=false;$('pbtn').textContent='▶';if(amIHost)send('STATE',{playing:false,currentTime:ytCurrentTime});else{isSyncing=true;if(syncPlaying)ytCmd('playVideo');isSyncing=false;}}
   }catch(err){}
 }
 function ytCmd(cmd,args){if(ytIframe?.contentWindow){try{ytIframe.contentWindow.postMessage(JSON.stringify({event:'command',func:cmd,args:args||[]}),'*');}catch(e){}}}
@@ -3281,8 +3159,8 @@ function updateYTOverlay(){const o=$('yt-overlay');if(o)o.style.cursor=amIHost?'
 function togglePlay(){if(!amIHost){toast('Apenas o host pode pausar/dar play ▶');return;}const n=!isPlaying;if(n)doPlay();else doPause();send('STATE',{playing:n,currentTime:curTime()});}
 function skip(s){if(!amIHost){toast('Apenas o host pode avançar/voltar ⏩');return;}const t=Math.max(0,curTime()+s);seekTo(t);send('SEEK',{t});}
 function seekClick(e){if(!amIHost)return;const dur=curDur();if(!dur&&!ytIframe)return;const r=$('prog').getBoundingClientRect();const t=Math.max(0,Math.min(dur||600,((e.clientX-r.left)/r.width)*(dur||600)));seekTo(t);send('SEEK',{t});}
-function doPlay(){isPlaying=true;$('pbtn') && ($('pbtn').textContent='⏸');if(ytIframe&&ytReady)ytCmd('playVideo');if(nativeVid)nativeVid.play().catch(()=>{});if(proxyIframe)sendProxy('WW_PLAY');}
-function doPause(){isPlaying=false;$('pbtn') && ($('pbtn').textContent='▶');if(ytIframe&&ytReady)ytCmd('pauseVideo');if(nativeVid)nativeVid.pause();setRate(RATE_NORMAL);if(proxyIframe)sendProxy('WW_PAUSE');}
+function doPlay(){isPlaying=true;$('pbtn').textContent='⏸';if(ytIframe&&ytReady)ytCmd('playVideo');if(nativeVid)nativeVid.play().catch(()=>{});if(proxyIframe)sendProxy('WW_PLAY');}
+function doPause(){isPlaying=false;$('pbtn').textContent='▶';if(ytIframe&&ytReady)ytCmd('pauseVideo');if(nativeVid)nativeVid.pause();setRate(RATE_NORMAL);if(proxyIframe)sendProxy('WW_PAUSE');}
 function seekTo(t){if(ytIframe){if(ytReady)ytCmd('seekTo',[t,true]);else ytPendingSeek=t;}if(nativeVid)nativeVid.currentTime=t;if(proxyIframe)sendProxy('WW_SEEK',{time:t});}
 function setRate(r){
   if(nativeVid){if(nativeVid._isVjs){if(vjsPlayer&&vjsPlayer.playbackRate()!==r)vjsPlayer.playbackRate(r);}else if(nativeVid.playbackRate!==r)nativeVid.playbackRate=r;}
