@@ -2984,9 +2984,12 @@ function _loadDirectVideo(wrap, url) {
     if(!videoEl._ytdlpTried){
       videoEl._ytdlpTried = true;
       fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json()).then(info=>{
-        if(info.ok && info.url && info.url !== url){
-          // URLs extraídas têm proteção de Referer — precisam do proxy
-          videoEl.src = `/api/stream?url=${encodeURIComponent(info.url)}&origin=${encodeURIComponent(new URL(url).origin)}`;
+        if(info.ok && info.url){
+          const origin = (() => { try { return new URL(url).origin; } catch(e){ return ''; } })();
+          const hParam = info.headers && Object.keys(info.headers).length
+            ? '&h=' + encodeURIComponent(JSON.stringify(info.headers))
+            : '';
+          videoEl.src = `/api/stream?url=${encodeURIComponent(info.url)}${origin ? '&origin='+encodeURIComponent(origin) : ''}${hParam}`;
           if(info.title) $('vi-title').textContent = info.title;
           videoEl.load();
         } else { toast('Erro ao carregar ⚠️'); }
@@ -3016,7 +3019,11 @@ function _loadDirectVideo(wrap, url) {
     .then(einfo => {
       if(einfo.ok && einfo.url){
         const origin = (() => { try { return new URL(url).origin; } catch(e){ return ''; } })();
-        videoEl.src = `/api/stream?url=${encodeURIComponent(einfo.url)}${origin ? '&origin='+encodeURIComponent(origin) : ''}`;
+        // Passa os headers extraídos pelo yt-dlp (Referer, cookies etc.)
+        const hParam = einfo.headers && Object.keys(einfo.headers).length
+          ? '&h=' + encodeURIComponent(JSON.stringify(einfo.headers))
+          : '';
+        videoEl.src = `/api/stream?url=${encodeURIComponent(einfo.url)}${origin ? '&origin='+encodeURIComponent(origin) : ''}${hParam}`;
         if(einfo.title) $('vi-title').textContent = einfo.title;
         videoEl.load();
       } else { toast('❌ Não foi possível extrair o vídeo'); }
