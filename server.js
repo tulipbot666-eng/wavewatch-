@@ -144,43 +144,6 @@ initDB().catch(console.error);
 // ─────────────────────────────────────────
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
-
-// ── CSP: permite scripts/media necessários ──
-app.use((req, res, next) => {
-  res.removeHeader('Content-Security-Policy');
-  res.removeHeader('X-Content-Security-Policy');
-  res.removeHeader('X-WebKit-CSP');
-  res.setHeader('Content-Security-Policy',
-    "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.youtube.com https://s.ytimg.com https://apis.google.com; " +
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
-    "font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; " +
-    "frame-src *; " +
-    "media-src 'self' blob: data: *; " +
-    "img-src 'self' blob: data: *; " +
-    "connect-src 'self' wss: https:; " +
-    "worker-src 'self' blob:;"
-  );
-  next();
-});
-
-// Serve index.html explicitamente para garantir nossos headers CSP
-app.get('/', (req, res) => {
-  res.removeHeader('Content-Security-Policy');
-  res.removeHeader('X-Content-Security-Policy');
-  res.setHeader('Content-Security-Policy',
-    "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; " +
-    "script-src * 'unsafe-inline' 'unsafe-eval' data: blob:; " +
-    "connect-src * data: blob: wss:; " +
-    "img-src * data: blob:; " +
-    "media-src * data: blob:; " +
-    "font-src * data:; " +
-    "frame-src *; " +
-    "worker-src * blob:;"
-  );
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.set('trust proxy', 1); // necessário para cookies seguros atrás do proxy do Render
@@ -568,7 +531,7 @@ app.get('/api/proxy', async (req, res) => {
       // Para recursos não-HTML (JS, CSS, imagens), faz proxy direto
       Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
       const { Readable } = require('stream');
-      Readable.fromWeb(response.body).on("error", (e) => { if(!res.headersSent) res.destroy(); }).pipe(res);
+      Readable.fromWeb(response.body).on("error", ()=>{ if(!res.headersSent) res.destroy(); }).pipe(res);
     }
   } catch(e) {
     res.status(500).send('Proxy error: ' + e.message);
@@ -618,7 +581,7 @@ app.get('/api/drive/stream/:fileId', async (req, res) => {
     if (contentRange) res.setHeader('Content-Range', contentRange);
     res.status(driveRes.status);
     const { Readable } = require('stream');
-    Readable.fromWeb(driveRes.body).on("error", (e) => { if(!res.headersSent) res.destroy(); }).pipe(res);
+    Readable.fromWeb(driveRes.body).on("error", ()=>{ if(!res.headersSent) res.destroy(); }).pipe(res);
   } catch(e) {
     console.error('Drive proxy error:', e.message);
     res.status(500).json({ error: e.message });
@@ -1207,106 +1170,36 @@ const { exec } = require('child_process');
 
 
 // Proxy de stream — repassa o vídeo/HLS com headers corretos
-// ── YT-DLP EXTRACT ──────────────────────────────────────────
-// Instala yt-dlp automaticamente se não estiver disponível
-const YT_DLP_PATH = process.env.YT_DLP_PATH || 'yt-dlp';
-
-function ytdlpAvailable() {
-  return new Promise(resolve => {
-    const { exec } = require('child_process');
-    exec(`${YT_DLP_PATH} --version`, err => resolve(!err));
-  });
-}
-
-function runYtdlp(url) {
-  return new Promise((resolve, reject) => {
-    const { exec } = require('child_process');
-    const cmd = `${YT_DLP_PATH} --no-playlist --dump-json --no-warnings "${url}"`;
-    exec(cmd, { timeout: 30000 }, (err, stdout, stderr) => {
-      if (err) return reject(new Error(stderr || err.message));
-      try { resolve(JSON.parse(stdout)); }
-      catch(e) { reject(new Error('Resposta inválida do yt-dlp')); }
-    });
-  });
-}
+const YT_DLP = process.env.YT_DLP_PATH || 'yt-dlp';
 
 app.get('/api/extract', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'URL obrigatória' });
 
-  // Tenta com yt-dlp primeiro (extrai stream de qualquer site)
-  if (await ytdlpAvailable()) {
-    try {
-      const info = await runYtdlp(url);
-
-      // Pega o melhor formato de vídeo disponível
-      let streamUrl = null;
-      if (info.url) {
-        streamUrl = info.url;
-      } else if (info.formats && info.formats.length) {
-        // Prefere mp4/m3u8, evita formatos só-audio
-        const fmt = info.formats
-          .filter(f => f.vcodec && f.vcodec !== 'none' && f.url)
-          .sort((a, b) => (b.height || 0) - (a.height || 0))[0]
-          || info.formats.find(f => f.url);
-        if (fmt) streamUrl = fmt.url;
-      }
-
-      if (!streamUrl) return res.status(422).json({ error: 'yt-dlp não encontrou stream neste vídeo' });
-
-      return res.json({
-        ok: true,
-        url: streamUrl,
-        title: info.title || info.fulltitle || url.split('/').pop() || 'Vídeo',
-        thumb: info.thumbnail || '',
-        via: 'yt-dlp'
-      });
-    } catch(e) {
-      console.warn('yt-dlp falhou:', e.message);
-      // Cai para o fallback abaixo
-    }
-  }
-
-  // Fallback: retorna a URL direta (funciona para .mp4/.m3u8 públicos)
+  // Tenta yt-dlp
   try {
-    const rawName = url.split('/').pop().split('?')[0] || 'Vídeo';
-    const title = decodeURIComponent(rawName).replace(/\.[a-z0-9]{2,5}$/i, '') || 'Vídeo';
-    res.json({ ok: true, url, title, thumb: '' });
+    const info = await new Promise((resolve, reject) => {
+      exec(`${YT_DLP} --no-playlist --dump-json --no-warnings "${url}"`,
+        { timeout: 30000 },
+        (err, stdout) => {
+          if (err) return reject(err);
+          try { resolve(JSON.parse(stdout)); } catch(e) { reject(e); }
+        }
+      );
+    });
+    const fmt = (info.formats || [])
+      .filter(f => f.vcodec && f.vcodec !== 'none' && f.url)
+      .sort((a,b) => (b.height||0)-(a.height||0))[0];
+    const streamUrl = fmt?.url || info.url;
+    if (!streamUrl) throw new Error('no url');
+    return res.json({ ok: true, url: streamUrl, title: info.title || 'Vídeo', thumb: info.thumbnail || '' });
   } catch(e) {
-    res.status(500).json({ error: e.message });
+    console.warn('yt-dlp:', e.message);
   }
-});
 
-// ── PROBE: testa se a URL é acessível e retorna diagnóstico ──
-app.get('/api/probe', async (req, res) => {
-  const { url } = req.query;
-  if (!url) return res.status(400).json({ error: 'URL obrigatória' });
-  try {
-    new URL(url); // valida formato
-  } catch(e) { return res.status(400).json({ error: 'URL inválida' }); }
-
-  const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    'Accept': '*/*',
-  };
-
-  try {
-    const r = await fetch(url, { method: 'HEAD', headers, redirect: 'follow', signal: AbortSignal.timeout(8000) });
-    const ct = r.headers.get('content-type') || '';
-    const cl = r.headers.get('content-length') || '';
-    res.json({ ok: r.ok, status: r.status, contentType: ct, contentLength: cl, finalUrl: r.url });
-  } catch(e) {
-    // HEAD não suportado por alguns — tenta GET com abort rápido
-    try {
-      const ctrl = new AbortController();
-      const r = await fetch(url, { method: 'GET', headers, redirect: 'follow', signal: ctrl.signal });
-      ctrl.abort();
-      const ct = r.headers.get('content-type') || '';
-      res.json({ ok: r.ok, status: r.status, contentType: ct, finalUrl: r.url });
-    } catch(e2) {
-      res.json({ ok: false, error: e2.message });
-    }
-  }
+  // Fallback: retorna a URL como veio
+  const title = decodeURIComponent(url.split('/').pop().split('?')[0]).replace(/\.[a-z0-9]{2,5}$/i,'') || 'Vídeo';
+  res.json({ ok: true, url, title, thumb: '' });
 });
 
 app.get('/api/stream', async (req, res) => {
@@ -1316,39 +1209,17 @@ app.get('/api/stream', async (req, res) => {
   try {
     const headers = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      'Accept': 'video/*,*/*;q=0.9',
+      'Accept': '*/*',
       'Accept-Encoding': 'identity',
     };
     if (origin) { headers['Referer'] = origin + '/'; headers['Origin'] = origin; }
     if (req.headers.range) headers['Range'] = req.headers.range;
 
-    const response = await fetch(url, {
-      headers,
-      redirect: 'follow',
-    });
-
-    if (!response.ok) {
-      const hint = response.status === 403 ? 'Acesso negado — o servidor bloqueou a requisicao'
-                 : response.status === 404 ? 'Video nao encontrado'
-                 : response.status === 401 ? 'URL requer autenticacao'
-                 : 'Erro no servidor remoto';
-      return res.status(response.status).json({ error: `Servidor retornou ${response.status}`, hint });
-    }
+    const response = await fetch(url, { headers });
+    if (!response.ok) return res.status(response.status).send('Stream error');
 
     res.setHeader('Access-Control-Allow-Origin', '*');
-
-    let ct = response.headers.get('content-type') || '';
-    if (!ct.startsWith('video/') && !ct.includes('mpegurl') && !ct.includes('dash+xml')) {
-      const urlNoQ = url.toLowerCase().split('?')[0];
-      if      (urlNoQ.endsWith('.m3u8')) ct = 'application/x-mpegURL';
-      else if (urlNoQ.endsWith('.mpd'))  ct = 'application/dash+xml';
-      else if (urlNoQ.endsWith('.webm')) ct = 'video/webm';
-      else if (urlNoQ.endsWith('.ogg') || urlNoQ.endsWith('.ogv')) ct = 'video/ogg';
-      else if (urlNoQ.endsWith('.mov'))  ct = 'video/quicktime';
-      else ct = 'video/mp4';
-    }
-
-    res.setHeader('Content-Type', ct);
+    res.setHeader('Content-Type', response.headers.get('content-type') || 'video/mp4');
     res.setHeader('Accept-Ranges', 'bytes');
     const cl = response.headers.get('content-length');
     const cr = response.headers.get('content-range');
@@ -1356,31 +1227,10 @@ app.get('/api/stream', async (req, res) => {
     if (cr) res.setHeader('Content-Range', cr);
     res.status(response.status);
 
-    const isM3U8 = ct.includes('mpegurl') || url.toLowerCase().includes('.m3u8');
-
-    if (isM3U8) {
-      // Reescreve URLs dos segmentos dentro do playlist para passarem pelo proxy
-      const text = await response.text();
-      const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
-      const rewritten = text.split('\n').map(line => {
-        line = line.trim();
-        if (!line || line.startsWith('#')) return line;
-        // Monta URL absoluta do segmento e passa pelo proxy
-        const absUrl = line.startsWith('http') ? line : baseUrl + line;
-        return `/api/stream?url=${encodeURIComponent(absUrl)}`;
-      }).join('\n');
-      return res.send(rewritten);
-    }
-
     const { Readable } = require('stream');
-    Readable.fromWeb(response.body).on("error", (e) => { if(!res.headersSent) res.destroy(); }).pipe(res);
+    Readable.fromWeb(response.body).on("error", ()=>{ if(!res.headersSent) res.destroy(); }).pipe(res);
   } catch(e) {
-    if (!res.headersSent) {
-      const msg = e.name === 'TimeoutError' ? 'Timeout — servidor demorou demais'
-                : (e.cause && e.cause.code === 'ENOTFOUND') ? 'Dominio nao encontrado'
-                : e.message;
-      res.status(500).json({ error: msg });
-    }
+    if (!res.headersSent) res.status(500).send('Stream proxy error: ' + e.message);
   }
 });
 
@@ -1419,19 +1269,15 @@ setInterval(() => {
   });
 }, 500);
 
-app.get('/api/ping', (req, res) => res.json({ ok: true, ts: Date.now() }));
+app.get('/api/ping', (req, res) => res.json({ ok: true }));
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`WaveWatch running on port ${PORT}`);
-
-  // ── KEEP-ALIVE: evita que o Render durma ──────────
   const appUrl = process.env.RENDER_EXTERNAL_URL
     || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null);
   if (appUrl) {
-    setInterval(async () => {
-      try { await fetch(`${appUrl}/api/ping`); } catch(e) {}
-    }, 4 * 60 * 1000);
+    setInterval(async () => { try { await fetch(`${appUrl}/api/ping`); } catch(e){} }, 4*60*1000);
   }
 });
 
