@@ -3042,29 +3042,26 @@ function _loadDirectVideo(wrap, url) {
       const r = await fetch(`/api/probe?url=${encodeURIComponent(url)}`);
       const info = await r.json();
 
-      // Se for uma página HTML, carrega como iframe automaticamente
       if (info.ok && (info.contentType || '').includes('text/html')) {
-        console.log('URL é uma página web, trocando para modo iframe...');
-        videoEl.remove();
-        nativeVid = null;
-        const iframe = document.createElement('iframe');
-        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
-        iframe.src = url;
-        iframe.allow = 'autoplay; fullscreen; accelerometer; encrypted-media';
-        iframe.allowFullscreen = true;
-        wrap.insertBefore(iframe, wrap.firstChild);
-        proxyIframe = iframe;
-        $('src-badge').textContent = '🌐';
-        $('ctrl').style.display = 'none';
-        toast('🌐 Abrindo como página web');
+        toast('⏳ Extraindo stream...');
+        try {
+          const er = await fetch(`/api/extract?url=${encodeURIComponent(url)}`);
+          const einfo = await er.json();
+          if (einfo.ok && einfo.url && einfo.url !== url) {
+            videoEl.src = `/api/stream?url=${encodeURIComponent(einfo.url)}`;
+            if (einfo.title) $('vi-title').textContent = einfo.title;
+            videoEl.load();
+            return;
+          }
+        } catch(e) {}
+        toast('❌ Este site bloqueia incorporação. Instale o yt-dlp no servidor.');
         return;
       }
 
       if (!info.ok) {
         toast(`❌ ${info.hint || info.error || 'Servidor retornou ' + info.status}`);
       } else {
-        toast(`❌ Formato não suportado pelo browser (${info.contentType || 'desconhecido'})`);
-        console.warn('Probe info:', info);
+        toast(`❌ Formato não suportado (${info.contentType || 'desconhecido'})`);
       }
     } catch(e) {
       toast('Erro ao carregar vídeo ⚠️');
