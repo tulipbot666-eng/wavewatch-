@@ -3067,10 +3067,14 @@ function _loadDirectVideo(wrap, url) {
         if (data.fatal) toast('Erro no stream HLS ⚠️');
       });
     } else if (isHLS && videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+      // Safari — HLS nativo direto
       videoEl.src = streamUrl;
       videoEl.addEventListener('canplay', onReady, {once: true});
     } else {
-      videoEl.src = `/api/stream?url=${encodeURIComponent(streamUrl)}`;
+      // MP4/WebM — token vinculado ao IP do usuário, tenta direto no browser primeiro
+      // Se der CORS, cai no error handler que tenta o proxy
+      videoEl.src = streamUrl;
+      videoEl._directUrl = streamUrl; // guarda para o error handler
       videoEl.addEventListener('canplay', onReady, {once: true});
     }
   }
@@ -3089,7 +3093,18 @@ function _loadDirectVideo(wrap, url) {
     }
   });
 
+  let _errorRetried = false;
   videoEl.addEventListener('error', async () => {
+    // 1ª tentativa: direto no browser falhou (CORS?) — tenta via proxy
+    if (!_errorRetried && videoEl._directUrl) {
+      _errorRetried = true;
+      console.log('Direto falhou, tentando proxy...');
+      videoEl.src = `/api/stream?url=${encodeURIComponent(videoEl._directUrl)}`;
+      videoEl.load();
+      return;
+    }
+
+    // 2ª tentativa: proxy também falhou — diagnóstica o erro real
     try {
       const r = await fetch(`/api/probe?url=${encodeURIComponent(url)}`);
       const info = await r.json();
@@ -3099,8 +3114,9 @@ function _loadDirectVideo(wrap, url) {
           const er = await fetch(`/api/extract?url=${encodeURIComponent(url)}`);
           const einfo = await er.json();
           if (einfo.ok && einfo.url && einfo.url !== url) {
-            videoEl.src = `/api/stream?url=${encodeURIComponent(einfo.url)}`;
-            if (einfo.title) $('vi-title').textContent = einfo.title;
+            _errorRetried = false;
+            videoEl._directUrl = einfo.url;
+            videoEl.src = einfo.url;
             videoEl.load();
             return;
           }
