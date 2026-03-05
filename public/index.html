@@ -2966,7 +2966,35 @@ function loadTorrent(magnetUri, wrap) {
 }
 
 // ── DIRECT URL PLAYER (native <video>, sem Video.js) ─────
-function _loadDirect(wrap, url) {
+async function _loadDirect(wrap, url) {
+  // Primeiro verifica se é uma página HTML ou arquivo de vídeo
+  try {
+    const r = await fetch(`/api/probe?url=${encodeURIComponent(url)}`);
+    const info = await r.json();
+
+    if (info.ok && (info.contentType || '').includes('text/html')) {
+      // É uma página web — abre como iframe
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
+      iframe.src = url;
+      iframe.allow = 'autoplay; fullscreen; accelerometer; encrypted-media';
+      iframe.allowFullscreen = true;
+      wrap.insertBefore(iframe, wrap.firstChild);
+      proxyIframe = iframe;
+      $('src-badge').textContent = '🌐';
+      $('ctrl').style.display = 'none';
+      window.removeEventListener('message', onProxyMsg);
+      window.addEventListener('message', onProxyMsg);
+      return;
+    }
+  } catch(e) {
+    // probe falhou, tenta carregar como vídeo mesmo assim
+  }
+
+  _loadDirectVideo(wrap, url);
+}
+
+function _loadDirectVideo(wrap, url) {
   const videoEl = document.createElement('video');
   videoEl.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:#000;';
   videoEl.controls = false;
@@ -3009,15 +3037,33 @@ function _loadDirect(wrap, url) {
     if(syncPlaying) videoEl.play().catch(()=>{});
   });
   videoEl.addEventListener('error', async () => {
-    // Consulta o probe para saber o que aconteceu de verdade
     try {
       const r = await fetch(`/api/probe?url=${encodeURIComponent(url)}`);
       const info = await r.json();
+
+      // Se for uma página HTML, carrega como iframe automaticamente
+      if (info.ok && (info.contentType || '').includes('text/html')) {
+        console.log('URL é uma página web, trocando para modo iframe...');
+        videoEl.remove();
+        nativeVid = null;
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
+        iframe.src = url;
+        iframe.allow = 'autoplay; fullscreen; accelerometer; encrypted-media';
+        iframe.allowFullscreen = true;
+        wrap.insertBefore(iframe, wrap.firstChild);
+        proxyIframe = iframe;
+        $('src-badge').textContent = '🌐';
+        $('ctrl').style.display = 'none';
+        toast('🌐 Abrindo como página web');
+        return;
+      }
+
       if (!info.ok) {
-        const msg = info.hint || info.error || `Servidor retornou ${info.status}`;
-        toast(`❌ ${msg}`);
+        toast(`❌ ${info.hint || info.error || 'Servidor retornou ' + info.status}`);
       } else {
-        toast('Erro ao carregar vídeo — formato não suportado pelo browser ⚠️');
+        toast(`❌ Formato não suportado pelo browser (${info.contentType || 'desconhecido'})`);
+        console.warn('Probe info:', info);
       }
     } catch(e) {
       toast('Erro ao carregar vídeo ⚠️');
