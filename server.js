@@ -968,6 +968,21 @@ wss.on('connection', (ws) => {
         }));
       }
     }
+
+    // P2P video relay
+    if (type === 'P2P_REQUEST' && currentRoom) {
+      // Spectator asks host to start P2P — forward to room host
+      const hostMember = currentRoom.members.get(currentRoom.host);
+      if (hostMember && hostMember.ws.readyState === 1) {
+        hostMember.ws.send(JSON.stringify({ type: 'P2P_REQUEST', payload: { fromId: wsId } }));
+      }
+    }
+    if ((type === 'P2P_OFFER' || type === 'P2P_ANSWER' || type === 'P2P_ICE') && currentRoom) {
+      const target = currentRoom.members.get(payload.targetId);
+      if (target && target.ws.readyState === 1) {
+        target.ws.send(JSON.stringify({ type, payload: { ...payload, fromId: wsId } }));
+      }
+    }
   });
 
   ws.on('close', () => {
@@ -1266,8 +1281,8 @@ function generateRoomCode() {
 // ─────────────────────────────────────────
 // SYNC HEARTBEAT — condicional por drift
 // ─────────────────────────────────────────
-const SYNC_DRIFT_THRESHOLD = 0.5;  // era 0.25 — menos mensagens desnecessárias
-const SYNC_FORCE_INTERVAL  = 8000; // era 5000 — sync forçado menos frequente
+const SYNC_DRIFT_THRESHOLD = 0.25;
+const SYNC_FORCE_INTERVAL  = 5000;
 
 setInterval(() => {
   const now = Date.now();
