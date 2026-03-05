@@ -1386,6 +1386,20 @@ setInterval(() => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`WaveWatch running on port ${PORT}`));
 
+// ── KEEP-ALIVE: evita que o Render/Railway durma ──────────
+if (process.env.RENDER_EXTERNAL_URL || process.env.RAILWAY_PUBLIC_DOMAIN) {
+  const appUrl = process.env.RENDER_EXTERNAL_URL
+    || `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+  setInterval(async () => {
+    try {
+      await fetch(`${appUrl}/api/ping`);
+      console.log('keep-alive ping ✓');
+    } catch(e) {}
+  }, 4 * 60 * 1000); // a cada 4 minutos
+}
+
+app.get('/api/ping', (req, res) => res.json({ ok: true, ts: Date.now() }));
+
 // ─────────────────────────────────────────
 // LIKES API
 // ─────────────────────────────────────────
