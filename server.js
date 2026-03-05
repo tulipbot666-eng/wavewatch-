@@ -531,7 +531,7 @@ app.get('/api/proxy', async (req, res) => {
       // Para recursos não-HTML (JS, CSS, imagens), faz proxy direto
       Object.entries(headers).forEach(([k, v]) => res.setHeader(k, v));
       const { Readable } = require('stream');
-      Readable.fromWeb(response.body).pipe(res);
+      Readable.fromWeb(response.body).on("error", (e) => { if(!res.headersSent) res.destroy(); }).pipe(res);
     }
   } catch(e) {
     res.status(500).send('Proxy error: ' + e.message);
@@ -581,7 +581,7 @@ app.get('/api/drive/stream/:fileId', async (req, res) => {
     if (contentRange) res.setHeader('Content-Range', contentRange);
     res.status(driveRes.status);
     const { Readable } = require('stream');
-    Readable.fromWeb(driveRes.body).pipe(res);
+    Readable.fromWeb(driveRes.body).on("error", (e) => { if(!res.headersSent) res.destroy(); }).pipe(res);
   } catch(e) {
     console.error('Drive proxy error:', e.message);
     res.status(500).json({ error: e.message });
@@ -1288,7 +1288,6 @@ app.get('/api/stream', async (req, res) => {
     const response = await fetch(url, {
       headers,
       redirect: 'follow',
-      signal: AbortSignal.timeout(30000)
     });
 
     if (!response.ok) {
@@ -1337,7 +1336,7 @@ app.get('/api/stream', async (req, res) => {
     }
 
     const { Readable } = require('stream');
-    Readable.fromWeb(response.body).pipe(res);
+    Readable.fromWeb(response.body).on("error", (e) => { if(!res.headersSent) res.destroy(); }).pipe(res);
   } catch(e) {
     if (!res.headersSent) {
       const msg = e.name === 'TimeoutError' ? 'Timeout — servidor demorou demais'
@@ -1383,22 +1382,21 @@ setInterval(() => {
   });
 }, 500);
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`WaveWatch running on port ${PORT}`));
-
-// ── KEEP-ALIVE: evita que o Render/Railway durma ──────────
-if (process.env.RENDER_EXTERNAL_URL || process.env.RAILWAY_PUBLIC_DOMAIN) {
-  const appUrl = process.env.RENDER_EXTERNAL_URL
-    || `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
-  setInterval(async () => {
-    try {
-      await fetch(`${appUrl}/api/ping`);
-      console.log('keep-alive ping ✓');
-    } catch(e) {}
-  }, 4 * 60 * 1000); // a cada 4 minutos
-}
-
 app.get('/api/ping', (req, res) => res.json({ ok: true, ts: Date.now() }));
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`WaveWatch running on port ${PORT}`);
+
+  // ── KEEP-ALIVE: evita que o Render durma ──────────
+  const appUrl = process.env.RENDER_EXTERNAL_URL
+    || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null);
+  if (appUrl) {
+    setInterval(async () => {
+      try { await fetch(`${appUrl}/api/ping`); } catch(e) {}
+    }, 4 * 60 * 1000);
+  }
+});
 
 // ─────────────────────────────────────────
 // LIKES API
