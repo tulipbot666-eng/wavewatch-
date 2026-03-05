@@ -2973,29 +2973,53 @@ function _loadDirectVideo(wrap, url) {
   wrap.insertBefore(videoEl, wrap.firstChild);
   nativeVid = videoEl;
 
-  videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`;
-
   if(!amIHost) videoEl.addEventListener('click', e=>{e.stopImmediatePropagation();toast('Apenas o host pode controlar o vídeo ▶');});
-
-  videoEl.addEventListener('play',()=>{if(isSyncing)return;isPlaying=true;$('pbtn').textContent='⏸';if(amIHost)send('STATE',{playing:true,currentTime:videoEl.currentTime});else{isSyncing=true;if(!syncPlaying)videoEl.pause();isSyncing=false;}});
-  videoEl.addEventListener('pause',()=>{if(isSyncing)return;isPlaying=false;$('pbtn').textContent='▶';if(amIHost)send('STATE',{playing:false,currentTime:videoEl.currentTime});else{isSyncing=true;if(syncPlaying)videoEl.play().catch(()=>{});isSyncing=false;}});
+  videoEl.addEventListener('play',()=>{if(isSyncing)return;isPlaying=true;$('pbtn').textContent='\u23f8';if(amIHost)send('STATE',{playing:true,currentTime:videoEl.currentTime});else{isSyncing=true;if(!syncPlaying)videoEl.pause();isSyncing=false;}});
+  videoEl.addEventListener('pause',()=>{if(isSyncing)return;isPlaying=false;$('pbtn').textContent='\u25b6';if(amIHost)send('STATE',{playing:false,currentTime:videoEl.currentTime});else{isSyncing=true;if(syncPlaying)videoEl.play().catch(()=>{});isSyncing=false;}});
   videoEl.addEventListener('seeked',()=>{if(isSyncing)return;if(amIHost)send('SEEK',{t:videoEl.currentTime});});
   videoEl.addEventListener('timeupdate',()=>{const t=videoEl.currentTime,d=videoEl.duration||0;if(d>0){$('prog-fill').style.width=(t/d*100)+'%';$('tlbl-cur').textContent=fmt(t);$('tlbl-dur').textContent=fmt(d);}});
   videoEl.addEventListener('canplay',()=>{const t=expectedNow();if(t>0.5){isSyncing=true;videoEl.currentTime=t;isSyncing=false;}if(syncPlaying)videoEl.play().catch(()=>{});videoEl.volume=parseFloat($('vol').value)||1;});
   videoEl.addEventListener('error',()=>{
-    // Tenta via yt-dlp se falhar
-    if(videoEl._ytdlpTried){toast('Erro ao carregar vídeo ⚠️');return;}
+    if(videoEl._ytdlpTried){toast('Erro ao carregar \u26a0\ufe0f');return;}
     videoEl._ytdlpTried=true;
     fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json()).then(info=>{
       if(info.ok&&info.url&&info.url!==url){
         videoEl.src=`/api/stream?url=${encodeURIComponent(info.url)}`;
         if(info.title)$('vi-title').textContent=info.title;
         videoEl.load();
-      } else { toast('Erro ao carregar vídeo ⚠️'); }
-    }).catch(()=>toast('Erro ao carregar vídeo ⚠️'));
+      } else { toast('Erro ao carregar \u26a0\ufe0f'); }
+    }).catch(()=>toast('Erro ao carregar \u26a0\ufe0f'));
   });
-}
 
+  // URL com extensão conhecida -> proxy direto, sem probe
+  const noQ = url.toLowerCase().split('?')[0];
+  const videoExts = ['.mp4','.webm','.m3u8','.mpd','.ogg','.mov','.mkv','.avi','.flv'];
+  if (videoExts.some(e => noQ.endsWith(e))) {
+    videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`;
+    return;
+  }
+
+  // URL sem extensão -> probe para detectar se é página HTML
+  toast('\u23f3 Carregando...');
+  fetch(`/api/probe?url=${encodeURIComponent(url)}`)
+    .then(r => r.json())
+    .then(info => {
+      if (info.ok && (info.contentType||'').includes('text/html')) {
+        toast('\u23f3 Extraindo stream...');
+        videoEl._ytdlpTried = true;
+        fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json()).then(einfo=>{
+          if(einfo.ok && einfo.url && einfo.url !== url){
+            videoEl.src = `/api/stream?url=${encodeURIComponent(einfo.url)}`;
+            if(einfo.title) $('vi-title').textContent = einfo.title;
+            videoEl.load();
+          } else { toast('\u274c N\u00e3o foi poss\u00edvel extrair'); }
+        });
+      } else {
+        videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`;
+      }
+    })
+    .catch(() => { videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`; });
+}
 // ── VIDEO.JS PLAYER ───────────────────────────────────────
 function _loadVjs(wrap, src, typeOverride, extraOpts) {
   const isYT = typeOverride === 'youtube';
