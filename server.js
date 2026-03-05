@@ -1170,35 +1170,73 @@ const { exec } = require('child_process');
 
 
 // Proxy de stream — repassa o vídeo/HLS com headers corretos
+// ── YT-DLP EXTRACT ──────────────────────────────────────────
+// Instala yt-dlp automaticamente se não estiver disponível
+const YT_DLP_PATH = process.env.YT_DLP_PATH || 'yt-dlp';
+
+function ytdlpAvailable() {
+  return new Promise(resolve => {
+    const { exec } = require('child_process');
+    exec(`${YT_DLP_PATH} --version`, err => resolve(!err));
+  });
+}
+
+function runYtdlp(url) {
+  return new Promise((resolve, reject) => {
+    const { exec } = require('child_process');
+    const cmd = `${YT_DLP_PATH} --no-playlist --dump-json --no-warnings "${url}"`;
+    exec(cmd, { timeout: 30000 }, (err, stdout, stderr) => {
+      if (err) return reject(new Error(stderr || err.message));
+      try { resolve(JSON.parse(stdout)); }
+      catch(e) { reject(new Error('Resposta inválida do yt-dlp')); }
+    });
+  });
+}
+
 app.get('/api/extract', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'URL obrigatória' });
 
-  try {
-    // Valida se a URL é acessível e obtém metadados básicos
-    const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      'Accept': '*/*',
-    };
-    const probe = await fetch(url, { method: 'HEAD', headers, redirect: 'follow' });
-    const ct = probe.headers.get('content-type') || '';
-    const isVideo = ct.startsWith('video/') || ct.includes('mpegurl') || ct.includes('octet-stream') || ct.includes('mp4');
+  // Tenta com yt-dlp primeiro (extrai stream de qualquer site)
+  if (await ytdlpAvailable()) {
+    try {
+      const info = await runYtdlp(url);
 
-    // Extrai título do nome do arquivo na URL
-    const rawName = url.split('/').pop().split('?')[0] || 'Vídeo';
-    const title = decodeURIComponent(rawName).replace(/\.[a-z0-9]{2,5}$/i, '') || 'Vídeo';
+      // Pega o melhor formato de vídeo disponível
+      let streamUrl = null;
+      if (info.url) {
+        streamUrl = info.url;
+      } else if (info.formats && info.formats.length) {
+        // Prefere mp4/m3u8, evita formatos só-audio
+        const fmt = info.formats
+          .filter(f => f.vcodec && f.vcodec !== 'none' && f.url)
+          .sort((a, b) => (b.height || 0) - (a.height || 0))[0]
+          || info.formats.find(f => f.url);
+        if (fmt) streamUrl = fmt.url;
+      }
 
-    if (!probe.ok) {
-      return res.status(400).json({ error: `URL retornou status ${probe.status}` });
+      if (!streamUrl) return res.status(422).json({ error: 'yt-dlp não encontrou stream neste vídeo' });
+
+      return res.json({
+        ok: true,
+        url: streamUrl,
+        title: info.title || info.fulltitle || url.split('/').pop() || 'Vídeo',
+        thumb: info.thumbnail || '',
+        via: 'yt-dlp'
+      });
+    } catch(e) {
+      console.warn('yt-dlp falhou:', e.message);
+      // Cai para o fallback abaixo
     }
+  }
 
-    // Retorna a URL original — o player vai carregar via /api/stream (proxy)
-    res.json({ ok: true, url, title, thumb: '', contentType: ct, isVideo });
-  } catch (e) {
-    // Se não conseguiu fazer HEAD, tenta mesmo assim (alguns servidores bloqueiam HEAD)
+  // Fallback: retorna a URL direta (funciona para .mp4/.m3u8 públicos)
+  try {
     const rawName = url.split('/').pop().split('?')[0] || 'Vídeo';
     const title = decodeURIComponent(rawName).replace(/\.[a-z0-9]{2,5}$/i, '') || 'Vídeo';
     res.json({ ok: true, url, title, thumb: '' });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
