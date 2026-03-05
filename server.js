@@ -1320,6 +1320,22 @@ app.get('/api/stream', async (req, res) => {
     if (cr) res.setHeader('Content-Range', cr);
     res.status(response.status);
 
+    const isM3U8 = ct.includes('mpegurl') || url.toLowerCase().includes('.m3u8');
+
+    if (isM3U8) {
+      // Reescreve URLs dos segmentos dentro do playlist para passarem pelo proxy
+      const text = await response.text();
+      const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
+      const rewritten = text.split('\n').map(line => {
+        line = line.trim();
+        if (!line || line.startsWith('#')) return line;
+        // Monta URL absoluta do segmento e passa pelo proxy
+        const absUrl = line.startsWith('http') ? line : baseUrl + line;
+        return `/api/stream?url=${encodeURIComponent(absUrl)}`;
+      }).join('\n');
+      return res.send(rewritten);
+    }
+
     const { Readable } = require('stream');
     Readable.fromWeb(response.body).pipe(res);
   } catch(e) {
