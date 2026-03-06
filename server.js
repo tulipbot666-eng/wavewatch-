@@ -19,12 +19,14 @@ const wss = new WebSocketServer({ server });
 // DATABASE
 // ─────────────────────────────────────────
 if (!process.env.DATABASE_URL) {
-  console.error('\u274c DATABASE_URL nao definida! Configure no Railway: Settings > Variables.');
-  process.exit(1);
+  console.error('⚠️  DATABASE_URL não definida! Configure em Render: Environment > Add Environment Variable.');
 }
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  connectionString: process.env.DATABASE_URL || '',
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 30000,
+  max: 10
 });
 
 async function initDB() {
@@ -137,7 +139,7 @@ async function initDB() {
     console.log('✅ Database ready');
 }
 
-initDB().catch(console.error);
+initDB().catch(e => console.error('⚠️  initDB error (non-fatal):', e.message));
 
 // ─────────────────────────────────────────
 // SESSION + PASSPORT
@@ -1312,16 +1314,7 @@ setInterval(() => {
 }, 500);
 
 app.get('/api/ping', (req, res) => res.json({ ok: true }));
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`WaveWatch running on port ${PORT}`);
-  const appUrl = process.env.RENDER_EXTERNAL_URL
-    || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null);
-  if (appUrl) {
-    setInterval(async () => { try { await fetch(`${appUrl}/api/ping`); } catch(e){} }, 4*60*1000);
-  }
-});
+app.get('/healthz', (req, res) => res.json({ ok: true }));
 
 // ─────────────────────────────────────────
 // LIKES API
@@ -1392,4 +1385,17 @@ app.delete('/api/comments/:id', requireAuth, async (req, res) => {
     await pool.query('DELETE FROM post_comments WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
+});
+
+// ─────────────────────────────────────────
+// START SERVER — sempre no final, após todas as rotas
+// ─────────────────────────────────────────
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ WaveWatch running on port ${PORT}`);
+  const appUrl = process.env.RENDER_EXTERNAL_URL;
+  if (appUrl) {
+    // Keep-alive ping para evitar sleep no free tier
+    setInterval(async () => { try { await fetch(`${appUrl}/api/ping`); } catch(e){} }, 4 * 60 * 1000);
+  }
 });
