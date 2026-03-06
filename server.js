@@ -1172,34 +1172,104 @@ const { exec } = require('child_process');
 // Proxy de stream — repassa o vídeo/HLS com headers corretos
 const YT_DLP = process.env.YT_DLP_PATH || 'yt-dlp';
 
+// ─────────────────────────────────────────
+// SCRAPER: extrai título + URL do stream de páginas de vídeo
+// O browser NUNCA vê a URL real do stream (token expiraria).
+// Tudo passa por /api/stream que faz proxy em tempo real.
+// ─────────────────────────────────────────
+
+async function scrapeTokyvideo(pageUrl) {
+  const r = await fetch(pageUrl, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
+      'Accept': 'text/html,*/*',
+      'Accept-Language': 'pt-BR,pt;q=0.9',
+    }
+  });
+  const html = await r.text();
+
+  // URL do MP4 com token: https://cdnst64.tokyvideo.com/videos/.../mp4/....mp4?secure=...
+  const m = html.match(/https:\/\/cdnst\d*\.tokyvideo\.com\/[^"'\s<>]+\.mp4[^"'\s<>]*/);
+  if (!m) throw new Error('URL do stream não encontrada');
+
+  const titleM = html.match(/<h1[^>]*>([^<]+)<\/h1>/) || html.match(/<title>([^<]+)<\/title>/);
+  const title = titleM ? titleM[1].replace(/\s*[-|]\s*Tokyvideo.*/i,'').trim() : 'Vídeo';
+
+  return {
+    streamUrl: m[0],
+    title,
+    referer: 'https://www.tokyvideo.com/'
+  };
+}
+
 app.get('/api/extract', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'URL obrigatória' });
 
-  // Tenta yt-dlp
-  try {
-    const info = await new Promise((resolve, reject) => {
-      exec(`${YT_DLP} --no-playlist --dump-json --no-warnings "${url}"`,
-        { timeout: 30000 },
-        (err, stdout) => {
-          if (err) return reject(err);
-          try { resolve(JSON.parse(stdout)); } catch(e) { reject(e); }
-        }
-      );
-    });
-    const fmt = (info.formats || [])
-      .filter(f => f.vcodec && f.vcodec !== 'none' && f.url)
-      .sort((a,b) => (b.height||0)-(a.height||0))[0];
-    const streamUrl = fmt?.url || info.url;
-    if (!streamUrl) throw new Error('no url');
-    return res.json({ ok: true, url: streamUrl, title: info.title || 'Vídeo', thumb: info.thumbnail || '' });
-  } catch(e) {
-    console.warn('yt-dlp:', e.message);
-  }
+  let hostname = '';
+  try { hostname = new URL(url).hostname.replace('www.',''); } catch(e) {}
 
-  // Fallback: retorna a URL como veio
-  const title = decodeURIComponent(url.split('/').pop().split('?')[0]).replace(/\.[a-z0-9]{2,5}$/i,'') || 'Vídeo';
-  res.json({ ok: true, url, title, thumb: '' });
+  try {
+    if (hostname.includes('tokyvideo.com')) {
+      const info = await scrapeTokyvideo(url);
+      // Retorna a URL como opaca — browser vai chamar /api/stream?url=PAGINA
+      // e o servidor vai extrair + proxiar fresh a cada request
+      return res.json({ ok: true, title: info.title, proxyPageUrl: url });
+    }
+    return res.json({ ok: false, error: 'Site não suportado ainda' });
+  } catch(e) {
+    console.warn('[extract]', hostname, e.message);
+    return res.json({ ok: false, error: e.message });
+  }
+});
+
+// Proxy inteligente: se a URL for uma página HTML conhecida, extrai o stream
+// em tempo real e faz pipe direto — token sempre fresco
+app.get('/api/smart-stream', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).send('URL obrigatória');
+
+  let hostname = '';
+  try { hostname = new URL(url).hostname.replace('www.',''); } catch(e) {}
+
+  try {
+    let streamUrl, referer;
+
+    if (hostname.includes('tokyvideo.com')) {
+      const info = await scrapeTokyvideo(url);
+      streamUrl = info.streamUrl;
+      referer = info.referer;
+    } else {
+      return res.status(400).json({ error: 'Site não suportado' });
+    }
+
+    // Agora faz proxy do stream com o token fresco
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+      'Accept-Encoding': 'identity',
+      'Referer': referer,
+    };
+    if (req.headers.range) headers['Range'] = req.headers.range;
+
+    const response = await fetch(streamUrl, { headers });
+    if (!response.ok) return res.status(response.status).send('Stream error');
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', response.headers.get('content-type') || 'video/mp4');
+    res.setHeader('Accept-Ranges', 'bytes');
+    const cl = response.headers.get('content-length');
+    const cr = response.headers.get('content-range');
+    if (cl) res.setHeader('Content-Length', cl);
+    if (cr) res.setHeader('Content-Range', cr);
+    res.status(response.status);
+
+    const { Readable } = require('stream');
+    Readable.fromWeb(response.body).on('error', () => { if(!res.headersSent) res.destroy(); }).pipe(res);
+  } catch(e) {
+    console.error('[smart-stream]', e.message);
+    if (!res.headersSent) res.status(500).send('Erro: ' + e.message);
+  }
 });
 
 app.get('/api/probe', async (req, res) => {
@@ -1294,55 +1364,6 @@ setInterval(() => {
 }, 500);
 
 app.get('/api/ping', (req, res) => res.json({ ok: true }));
-
-// ── DIAGNÓSTICO — acesse /api/debug para ver o status ──
-app.get('/api/debug', async (req, res) => {
-  const { url } = req.query;
-  const result = { ytdlp: null, extract: null };
-
-  // Verifica se yt-dlp está instalado
-  await new Promise(resolve => {
-    exec(`${YT_DLP} --version`, { timeout: 5000 }, (err, stdout) => {
-      result.ytdlp = err ? `NÃO INSTALADO: ${err.message}` : `OK — versão ${stdout.trim()}`;
-      resolve();
-    });
-  });
-
-  // Se passou uma URL, tenta extrair
-  if (url) {
-    await new Promise(resolve => {
-      exec(`${YT_DLP} --no-playlist --dump-json --no-warnings "${url}"`,
-        { timeout: 30000 },
-        (err, stdout, stderr) => {
-          if (err) {
-            result.extract = { ok: false, error: err.message, stderr };
-          } else {
-            try {
-              const info = JSON.parse(stdout);
-              const fmt = (info.formats || [])
-                .filter(f => f.vcodec && f.vcodec !== 'none' && f.url)
-                .sort((a,b) => (b.height||0)-(a.height||0))[0];
-              result.extract = {
-                ok: true,
-                title: info.title,
-                streamUrl: fmt?.url || info.url,
-                headers: fmt?.http_headers || info.http_headers || {},
-                formatsCount: (info.formats||[]).length
-              };
-            } catch(e) {
-              result.extract = { ok: false, error: 'JSON parse falhou', raw: stdout.slice(0, 500) };
-            }
-          }
-          resolve();
-        }
-      );
-    });
-  } else {
-    result.extract = 'Passe ?url=https://... para testar extração';
-  }
-
-  res.json(result);
-});
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
