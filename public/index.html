@@ -2838,7 +2838,7 @@ function loadVideo(video,doBroadcast){
     const ext=src==='local'?'LOCAL':(url.split('.').pop().split('?')[0].toUpperCase().substring(0,4)||'VID');
     $('src-badge').textContent=ext;
     if(src==='direct'){
-      _loadDirectVideo(wrap, url);
+      _loadDirectVideo(wrap, url, video._referer || '');
       $('ctrl').style.display='flex';
     } else {
       _loadVjs(wrap, url);
@@ -2966,9 +2966,13 @@ function loadTorrent(magnetUri, wrap) {
 }
 
 // ── DIRECT URL PLAYER ────────────────────────────────────
-function _loadDirectVideo(wrap, url) {
+// Cada cliente carrega o vídeo direto do CDN — sem passar pelo servidor.
+// <video src> sem crossOrigin não dispara CORS check (igual a <img>).
+// Proxy só é usado se o browser rejeitar a URL (raro para .mp4/.m3u8 diretos).
+function _loadDirectVideo(wrap, url, referer) {
   const videoEl = document.createElement('video');
   videoEl.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;background:#000;';
+  // NÃO setar crossOrigin — sem ele o browser carrega sem CORS preflight
   videoEl.controls=false; videoEl.preload='auto'; videoEl.setAttribute('playsinline','');
   wrap.insertBefore(videoEl, wrap.firstChild);
   nativeVid = videoEl;
@@ -2980,34 +2984,16 @@ function _loadDirectVideo(wrap, url) {
   videoEl.addEventListener('timeupdate',()=>{const t=videoEl.currentTime,d=videoEl.duration||0;if(d>0){$('prog-fill').style.width=(t/d*100)+'%';$('tlbl-cur').textContent=ft(t);$('tlbl-dur').textContent=ft(d);}});
   videoEl.addEventListener('canplay',()=>{const t=expectedNow();if(t>0.5){isSyncing=true;videoEl.currentTime=t;isSyncing=false;}if(syncPlaying)videoEl.play().catch(()=>{});videoEl.volume=parseFloat($('vol').value)||1;});
   videoEl.addEventListener('error',()=>{
-    if(videoEl._proxyTried){toast('Erro ao carregar \u26a0\ufe0f');return;}
-    videoEl._proxyTried=true;
-    // Tenta /api/extract primeiro (scraping leve, sem passar banda pelo servidor)
-    fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json()).then(info=>{
-      if(info.ok&&info.url&&info.url!==url){
-        // Tenta URL extraída direto no browser — não proxy
-        videoEl.src=info.url;
-        if(info.title)$('vi-title').textContent=info.title;
-        videoEl.load();
-      } else {
-        // Último recurso: proxy com Referer correto
-        let referer='';
-        try{ referer=new URL(url).origin; }catch(e){}
-        videoEl.src=`/api/stream?url=${encodeURIComponent(url)}${referer?'&origin='+encodeURIComponent(referer):''}`;
-        videoEl.load();
-      }
-    }).catch(()=>toast('Erro ao carregar \u26a0\ufe0f'));
+    if(videoEl._fallbackTried){toast('Erro ao carregar \u26a0\ufe0f');return;}
+    videoEl._fallbackTried=true;
+    // Último recurso: proxy com Referer correto
+    // Cada browser faz sua própria request — não é o servidor que serve pra todos
+    const origin = referer || (() => { try { return new URL(url).origin; } catch { return ''; } })();
+    videoEl.src = `/api/stream?url=${encodeURIComponent(url)}${origin?'&origin='+encodeURIComponent(origin):''}`;
+    videoEl.load();
   });
 
-  // Link direto: browser baixa direto da fonte, sem passar pelo servidor
-  const noQ = url.toLowerCase().split('?')[0];
-  const videoExts = ['.mp4','.webm','.m3u8','.mpd','.ogg','.mov','.mkv','.avi','.flv'];
-  if (videoExts.some(e => noQ.endsWith(e))) {
-    videoEl.src = url; // direto — sem proxy
-    return;
-  }
-
-  // URL sem extensão conhecida — tenta direto
+  // Carrega direto — cada browser baixa do CDN sem passar pelo servidor
   videoEl.src = url;
 }
 // ── VIDEO.JS PLAYER ───────────────────────────────────────
@@ -4491,7 +4477,6 @@ window.addEventListener('message', async (e) => {
       const res = await fetch('/api/room/new');
       const { roomId: newId } = await res.json();
       enterApp(newId, loggedInUser.name, 'Sala da Extensão', false, null);
-      // Aguarda WebSocket conectar
       await new Promise(resolve => {
         const check = setInterval(() => {
           if (ws && ws.readyState === 1) { clearInterval(check); resolve(); }
@@ -4502,23 +4487,16 @@ window.addEventListener('message', async (e) => {
     } catch(err) { toast('Erro ao criar sala 😔'); return; }
   }
 
-  // Detecta tipo
   const urlLower = url.toLowerCase();
   let src = 'direct';
   if (url.includes('youtube.com') || url.includes('youtu.be')) src = 'youtube';
   else if (urlLower.includes('.m3u8') || urlLower.includes('/hls/')) src = 'hls';
 
-  let finalUrl = url;
-
-  // Para vídeos não-YouTube: usa proxy do servidor para resolver CORS
-  // O CDN do tokyvideo (e maioria dos sites) bloqueia cross-origin sem o header correto
-  if (src !== 'youtube') {
-    const origin = referer || (() => { try { return new URL(url).origin; } catch { return ''; } })();
-    finalUrl = `/api/stream?url=${encodeURIComponent(url)}${origin ? '&origin=' + encodeURIComponent(origin) : ''}`;
-    src = 'direct';
-  }
-
-  const video = { url: finalUrl, title: title || 'Vídeo', thumb: '', src };
+  // IMPORTANTE: manda a URL original para todos os clientes.
+  // Cada browser carrega direto do CDN sem passar pelo servidor.
+  // <video src> sem crossOrigin não dispara CORS — funciona como <img>.
+  // O referer é salvo no video para cada cliente usar no fallback se precisar.
+  const video = { url, title: title || 'Vídeo', thumb: '', src, _referer: referer || '' };
   send('VIDEO', { video });
   toast(`🎬 "${video.title}" carregado!`);
 });
