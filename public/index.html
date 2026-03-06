@@ -4476,31 +4476,33 @@ window.addEventListener('message', async (e) => {
   const { url, title, referer } = e.data;
   if (!url) return;
 
-  console.log('[WaveWatch] Vídeo recebido da extensão:', url);
+  console.log('[WaveWatch Ext] Vídeo recebido:', url);
 
-  // Se não tem sala aberta, cria uma
-  if (!currentRoomId) {
+  // Se ainda não está numa sala, cria uma automaticamente
+  if (!roomId) {
     if (!loggedInUser) {
       toast('Faça login para usar a extensão WaveWatch Companion 🔒');
       return;
     }
     try {
       const res = await fetch('/api/room/new');
-      const { roomId } = await res.json();
-      joinRoom(roomId);
-      // Aguarda sala conectar
+      const { roomId: newId } = await res.json();
+      enterApp(newId, loggedInUser.name, 'Sala da Extensão', false, null);
+      // Aguarda o WebSocket conectar e o JOIN ser processado
       await new Promise(resolve => {
         const check = setInterval(() => {
-          if (currentRoomId) { clearInterval(check); resolve(); }
-        }, 200);
+          if (ws && ws.readyState === 1) { clearInterval(check); resolve(); }
+        }, 150);
         setTimeout(() => { clearInterval(check); resolve(); }, 5000);
       });
+      // Pausa extra para o servidor processar o JOIN
+      await new Promise(r => setTimeout(r, 500));
     } catch(err) {
-      console.error('[WaveWatch ext] Erro ao criar sala:', err);
+      console.error('[WaveWatch Ext] Erro ao criar sala:', err);
+      toast('Erro ao criar sala 😔');
+      return;
     }
   }
-
-  if (!currentRoomId) return;
 
   // Detecta tipo de vídeo
   const urlLower = url.toLowerCase();
@@ -4516,13 +4518,8 @@ window.addEventListener('message', async (e) => {
     proxyUrl: referer ? `/api/stream?url=${encodeURIComponent(url)}&origin=${encodeURIComponent(referer)}` : null
   };
 
-  // Envia para a sala via WebSocket
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'VIDEO', payload: { video } }));
-    toast(`🎬 "${video.title}" carregado da extensão!`);
-  } else {
-    toast('Conecte-se a uma sala primeiro!');
-  }
+  send('VIDEO', { video });
+  toast(`🎬 "${video.title}" carregado da extensão!`);
 });
 </script>
 </body>
