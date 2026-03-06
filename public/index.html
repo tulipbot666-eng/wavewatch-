@@ -2664,6 +2664,13 @@ function handle(msg) {
   if(type==='VIDEO'){
     if(payload.video){
       applySyncClock(false,0,Date.now());
+      // Se vídeo tem referer (veio da extensão), pede à extensão para injetar o Referer
+      // assim este browser também consegue carregar direto do CDN sem /api/stream
+      if(payload.video._referer && payload.video.url && !payload.video.url.startsWith('/api/')){
+        window.dispatchEvent(new CustomEvent('WW_NEED_REFERER', {
+          detail: { url: payload.video.url, referer: payload.video._referer }
+        }));
+      }
       loadVideo(payload.video,false);
       sysMsg(`${payload.by?.avatar||''} ${payload.by?.name||'Alguém'} adicionou: ${payload.video.title}`);
     }
@@ -2990,15 +2997,11 @@ function _loadDirectVideo(wrap, url) {
   videoEl.addEventListener('timeupdate',()=>{const t=videoEl.currentTime,d=videoEl.duration||0;if(d>0){$('prog-fill').style.width=(t/d*100)+'%';$('tlbl-cur').textContent=ft(t);$('tlbl-dur').textContent=ft(d);}});
   videoEl.addEventListener('canplay',()=>{const t=expectedNow();if(t>0.5){isSyncing=true;videoEl.currentTime=t;isSyncing=false;}if(syncPlaying)videoEl.play().catch(()=>{});videoEl.volume=parseFloat($('vol').value)||1;});
   videoEl.addEventListener('error',()=>{
-    if(videoEl._ytdlpTried){toast('Erro ao carregar \u26a0\ufe0f');return;}
-    videoEl._ytdlpTried=true;
-    fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json()).then(info=>{
-      if(info.ok&&info.url&&info.url!==url){
-        videoEl.src=`/api/stream?url=${encodeURIComponent(info.url)}`;
-        if(info.title)$('vi-title').textContent=info.title;
-        videoEl.load();
-      } else { toast('Erro ao carregar \u26a0\ufe0f'); }
-    }).catch(()=>toast('Erro ao carregar \u26a0\ufe0f'));
+    if(videoEl._fallbackTried){toast('Erro ao carregar \u26a0\ufe0f');return;}
+    videoEl._fallbackTried=true;
+    // Fallback: mostra erro — a extensão já injetou o Referer via declarativeNetRequest,
+    // se mesmo assim falhar é porque o token expirou ou o CDN bloqueou por IP
+    toast('Vídeo não carregou. Tente capturar novamente pela extensão \u26a0\ufe0f');
   });
 
   // Link direto: browser baixa direto da fonte, sem passar pelo servidor
@@ -4478,6 +4481,43 @@ async function init() {
   loadAuthState();
 }
 init();
+
+// ── WAVEWATCH COMPANION EXTENSION LISTENER ────────────────
+// A extensão já injetou o Referer via declarativeNetRequest antes de chamar isso.
+// Então a URL original do CDN funciona direto no browser, sem /api/stream.
+window.addEventListener('message', async (e) => {
+  if (!e.data || e.data.type !== 'WW_EXT_VIDEO') return;
+  const { url, title, referer } = e.data;
+  if (!url) return;
+  console.log('[WaveWatch Ext] Vídeo recebido (CDN direto):', url);
+
+  if (!roomId) {
+    if (!loggedInUser) { toast('Faça login para usar a extensão 🔒'); return; }
+    try {
+      const res = await fetch('/api/room/new');
+      const { roomId: newId } = await res.json();
+      enterApp(newId, loggedInUser.name, 'Sala da Extensão', false, null);
+      await new Promise(resolve => {
+        const check = setInterval(() => {
+          if (ws && ws.readyState === 1) { clearInterval(check); resolve(); }
+        }, 150);
+        setTimeout(() => { clearInterval(check); resolve(); }, 5000);
+      });
+      await new Promise(r => setTimeout(r, 400));
+    } catch(err) { toast('Erro ao criar sala 😔'); return; }
+  }
+
+  const urlLower = url.toLowerCase();
+  let src = 'direct';
+  if (url.includes('youtube.com') || url.includes('youtu.be')) src = 'youtube';
+  else if (urlLower.includes('.m3u8') || urlLower.includes('/hls/')) src = 'hls';
+
+  // URL original do CDN — funciona pois a extensão injetou o Referer
+  // _referer é guardado pra outros membros na sala também injetarem via extensão deles
+  const video = { url, title: title || 'Vídeo', thumb: '', src, _referer: referer || '' };
+  send('VIDEO', { video });
+  toast(`🎬 "${video.title}" carregado!`);
+});
 </script>
 </body>
 </html>
