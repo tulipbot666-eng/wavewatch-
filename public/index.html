@@ -2991,34 +2991,16 @@ function _loadDirectVideo(wrap, url) {
     }).catch(()=>toast('Erro ao carregar \u26a0\ufe0f'));
   });
 
-  // URL com extensão conhecida -> proxy direto, sem probe
+  // Link direto: browser baixa direto da fonte, sem passar pelo servidor
   const noQ = url.toLowerCase().split('?')[0];
   const videoExts = ['.mp4','.webm','.m3u8','.mpd','.ogg','.mov','.mkv','.avi','.flv'];
   if (videoExts.some(e => noQ.endsWith(e))) {
-    videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`;
+    videoEl.src = url; // direto — sem proxy
     return;
   }
 
-  // URL sem extensão -> probe para detectar se é página HTML
-  toast('\u23f3 Carregando...');
-  fetch(`/api/probe?url=${encodeURIComponent(url)}`)
-    .then(r => r.json())
-    .then(info => {
-      if (info.ok && (info.contentType||'').includes('text/html')) {
-        toast('\u23f3 Extraindo stream...');
-        videoEl._ytdlpTried = true;
-        fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json()).then(einfo=>{
-          if(einfo.ok && einfo.url && einfo.url !== url){
-            videoEl.src = `/api/stream?url=${encodeURIComponent(einfo.url)}`;
-            if(einfo.title) $('vi-title').textContent = einfo.title;
-            videoEl.load();
-          } else { toast('\u274c N\u00e3o foi poss\u00edvel extrair'); }
-        });
-      } else {
-        videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`;
-      }
-    })
-    .catch(() => { videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`; });
+  // URL sem extensão conhecida — tenta direto, fallback pro proxy se der CORS
+  videoEl.src = url;
 }
 // ── VIDEO.JS PLAYER ───────────────────────────────────────
 function _loadVjs(wrap, src, typeOverride, extraOpts) {
@@ -3873,8 +3855,9 @@ async function addVideo(){
     const proxyUrl=$('vurl').value.trim();
     if(!proxyUrl){merr('Cole a URL do site');return;}
     try { new URL(proxyUrl); } catch(e){ merr('URL inválida');return; }
-    const proxied = `/api/proxy?url=${encodeURIComponent(proxyUrl)}`;
-    video={src:'proxy',url:proxied,title:proxyUrl.split('/').pop()||'Vídeo',thumb:''};
+    // Carrega o site direto no iframe — sem passar pelo servidor
+    // O servidor fica fora da equação, zero carga no Render
+    video={src:'proxy',url:proxyUrl,title:proxyUrl.replace(/https?:\/\//,'').split('/')[0]||'Vídeo',thumb:''};
   }else if(currentSrc==='local'){
     if(!pickedFile){merr('Selecione um arquivo');return;}
     const title=pickedFile.name;
