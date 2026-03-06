@@ -4502,13 +4502,23 @@ window.addEventListener('message', async (e) => {
     } catch(err) { toast('Erro ao criar sala 😔'); return; }
   }
 
-  // Detecta tipo — mp4/m3u8 direto, sem proxy
+  // Detecta tipo
   const urlLower = url.toLowerCase();
   let src = 'direct';
   if (url.includes('youtube.com') || url.includes('youtu.be')) src = 'youtube';
   else if (urlLower.includes('.m3u8') || urlLower.includes('/hls/')) src = 'hls';
 
-  const video = { url, title: title || 'Vídeo', thumb: '', src };
+  let finalUrl = url;
+
+  // Para vídeos não-YouTube: usa proxy do servidor para resolver CORS
+  // O CDN do tokyvideo (e maioria dos sites) bloqueia cross-origin sem o header correto
+  if (src !== 'youtube') {
+    const origin = referer || (() => { try { return new URL(url).origin; } catch { return ''; } })();
+    finalUrl = `/api/stream?url=${encodeURIComponent(url)}${origin ? '&origin=' + encodeURIComponent(origin) : ''}`;
+    src = 'direct';
+  }
+
+  const video = { url: finalUrl, title: title || 'Vídeo', thumb: '', src };
   send('VIDEO', { video });
   toast(`🎬 "${video.title}" carregado!`);
 });
