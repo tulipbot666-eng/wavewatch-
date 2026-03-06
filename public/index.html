@@ -2535,7 +2535,11 @@ function enterApp(id, name, roomName, isPublic, category) {
   myUser = {
     id: null, name,
     avatar: loggedInUser?.avatarEmoji || selectedAvatar,
-    avatarUrl: loggedInUser?.avatarUrl || null,
+    // Nunca base64 no myUser — só URL real ou null
+    avatarUrl: (loggedInUser?.avatarUrl && !loggedInUser.avatarUrl.startsWith('data:'))
+      ? loggedInUser.avatarUrl
+      : null,
+    hasCustomAvatar: !!(loggedInUser?.avatarUrl),
     googleId: loggedInUser?.id || null,
     _roomName: roomName,
     _isPublic: isPublic,
@@ -2566,9 +2570,13 @@ function enterApp(id, name, roomName, isPublic, category) {
 function connectWS() {
   ws = new WebSocket(WS_URL);
   ws.onopen = () => {
+    // Nunca mandar base64 pelo WebSocket — causa lag brutal ao fazer broadcast
+    const safeAvatarUrl = (loggedInUser?.avatarUrl && !loggedInUser.avatarUrl.startsWith('data:'))
+      ? loggedInUser.avatarUrl
+      : null;
     send('JOIN', {
       roomId,
-      user: { ...myUser, dbId: loggedInUser?.id || null },
+      user: { ...myUser, avatarUrl: safeAvatarUrl, dbId: loggedInUser?.id || null },
       roomName: myUser._roomName,
       isPublic: myUser._isPublic,
       category: myUser._category,
@@ -2838,7 +2846,7 @@ function loadVideo(video,doBroadcast){
     const ext=src==='local'?'LOCAL':(url.split('.').pop().split('?')[0].toUpperCase().substring(0,4)||'VID');
     $('src-badge').textContent=ext;
     if(src==='direct'){
-      _loadDirectVideo(wrap, url, video._referer || '');
+      _loadDirectVideo(wrap, url);
       $('ctrl').style.display='flex';
     } else {
       _loadVjs(wrap, url);
@@ -2966,13 +2974,9 @@ function loadTorrent(magnetUri, wrap) {
 }
 
 // ── DIRECT URL PLAYER ────────────────────────────────────
-// Cada cliente carrega o vídeo direto do CDN — sem passar pelo servidor.
-// <video src> sem crossOrigin não dispara CORS check (igual a <img>).
-// Proxy só é usado se o browser rejeitar a URL (raro para .mp4/.m3u8 diretos).
-function _loadDirectVideo(wrap, url, referer) {
+function _loadDirectVideo(wrap, url) {
   const videoEl = document.createElement('video');
   videoEl.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;background:#000;';
-  // NÃO setar crossOrigin — sem ele o browser carrega sem CORS preflight
   videoEl.controls=false; videoEl.preload='auto'; videoEl.setAttribute('playsinline','');
   wrap.insertBefore(videoEl, wrap.firstChild);
   nativeVid = videoEl;
@@ -2984,16 +2988,26 @@ function _loadDirectVideo(wrap, url, referer) {
   videoEl.addEventListener('timeupdate',()=>{const t=videoEl.currentTime,d=videoEl.duration||0;if(d>0){$('prog-fill').style.width=(t/d*100)+'%';$('tlbl-cur').textContent=ft(t);$('tlbl-dur').textContent=ft(d);}});
   videoEl.addEventListener('canplay',()=>{const t=expectedNow();if(t>0.5){isSyncing=true;videoEl.currentTime=t;isSyncing=false;}if(syncPlaying)videoEl.play().catch(()=>{});videoEl.volume=parseFloat($('vol').value)||1;});
   videoEl.addEventListener('error',()=>{
-    if(videoEl._fallbackTried){toast('Erro ao carregar \u26a0\ufe0f');return;}
-    videoEl._fallbackTried=true;
-    // Último recurso: proxy com Referer correto
-    // Cada browser faz sua própria request — não é o servidor que serve pra todos
-    const origin = referer || (() => { try { return new URL(url).origin; } catch { return ''; } })();
-    videoEl.src = `/api/stream?url=${encodeURIComponent(url)}${origin?'&origin='+encodeURIComponent(origin):''}`;
-    videoEl.load();
+    if(videoEl._ytdlpTried){toast('Erro ao carregar \u26a0\ufe0f');return;}
+    videoEl._ytdlpTried=true;
+    fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json()).then(info=>{
+      if(info.ok&&info.url&&info.url!==url){
+        videoEl.src=`/api/stream?url=${encodeURIComponent(info.url)}`;
+        if(info.title)$('vi-title').textContent=info.title;
+        videoEl.load();
+      } else { toast('Erro ao carregar \u26a0\ufe0f'); }
+    }).catch(()=>toast('Erro ao carregar \u26a0\ufe0f'));
   });
 
-  // Carrega direto — cada browser baixa do CDN sem passar pelo servidor
+  // Link direto: browser baixa direto da fonte, sem passar pelo servidor
+  const noQ = url.toLowerCase().split('?')[0];
+  const videoExts = ['.mp4','.webm','.m3u8','.mpd','.ogg','.mov','.mkv','.avi','.flv'];
+  if (videoExts.some(e => noQ.endsWith(e))) {
+    videoEl.src = url; // direto — sem proxy
+    return;
+  }
+
+  // URL sem extensão conhecida — tenta direto, fallback pro proxy se der CORS
   videoEl.src = url;
 }
 // ── VIDEO.JS PLAYER ───────────────────────────────────────
@@ -4462,44 +4476,6 @@ async function init() {
   loadAuthState();
 }
 init();
-
-// ── WAVEWATCH COMPANION EXTENSION LISTENER ────────────────
-window.addEventListener('message', async (e) => {
-  if (!e.data || e.data.type !== 'WW_EXT_VIDEO') return;
-  const { url, title, referer } = e.data;
-  if (!url) return;
-  console.log('[WaveWatch Ext] Vídeo recebido:', url);
-
-  // Se não está numa sala, cria uma automaticamente
-  if (!roomId) {
-    if (!loggedInUser) { toast('Faça login para usar a extensão 🔒'); return; }
-    try {
-      const res = await fetch('/api/room/new');
-      const { roomId: newId } = await res.json();
-      enterApp(newId, loggedInUser.name, 'Sala da Extensão', false, null);
-      await new Promise(resolve => {
-        const check = setInterval(() => {
-          if (ws && ws.readyState === 1) { clearInterval(check); resolve(); }
-        }, 150);
-        setTimeout(() => { clearInterval(check); resolve(); }, 5000);
-      });
-      await new Promise(r => setTimeout(r, 400));
-    } catch(err) { toast('Erro ao criar sala 😔'); return; }
-  }
-
-  const urlLower = url.toLowerCase();
-  let src = 'direct';
-  if (url.includes('youtube.com') || url.includes('youtu.be')) src = 'youtube';
-  else if (urlLower.includes('.m3u8') || urlLower.includes('/hls/')) src = 'hls';
-
-  // IMPORTANTE: manda a URL original para todos os clientes.
-  // Cada browser carrega direto do CDN sem passar pelo servidor.
-  // <video src> sem crossOrigin não dispara CORS — funciona como <img>.
-  // O referer é salvo no video para cada cliente usar no fallback se precisar.
-  const video = { url, title: title || 'Vídeo', thumb: '', src, _referer: referer || '' };
-  send('VIDEO', { video });
-  toast(`🎬 "${video.title}" carregado!`);
-});
 </script>
 </body>
 </html>
