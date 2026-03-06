@@ -2980,55 +2980,38 @@ function _loadDirectVideo(wrap, url) {
   videoEl.addEventListener('timeupdate',()=>{const t=videoEl.currentTime,d=videoEl.duration||0;if(d>0){$('prog-fill').style.width=(t/d*100)+'%';$('tlbl-cur').textContent=fmt(t);$('tlbl-dur').textContent=fmt(d);}});
   videoEl.addEventListener('canplay',()=>{const t=expectedNow();if(t>0.5){isSyncing=true;videoEl.currentTime=t;isSyncing=false;}if(syncPlaying)videoEl.play().catch(()=>{});videoEl.volume=parseFloat($('vol').value)||1;});
   videoEl.addEventListener('error',()=>{
-    // Fallback: tenta yt-dlp extract + proxy com headers corretos
-    if(!videoEl._ytdlpTried){
-      videoEl._ytdlpTried = true;
-      fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json()).then(info=>{
-        if(info.ok && info.url){
-          const origin = (() => { try { return new URL(url).origin; } catch(e){ return ''; } })();
-          const hParam = info.headers && Object.keys(info.headers).length
-            ? '&h=' + encodeURIComponent(JSON.stringify(info.headers))
-            : '';
-          videoEl.src = `/api/stream?url=${encodeURIComponent(info.url)}${origin ? '&origin='+encodeURIComponent(origin) : ''}${hParam}`;
-          if(info.title) $('vi-title').textContent = info.title;
-          videoEl.load();
-        } else { toast('Erro ao carregar ⚠️'); }
-      }).catch(()=>toast('Erro ao carregar ⚠️'));
-      return;
-    }
-    toast('Erro ao carregar ⚠️');
+    if(videoEl._extractTried){ toast('Erro ao carregar ⚠️'); return; }
+    videoEl._extractTried = true;
+    // Fallback: tenta proxy simples
+    videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`;
+    videoEl.load();
   });
 
   const noQ = url.toLowerCase().split('?')[0];
   const videoExts = ['.mp4','.webm','.m3u8','.mpd','.ogg','.mov','.mkv','.avi','.flv'];
 
+  // Sites conhecidos: smart-stream extrai + faz proxy em tempo real (token sempre fresco)
+  const knownSites = ['tokyvideo.com'];
+  const isKnown = knownSites.some(s => url.includes(s));
+  if (isKnown) {
+    toast('⏳ Carregando...');
+    // Busca título antes
+    fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json()).then(info=>{
+      if(info.title) $('vi-title').textContent = info.title;
+    }).catch(()=>{});
+    // Stream via smart-stream (extrai token fresco a cada range request)
+    videoEl.src = `/api/smart-stream?url=${encodeURIComponent(url)}`;
+    return;
+  }
+
   if (videoExts.some(e => noQ.endsWith(e))) {
-    // Link .mp4/.webm direto: browser carrega sem servidor no meio.
-    // Evita que servidor vire gargalo (pause/resume causava reconexão).
-    // Se der CORS, o handler 'error' cai no proxy automaticamente.
+    // Link direto — tenta sem proxy primeiro, error handler usa proxy como fallback
     videoEl.src = url;
     return;
   }
 
-  // URL de página (ex: tokyvideo, streamtape...): extrai stream via yt-dlp
-  // e usa proxy para passar os headers de Referer/Origin corretos.
-  toast('⏳ Extraindo stream...');
-  videoEl._ytdlpTried = true;
-  fetch(`/api/extract?url=${encodeURIComponent(url)}`)
-    .then(r => r.json())
-    .then(einfo => {
-      if(einfo.ok && einfo.url){
-        const origin = (() => { try { return new URL(url).origin; } catch(e){ return ''; } })();
-        // Passa os headers extraídos pelo yt-dlp (Referer, cookies etc.)
-        const hParam = einfo.headers && Object.keys(einfo.headers).length
-          ? '&h=' + encodeURIComponent(JSON.stringify(einfo.headers))
-          : '';
-        videoEl.src = `/api/stream?url=${encodeURIComponent(einfo.url)}${origin ? '&origin='+encodeURIComponent(origin) : ''}${hParam}`;
-        if(einfo.title) $('vi-title').textContent = einfo.title;
-        videoEl.load();
-      } else { toast('❌ Não foi possível extrair o vídeo'); }
-    })
-    .catch(() => { toast('❌ Erro ao extrair'); });
+  // URL desconhecida sem extensão — proxy direto
+  videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`;
 }
 // ── VIDEO.JS PLAYER ───────────────────────────────────────
 function _loadVjs(wrap, src, typeOverride, extraOpts) {
