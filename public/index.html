@@ -2979,34 +2979,49 @@ function _loadDirectVideo(wrap, url) {
   videoEl.addEventListener('seeked',()=>{if(isSyncing)return;if(amIHost)send('SEEK',{t:videoEl.currentTime});});
   videoEl.addEventListener('timeupdate',()=>{const t=videoEl.currentTime,d=videoEl.duration||0;if(d>0){$('prog-fill').style.width=(t/d*100)+'%';$('tlbl-cur').textContent=fmt(t);$('tlbl-dur').textContent=fmt(d);}});
   videoEl.addEventListener('canplay',()=>{const t=expectedNow();if(t>0.5){isSyncing=true;videoEl.currentTime=t;isSyncing=false;}if(syncPlaying)videoEl.play().catch(()=>{});videoEl.volume=parseFloat($('vol').value)||1;});
+  // Fallback em cascata: direto → proxy → erro
   videoEl.addEventListener('error',()=>{
-    if(videoEl._fallbackTried){ toast('Erro ao carregar ⚠️'); return; }
-    videoEl._fallbackTried = true;
-    videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`;
-    videoEl.load();
+    if(videoEl._step === undefined) videoEl._step = 0;
+    videoEl._step++;
+    if(videoEl._step === 1) {
+      // Tentativa 2: proxy do servidor com Referer
+      const ref = videoEl._referer || '';
+      const hParam = ref ? '&h=' + encodeURIComponent(JSON.stringify({'Referer': ref})) : '';
+      videoEl.src = `/api/stream?url=${encodeURIComponent(videoEl._streamUrl || url)}${hParam}`;
+      videoEl.load();
+    } else {
+      toast('Erro ao carregar ⚠️');
+    }
   });
 
   const noQ = url.toLowerCase().split('?')[0];
   const videoExts = ['.mp4','.webm','.m3u8','.mpd','.ogg','.mov','.mkv','.avi','.flv'];
 
-  // Sites suportados: smart-stream com cache de token (1 scrape por ~4min, compartilhado por todos)
   const knownSites = ['tokyvideo.com'];
   if (knownSites.some(s => url.includes(s))) {
     toast('⏳ Carregando...');
     fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json()).then(info=>{
+      if(!info.ok || !info.url) { toast('❌ Não foi possível extrair'); return; }
       if(info.title) $('vi-title').textContent = info.title;
-    }).catch(()=>{});
-    videoEl.src = `/api/smart-stream?url=${encodeURIComponent(url)}`;
+      videoEl._streamUrl = info.url;
+      videoEl._referer = info.referer || '';
+      videoEl._step = 0;
+      // Tenta direto no browser — sem passar pelo servidor
+      // Se o CDN não bloquear por IP, é zero carga no servidor
+      videoEl.src = info.url;
+      videoEl.load();
+    }).catch(()=>toast('❌ Erro ao extrair'));
     return;
   }
 
-  // Link direto com extensão
   if (videoExts.some(e => noQ.endsWith(e))) {
-    videoEl.src = url; // direto, sem proxy — fallback usa /api/stream
+    videoEl._step = 0;
+    videoEl._streamUrl = url;
+    videoEl.src = url; // direto — fallback usa proxy
     return;
   }
 
-  // Qualquer outra coisa — proxy direto
+  // Outros links — proxy direto
   videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`;
 }
 // ── VIDEO.JS PLAYER ───────────────────────────────────────
