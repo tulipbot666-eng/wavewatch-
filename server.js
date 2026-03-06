@@ -1173,10 +1173,22 @@ const { exec } = require('child_process');
 const YT_DLP = process.env.YT_DLP_PATH || 'yt-dlp';
 
 // ─────────────────────────────────────────
-// SCRAPER: extrai título + URL do stream de páginas de vídeo
-// O browser NUNCA vê a URL real do stream (token expiraria).
-// Tudo passa por /api/stream que faz proxy em tempo real.
+// CACHE de stream URLs extraídas (evita scraping a cada range request)
+// TTL de 4 minutos — tokens do tokyvideo duram ~5 min
 // ─────────────────────────────────────────
+const streamCache = new Map();
+const STREAM_CACHE_TTL = 4 * 60 * 1000;
+
+function getCached(pageUrl) {
+  const entry = streamCache.get(pageUrl);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > STREAM_CACHE_TTL) { streamCache.delete(pageUrl); return null; }
+  return entry;
+}
+
+function setCache(pageUrl, streamUrl, referer, title) {
+  streamCache.set(pageUrl, { streamUrl, referer, title, ts: Date.now() });
+}
 
 async function scrapeTokyvideo(pageUrl) {
   const r = await fetch(pageUrl, {
@@ -1187,90 +1199,91 @@ async function scrapeTokyvideo(pageUrl) {
     }
   });
   const html = await r.text();
-
-  // URL do MP4 com token: https://cdnst64.tokyvideo.com/videos/.../mp4/....mp4?secure=...
   const m = html.match(/https:\/\/cdnst\d*\.tokyvideo\.com\/[^"'\s<>]+\.mp4[^"'\s<>]*/);
-  if (!m) throw new Error('URL do stream não encontrada');
-
+  if (!m) throw new Error('URL do stream não encontrada no tokyvideo');
   const titleM = html.match(/<h1[^>]*>([^<]+)<\/h1>/) || html.match(/<title>([^<]+)<\/title>/);
   const title = titleM ? titleM[1].replace(/\s*[-|]\s*Tokyvideo.*/i,'').trim() : 'Vídeo';
+  return { streamUrl: m[0], referer: 'https://www.tokyvideo.com/', title };
+}
 
-  return {
-    streamUrl: m[0],
-    title,
-    referer: 'https://www.tokyvideo.com/'
-  };
+async function extractStream(pageUrl) {
+  const cached = getCached(pageUrl);
+  if (cached) return cached;
+
+  let hostname = '';
+  try { hostname = new URL(pageUrl).hostname.replace('www.',''); } catch(e) {}
+
+  let result;
+  if (hostname.includes('tokyvideo.com')) {
+    result = await scrapeTokyvideo(pageUrl);
+  } else {
+    throw new Error('Site não suportado');
+  }
+
+  setCache(pageUrl, result.streamUrl, result.referer, result.title);
+  return result;
 }
 
 app.get('/api/extract', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'URL obrigatória' });
-
-  let hostname = '';
-  try { hostname = new URL(url).hostname.replace('www.',''); } catch(e) {}
-
   try {
-    if (hostname.includes('tokyvideo.com')) {
-      const info = await scrapeTokyvideo(url);
-      // Retorna a URL como opaca — browser vai chamar /api/stream?url=PAGINA
-      // e o servidor vai extrair + proxiar fresh a cada request
-      return res.json({ ok: true, title: info.title, proxyPageUrl: url });
-    }
-    return res.json({ ok: false, error: 'Site não suportado ainda' });
+    const info = await extractStream(url);
+    res.json({ ok: true, title: info.title });
   } catch(e) {
-    console.warn('[extract]', hostname, e.message);
-    return res.json({ ok: false, error: e.message });
+    res.json({ ok: false, error: e.message });
   }
 });
 
-// Proxy inteligente: se a URL for uma página HTML conhecida, extrai o stream
-// em tempo real e faz pipe direto — token sempre fresco
+// Smart-stream: extrai URL uma vez, cacheia, e faz proxy pra todos
+// Cada viewer faz seus próprios range requests mas compartilham o mesmo token
 app.get('/api/smart-stream', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).send('URL obrigatória');
 
-  let hostname = '';
-  try { hostname = new URL(url).hostname.replace('www.',''); } catch(e) {}
-
   try {
-    let streamUrl, referer;
+    const info = await extractStream(url);
 
-    if (hostname.includes('tokyvideo.com')) {
-      const info = await scrapeTokyvideo(url);
-      streamUrl = info.streamUrl;
-      referer = info.referer;
-    } else {
-      return res.status(400).json({ error: 'Site não suportado' });
-    }
-
-    // Agora faz proxy do stream com o token fresco
     const headers = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
       'Accept': '*/*',
       'Accept-Encoding': 'identity',
-      'Referer': referer,
+      'Referer': info.referer,
     };
     if (req.headers.range) headers['Range'] = req.headers.range;
 
-    const response = await fetch(streamUrl, { headers });
+    const response = await fetch(info.streamUrl, { headers });
+
+    // Se o token expirou (403/410), limpa cache e tenta de novo uma vez
+    if (response.status === 403 || response.status === 410) {
+      streamCache.delete(url);
+      const fresh = await extractStream(url);
+      const response2 = await fetch(fresh.streamUrl, { headers });
+      if (!response2.ok) return res.status(response2.status).send('Stream error');
+      pipeStream(response2, res);
+      return;
+    }
+
     if (!response.ok) return res.status(response.status).send('Stream error');
-
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', response.headers.get('content-type') || 'video/mp4');
-    res.setHeader('Accept-Ranges', 'bytes');
-    const cl = response.headers.get('content-length');
-    const cr = response.headers.get('content-range');
-    if (cl) res.setHeader('Content-Length', cl);
-    if (cr) res.setHeader('Content-Range', cr);
-    res.status(response.status);
-
-    const { Readable } = require('stream');
-    Readable.fromWeb(response.body).on('error', () => { if(!res.headersSent) res.destroy(); }).pipe(res);
+    pipeStream(response, res);
   } catch(e) {
     console.error('[smart-stream]', e.message);
     if (!res.headersSent) res.status(500).send('Erro: ' + e.message);
   }
 });
+
+function pipeStream(response, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Content-Type', response.headers.get('content-type') || 'video/mp4');
+  res.setHeader('Accept-Ranges', 'bytes');
+  const cl = response.headers.get('content-length');
+  const cr = response.headers.get('content-range');
+  if (cl) res.setHeader('Content-Length', cl);
+  if (cr) res.setHeader('Content-Range', cr);
+  res.status(response.status);
+  const { Readable } = require('stream');
+  Readable.fromWeb(response.body).on('error', () => { if(!res.headersSent) res.destroy(); }).pipe(res);
+}
 
 app.get('/api/probe', async (req, res) => {
   const { url } = req.query;
