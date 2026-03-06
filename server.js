@@ -834,13 +834,7 @@ wss.on('connection', (ws) => {
 
     if (type === 'JOIN') {
       const { roomId, user, roomName, isPublic, category, driveToken } = payload;
-      // NUNCA guardar base64 no estado da sala — causa lag ao fazer broadcast
-      const safeUser = { ...user };
-      if (safeUser.avatarUrl && safeUser.avatarUrl.startsWith('data:')) {
-        safeUser.avatarUrl = null; // base64 não passa pelo WebSocket
-        safeUser.hasCustomAvatar = true; // flag para o cliente buscar via /api
-      }
-      currentUser = { ...safeUser, id: wsId, joinedAt: Date.now() };
+      currentUser = { ...user, id: wsId, joinedAt: Date.now() };
       currentRoom = getOrCreateRoom(roomId);
       if (currentRoom.members.size === 0) {
         currentRoom.host = wsId;
@@ -890,8 +884,7 @@ wss.on('connection', (ws) => {
     }
 
     if (type === 'CHAT' && currentRoom) {
-      // Limita imagens no chat a 500KB para não travar o WebSocket
-      const imgData = payload.imgData && payload.imgData.length < 500_000 ? payload.imgData : null;
+      const imgData = payload.imgData && payload.imgData.length < 7_000_000 ? payload.imgData : null;
       const gifUrl = payload.gifUrl || null;
       // Manda pra todos EXCETO o remetente (ele já renderizou localmente)
       broadcast(currentRoom, { type: 'CHAT', payload: { id: uuid(), user: currentUser, text: payload.text || '', gifUrl, imgData, ts: Date.now() } }, wsId);
@@ -1293,8 +1286,8 @@ function generateRoomCode() {
 // ─────────────────────────────────────────
 // SYNC HEARTBEAT — condicional por drift
 // ─────────────────────────────────────────
-const SYNC_DRIFT_THRESHOLD = 0.25;
-const SYNC_FORCE_INTERVAL  = 5000;
+const SYNC_DRIFT_THRESHOLD = 1.5;   // era 0.25 — muito sensível
+const SYNC_FORCE_INTERVAL  = 10000; // era 5000 — força sync a cada 10s
 
 setInterval(() => {
   const now = Date.now();
@@ -1318,7 +1311,7 @@ setInterval(() => {
       }
     });
   });
-}, 500);
+}, 2000); // era 500ms — reduziu para 2s, menos pressão no servidor
 
 app.get('/api/ping', (req, res) => res.json({ ok: true }));
 app.get('/healthz', (req, res) => res.json({ ok: true }));
