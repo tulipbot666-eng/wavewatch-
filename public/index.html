@@ -4468,6 +4468,62 @@ async function init() {
   loadAuthState();
 }
 init();
+
+// ── WAVEWATCH COMPANION EXTENSION LISTENER ────────────────
+window.addEventListener('message', async (e) => {
+  if (!e.data || e.data.type !== 'WW_EXT_VIDEO') return;
+
+  const { url, title, referer } = e.data;
+  if (!url) return;
+
+  console.log('[WaveWatch] Vídeo recebido da extensão:', url);
+
+  // Se não tem sala aberta, cria uma
+  if (!currentRoomId) {
+    if (!loggedInUser) {
+      toast('Faça login para usar a extensão WaveWatch Companion 🔒');
+      return;
+    }
+    try {
+      const res = await fetch('/api/room/new');
+      const { roomId } = await res.json();
+      joinRoom(roomId);
+      // Aguarda sala conectar
+      await new Promise(resolve => {
+        const check = setInterval(() => {
+          if (currentRoomId) { clearInterval(check); resolve(); }
+        }, 200);
+        setTimeout(() => { clearInterval(check); resolve(); }, 5000);
+      });
+    } catch(err) {
+      console.error('[WaveWatch ext] Erro ao criar sala:', err);
+    }
+  }
+
+  if (!currentRoomId) return;
+
+  // Detecta tipo de vídeo
+  const urlLower = url.toLowerCase();
+  let src = 'direct';
+  if (url.includes('youtube.com') || url.includes('youtu.be')) src = 'youtube';
+  else if (urlLower.includes('.m3u8') || urlLower.includes('/hls/')) src = 'hls';
+
+  const video = {
+    url,
+    title: title || 'Vídeo da Extensão',
+    thumb: '',
+    src,
+    proxyUrl: referer ? `/api/stream?url=${encodeURIComponent(url)}&origin=${encodeURIComponent(referer)}` : null
+  };
+
+  // Envia para a sala via WebSocket
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'VIDEO', payload: { video } }));
+    toast(`🎬 "${video.title}" carregado da extensão!`);
+  } else {
+    toast('Conecte-se a uma sala primeiro!');
+  }
+});
 </script>
 </body>
 </html>
