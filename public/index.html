@@ -1779,9 +1779,10 @@ let ytReady = false, ytCurrentTime = 0, ytPendingSeek = null, ytPendingState = n
 
 // Soft sync
 let softSyncInterval = null;
-const SOFT_SYNC_THRESHOLD = 0.3;
-const HARD_SEEK_THRESHOLD = 2.5;
-const RATE_FAST = 1.08, RATE_SLOW = 0.92, RATE_NORMAL = 1.0;
+let _seekCooldown = 0;
+const SOFT_SYNC_THRESHOLD = 1.5;   // era 0.3 — causava rate flip a cada 500ms
+const HARD_SEEK_THRESHOLD = 6.0;   // era 2.5 — causava seeks em loop no buffer
+const RATE_FAST = 1.05, RATE_SLOW = 0.95, RATE_NORMAL = 1.0;
 
 // ── UTILS ─────────────────────────────────────────────────
 function $(id) { return document.getElementById(id); }
@@ -2535,11 +2536,7 @@ function enterApp(id, name, roomName, isPublic, category) {
   myUser = {
     id: null, name,
     avatar: loggedInUser?.avatarEmoji || selectedAvatar,
-    // Nunca base64 no myUser — só URL real ou null
-    avatarUrl: (loggedInUser?.avatarUrl && !loggedInUser.avatarUrl.startsWith('data:'))
-      ? loggedInUser.avatarUrl
-      : null,
-    hasCustomAvatar: !!(loggedInUser?.avatarUrl),
+    avatarUrl: loggedInUser?.avatarUrl || null,
     googleId: loggedInUser?.id || null,
     _roomName: roomName,
     _isPublic: isPublic,
@@ -2570,13 +2567,9 @@ function enterApp(id, name, roomName, isPublic, category) {
 function connectWS() {
   ws = new WebSocket(WS_URL);
   ws.onopen = () => {
-    // Nunca mandar base64 pelo WebSocket — causa lag brutal ao fazer broadcast
-    const safeAvatarUrl = (loggedInUser?.avatarUrl && !loggedInUser.avatarUrl.startsWith('data:'))
-      ? loggedInUser.avatarUrl
-      : null;
     send('JOIN', {
       roomId,
-      user: { ...myUser, avatarUrl: safeAvatarUrl, dbId: loggedInUser?.id || null },
+      user: { ...myUser, dbId: loggedInUser?.id || null },
       roomName: myUser._roomName,
       isPublic: myUser._isPublic,
       category: myUser._category,
@@ -2597,7 +2590,7 @@ function startPing(){
     send('PING',{ts:pingTs});
     const ct=curTime();
     if(ct>0||syncPlaying) send('CLIENT_TIME',{currentTime:ct,playing:isPlaying});
-  },1000);
+  },3000); // era 1000ms — menos mensagens, menos pressão
 }
 
 // ── WS HANDLER ────────────────────────────────────────────
@@ -2731,7 +2724,11 @@ function handle(msg) {
     if(payload.playing!==isPlaying){applyPlayState(payload.playing,payload.currentTime);return;}
     if(syncPlaying){
       const drift=curTime()-expectedNow();
-      if(Math.abs(drift)>HARD_SEEK_THRESHOLD){isSyncing=true;seekTo(Math.max(0,expectedNow()));setRate(RATE_NORMAL);isSyncing=false;}
+      const now=Date.now();
+      if(Math.abs(drift)>HARD_SEEK_THRESHOLD && now-_seekCooldown > 4000){
+        _seekCooldown=now;
+        isSyncing=true;seekTo(Math.max(0,expectedNow()));setRate(RATE_NORMAL);isSyncing=false;
+      }
     }
   }
 }
@@ -2757,17 +2754,22 @@ function startSoftSync(){
   softSyncInterval=setInterval(()=>{
     if(!syncPlaying||syncWall===0)return;
     if(ytIframe&&!ytReady)return;
+    // Não faz nada se vídeo está bufferizando (readyState < 3)
+    if(nativeVid && nativeVid.readyState < 3 && nativeVid.currentTime > 0) return;
     const expected=expectedNow(), current=curTime();
-    // Only skip if video literally hasn't started loading yet
-    if(current===0&&expected<1)return;
+    if(current===0&&expected<2)return;
     const drift=current-expected;
+    const now=Date.now();
     if(Math.abs(drift)>HARD_SEEK_THRESHOLD){
+      // Cooldown de 4s entre seeks — evita loop seek→buffer→seek
+      if(now - _seekCooldown < 4000) return;
+      _seekCooldown = now;
       isSyncing=true;seekTo(Math.max(0,expected));setRate(RATE_NORMAL);isSyncing=false;
     }
     else if(drift>SOFT_SYNC_THRESHOLD)setRate(RATE_SLOW);
     else if(drift<-SOFT_SYNC_THRESHOLD)setRate(RATE_FAST);
     else setRate(RATE_NORMAL);
-  },500);
+  },1000); // era 500ms — dobrado para reduzir pressão
 }
 
 // ── VIDEO LOADING ─────────────────────────────────────────
