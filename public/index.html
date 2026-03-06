@@ -1752,7 +1752,7 @@ function onProxyMsg(e) {
   if(e.data.type==='WW_PLAYING'){if(isSyncing)return;isPlaying=true;$('pbtn').textContent='⏸';if(amIHost)send('STATE',{playing:true,currentTime:e.data.time||0});}
   if(e.data.type==='WW_PAUSED'){if(isSyncing)return;isPlaying=false;$('pbtn').textContent='▶';if(amIHost)send('STATE',{playing:false,currentTime:e.data.time||0});}
   if(e.data.type==='WW_SEEKED'){if(isSyncing)return;if(amIHost)send('SEEK',{t:e.data.time||0});}
-  if(e.data.type==='WW_TIME'){if(nativeVid===null&&proxyIframe){const t=e.data.time||0;const d=e.data.duration||0;if(d>0){$('prog-fill').style.width=(t/d*100)+'%';$('tlbl-cur').textContent=fmt(t);$('tlbl-dur').textContent=fmt(d);}}}
+  if(e.data.type==='WW_TIME'){if(nativeVid===null&&proxyIframe){const t=e.data.time||0;const d=e.data.duration||0;if(d>0){$('prog-fill').style.width=(t/d*100)+'%';$('tlbl-cur').textContent=ft(t);$('tlbl-dur').textContent=ft(d);}}}
 }
 let isPlaying = false, isSyncing = false;
 let currentSrc = 'youtube', pickedFile = null;
@@ -2936,7 +2936,7 @@ function loadTorrent(magnetUri, wrap) {
         videoEl.addEventListener('pause', () => { isPlaying=false; $('pbtn').textContent='▶'; if(amIHost) send('STATE',{playing:false, currentTime:videoEl.currentTime}); });
         videoEl.addEventListener('timeupdate', () => {
           const t=videoEl.currentTime, d=videoEl.duration||0;
-          if(d>0){ $('prog-fill').style.width=(t/d*100)+'%'; $('tlbl-cur').textContent=fmt(t); $('tlbl-dur').textContent=fmt(d); }
+          if(d>0){ $('prog-fill').style.width=(t/d*100)+'%'; $('tlbl-cur').textContent=ft(t); $('tlbl-dur').textContent=ft(d); }
         });
       });
 
@@ -2977,52 +2977,48 @@ function _loadDirectVideo(wrap, url) {
   videoEl.addEventListener('play',()=>{if(isSyncing)return;isPlaying=true;$('pbtn').textContent='\u23f8';if(amIHost)send('STATE',{playing:true,currentTime:videoEl.currentTime});else{isSyncing=true;if(!syncPlaying)videoEl.pause();isSyncing=false;}});
   videoEl.addEventListener('pause',()=>{if(isSyncing)return;isPlaying=false;$('pbtn').textContent='\u25b6';if(amIHost)send('STATE',{playing:false,currentTime:videoEl.currentTime});else{isSyncing=true;if(syncPlaying)videoEl.play().catch(()=>{});isSyncing=false;}});
   videoEl.addEventListener('seeked',()=>{if(isSyncing)return;if(amIHost)send('SEEK',{t:videoEl.currentTime});});
-  videoEl.addEventListener('timeupdate',()=>{const t=videoEl.currentTime,d=videoEl.duration||0;if(d>0){$('prog-fill').style.width=(t/d*100)+'%';$('tlbl-cur').textContent=fmt(t);$('tlbl-dur').textContent=fmt(d);}});
+  videoEl.addEventListener('timeupdate',()=>{const t=videoEl.currentTime,d=videoEl.duration||0;if(d>0){$('prog-fill').style.width=(t/d*100)+'%';$('tlbl-cur').textContent=ft(t);$('tlbl-dur').textContent=ft(d);}});
   videoEl.addEventListener('canplay',()=>{const t=expectedNow();if(t>0.5){isSyncing=true;videoEl.currentTime=t;isSyncing=false;}if(syncPlaying)videoEl.play().catch(()=>{});videoEl.volume=parseFloat($('vol').value)||1;});
-  // Fallback em cascata: direto → proxy → erro
   videoEl.addEventListener('error',()=>{
-    if(videoEl._step === undefined) videoEl._step = 0;
-    videoEl._step++;
-    if(videoEl._step === 1) {
-      // Tentativa 2: proxy do servidor com Referer
-      const ref = videoEl._referer || '';
-      const hParam = ref ? '&h=' + encodeURIComponent(JSON.stringify({'Referer': ref})) : '';
-      videoEl.src = `/api/stream?url=${encodeURIComponent(videoEl._streamUrl || url)}${hParam}`;
-      videoEl.load();
-    } else {
-      toast('Erro ao carregar ⚠️');
-    }
+    if(videoEl._ytdlpTried){toast('Erro ao carregar \u26a0\ufe0f');return;}
+    videoEl._ytdlpTried=true;
+    fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json()).then(info=>{
+      if(info.ok&&info.url&&info.url!==url){
+        videoEl.src=`/api/stream?url=${encodeURIComponent(info.url)}`;
+        if(info.title)$('vi-title').textContent=info.title;
+        videoEl.load();
+      } else { toast('Erro ao carregar \u26a0\ufe0f'); }
+    }).catch(()=>toast('Erro ao carregar \u26a0\ufe0f'));
   });
 
+  // URL com extensão conhecida -> proxy direto, sem probe
   const noQ = url.toLowerCase().split('?')[0];
   const videoExts = ['.mp4','.webm','.m3u8','.mpd','.ogg','.mov','.mkv','.avi','.flv'];
-
-  const knownSites = ['tokyvideo.com'];
-  if (knownSites.some(s => url.includes(s))) {
-    toast('⏳ Carregando...');
-    fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json()).then(info=>{
-      if(!info.ok || !info.url) { toast('❌ Não foi possível extrair'); return; }
-      if(info.title) $('vi-title').textContent = info.title;
-      videoEl._streamUrl = info.url;
-      videoEl._referer = info.referer || '';
-      videoEl._step = 0;
-      // Tenta direto no browser — sem passar pelo servidor
-      // Se o CDN não bloquear por IP, é zero carga no servidor
-      videoEl.src = info.url;
-      videoEl.load();
-    }).catch(()=>toast('❌ Erro ao extrair'));
-    return;
-  }
-
   if (videoExts.some(e => noQ.endsWith(e))) {
-    videoEl._step = 0;
-    videoEl._streamUrl = url;
-    videoEl.src = url; // direto — fallback usa proxy
+    videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`;
     return;
   }
 
-  // Outros links — proxy direto
-  videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`;
+  // URL sem extensão -> probe para detectar se é página HTML
+  toast('\u23f3 Carregando...');
+  fetch(`/api/probe?url=${encodeURIComponent(url)}`)
+    .then(r => r.json())
+    .then(info => {
+      if (info.ok && (info.contentType||'').includes('text/html')) {
+        toast('\u23f3 Extraindo stream...');
+        videoEl._ytdlpTried = true;
+        fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json()).then(einfo=>{
+          if(einfo.ok && einfo.url && einfo.url !== url){
+            videoEl.src = `/api/stream?url=${encodeURIComponent(einfo.url)}`;
+            if(einfo.title) $('vi-title').textContent = einfo.title;
+            videoEl.load();
+          } else { toast('\u274c N\u00e3o foi poss\u00edvel extrair'); }
+        });
+      } else {
+        videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`;
+      }
+    })
+    .catch(() => { videoEl.src = `/api/stream?url=${encodeURIComponent(url)}`; });
 }
 // ── VIDEO.JS PLAYER ───────────────────────────────────────
 function _loadVjs(wrap, src, typeOverride, extraOpts) {
