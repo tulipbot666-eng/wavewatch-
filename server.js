@@ -1172,25 +1172,14 @@ const { exec } = require('child_process');
 // Proxy de stream — repassa o vídeo/HLS com headers corretos
 const YT_DLP = process.env.YT_DLP_PATH || 'yt-dlp';
 
-// ─────────────────────────────────────────
-// CACHE de stream URLs extraídas (evita scraping a cada range request)
-// TTL de 4 minutos — tokens do tokyvideo duram ~5 min
-// ─────────────────────────────────────────
+// Cache de URLs extraídas — TTL 4 minutos
 const streamCache = new Map();
 const STREAM_CACHE_TTL = 4 * 60 * 1000;
 
-function getCached(pageUrl) {
-  const entry = streamCache.get(pageUrl);
-  if (!entry) return null;
-  if (Date.now() - entry.ts > STREAM_CACHE_TTL) { streamCache.delete(pageUrl); return null; }
-  return entry;
-}
-
-function setCache(pageUrl, streamUrl, referer, title) {
-  streamCache.set(pageUrl, { streamUrl, referer, title, ts: Date.now() });
-}
-
 async function scrapeTokyvideo(pageUrl) {
+  const cached = streamCache.get(pageUrl);
+  if (cached && Date.now() - cached.ts < STREAM_CACHE_TTL) return cached;
+
   const r = await fetch(pageUrl, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
@@ -1200,90 +1189,35 @@ async function scrapeTokyvideo(pageUrl) {
   });
   const html = await r.text();
   const m = html.match(/https:\/\/cdnst\d*\.tokyvideo\.com\/[^"'\s<>]+\.mp4[^"'\s<>]*/);
-  if (!m) throw new Error('URL do stream não encontrada no tokyvideo');
+  if (!m) throw new Error('URL do stream não encontrada');
   const titleM = html.match(/<h1[^>]*>([^<]+)<\/h1>/) || html.match(/<title>([^<]+)<\/title>/);
   const title = titleM ? titleM[1].replace(/\s*[-|]\s*Tokyvideo.*/i,'').trim() : 'Vídeo';
-  return { streamUrl: m[0], referer: 'https://www.tokyvideo.com/', title };
-}
-
-async function extractStream(pageUrl) {
-  const cached = getCached(pageUrl);
-  if (cached) return cached;
-
-  let hostname = '';
-  try { hostname = new URL(pageUrl).hostname.replace('www.',''); } catch(e) {}
-
-  let result;
-  if (hostname.includes('tokyvideo.com')) {
-    result = await scrapeTokyvideo(pageUrl);
-  } else {
-    throw new Error('Site não suportado');
-  }
-
-  setCache(pageUrl, result.streamUrl, result.referer, result.title);
-  return result;
+  const entry = { streamUrl: m[0], title, ts: Date.now() };
+  streamCache.set(pageUrl, entry);
+  return entry;
 }
 
 app.get('/api/extract', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'URL obrigatória' });
-  try {
-    const info = await extractStream(url);
-    res.json({ ok: true, title: info.title });
-  } catch(e) {
-    res.json({ ok: false, error: e.message });
-  }
-});
 
-// Smart-stream: extrai URL uma vez, cacheia, e faz proxy pra todos
-// Cada viewer faz seus próprios range requests mas compartilham o mesmo token
-app.get('/api/smart-stream', async (req, res) => {
-  const { url } = req.query;
-  if (!url) return res.status(400).send('URL obrigatória');
+  let hostname = '';
+  try { hostname = new URL(url).hostname.replace('www.',''); } catch(e) {}
 
   try {
-    const info = await extractStream(url);
-
-    const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36',
-      'Accept': '*/*',
-      'Accept-Encoding': 'identity',
-      'Referer': info.referer,
-    };
-    if (req.headers.range) headers['Range'] = req.headers.range;
-
-    const response = await fetch(info.streamUrl, { headers });
-
-    // Se o token expirou (403/410), limpa cache e tenta de novo uma vez
-    if (response.status === 403 || response.status === 410) {
-      streamCache.delete(url);
-      const fresh = await extractStream(url);
-      const response2 = await fetch(fresh.streamUrl, { headers });
-      if (!response2.ok) return res.status(response2.status).send('Stream error');
-      pipeStream(response2, res);
-      return;
+    if (hostname.includes('tokyvideo.com')) {
+      const info = await scrapeTokyvideo(url);
+      // Retorna a URL direta pro browser testar sem proxy primeiro
+      // Se o token não for vinculado ao IP, browser baixa direto do CDN
+      // e o servidor fica fora da equação
+      return res.json({ ok: true, url: info.streamUrl, title: info.title, referer: 'https://www.tokyvideo.com/' });
     }
-
-    if (!response.ok) return res.status(response.status).send('Stream error');
-    pipeStream(response, res);
+    return res.json({ ok: false, error: 'Site não suportado' });
   } catch(e) {
-    console.error('[smart-stream]', e.message);
-    if (!res.headersSent) res.status(500).send('Erro: ' + e.message);
+    console.warn('[extract]', e.message);
+    return res.json({ ok: false, error: e.message });
   }
 });
-
-function pipeStream(response, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Content-Type', response.headers.get('content-type') || 'video/mp4');
-  res.setHeader('Accept-Ranges', 'bytes');
-  const cl = response.headers.get('content-length');
-  const cr = response.headers.get('content-range');
-  if (cl) res.setHeader('Content-Length', cl);
-  if (cr) res.setHeader('Content-Range', cr);
-  res.status(response.status);
-  const { Readable } = require('stream');
-  Readable.fromWeb(response.body).on('error', () => { if(!res.headersSent) res.destroy(); }).pipe(res);
-}
 
 app.get('/api/probe', async (req, res) => {
   const { url } = req.query;
@@ -1310,7 +1244,7 @@ app.get('/api/probe', async (req, res) => {
 });
 
 app.get('/api/stream', async (req, res) => {
-  const { url, origin } = req.query;
+  const { url, origin, h } = req.query;
   if (!url) return res.status(400).send('URL obrigatória');
 
   try {
@@ -1320,6 +1254,7 @@ app.get('/api/stream', async (req, res) => {
       'Accept-Encoding': 'identity',
     };
     if (origin) { headers['Referer'] = origin + '/'; headers['Origin'] = origin; }
+    if (h) { try { Object.assign(headers, JSON.parse(h)); } catch(e) {} }
     if (req.headers.range) headers['Range'] = req.headers.range;
 
     const response = await fetch(url, { headers });
