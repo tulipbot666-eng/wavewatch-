@@ -2980,14 +2980,22 @@ function _loadDirectVideo(wrap, url) {
   videoEl.addEventListener('timeupdate',()=>{const t=videoEl.currentTime,d=videoEl.duration||0;if(d>0){$('prog-fill').style.width=(t/d*100)+'%';$('tlbl-cur').textContent=ft(t);$('tlbl-dur').textContent=ft(d);}});
   videoEl.addEventListener('canplay',()=>{const t=expectedNow();if(t>0.5){isSyncing=true;videoEl.currentTime=t;isSyncing=false;}if(syncPlaying)videoEl.play().catch(()=>{});videoEl.volume=parseFloat($('vol').value)||1;});
   videoEl.addEventListener('error',()=>{
-    if(videoEl._ytdlpTried){toast('Erro ao carregar \u26a0\ufe0f');return;}
-    videoEl._ytdlpTried=true;
+    if(videoEl._proxyTried){toast('Erro ao carregar \u26a0\ufe0f');return;}
+    videoEl._proxyTried=true;
+    // Tenta /api/extract primeiro (scraping leve, sem passar banda pelo servidor)
     fetch(`/api/extract?url=${encodeURIComponent(url)}`).then(r=>r.json()).then(info=>{
       if(info.ok&&info.url&&info.url!==url){
-        videoEl.src=`/api/stream?url=${encodeURIComponent(info.url)}`;
+        // Tenta URL extraída direto no browser — não proxy
+        videoEl.src=info.url;
         if(info.title)$('vi-title').textContent=info.title;
         videoEl.load();
-      } else { toast('Erro ao carregar \u26a0\ufe0f'); }
+      } else {
+        // Último recurso: proxy com Referer correto
+        let referer='';
+        try{ referer=new URL(url).origin; }catch(e){}
+        videoEl.src=`/api/stream?url=${encodeURIComponent(url)}${referer?'&origin='+encodeURIComponent(referer):''}`;
+        videoEl.load();
+      }
     }).catch(()=>toast('Erro ao carregar \u26a0\ufe0f'));
   });
 
@@ -2999,7 +3007,7 @@ function _loadDirectVideo(wrap, url) {
     return;
   }
 
-  // URL sem extensão conhecida — tenta direto, fallback pro proxy se der CORS
+  // URL sem extensão conhecida — tenta direto
   videoEl.src = url;
 }
 // ── VIDEO.JS PLAYER ───────────────────────────────────────
@@ -4472,54 +4480,37 @@ init();
 // ── WAVEWATCH COMPANION EXTENSION LISTENER ────────────────
 window.addEventListener('message', async (e) => {
   if (!e.data || e.data.type !== 'WW_EXT_VIDEO') return;
-
   const { url, title, referer } = e.data;
   if (!url) return;
-
   console.log('[WaveWatch Ext] Vídeo recebido:', url);
 
-  // Se ainda não está numa sala, cria uma automaticamente
+  // Se não está numa sala, cria uma automaticamente
   if (!roomId) {
-    if (!loggedInUser) {
-      toast('Faça login para usar a extensão WaveWatch Companion 🔒');
-      return;
-    }
+    if (!loggedInUser) { toast('Faça login para usar a extensão 🔒'); return; }
     try {
       const res = await fetch('/api/room/new');
       const { roomId: newId } = await res.json();
       enterApp(newId, loggedInUser.name, 'Sala da Extensão', false, null);
-      // Aguarda o WebSocket conectar e o JOIN ser processado
+      // Aguarda WebSocket conectar
       await new Promise(resolve => {
         const check = setInterval(() => {
           if (ws && ws.readyState === 1) { clearInterval(check); resolve(); }
         }, 150);
         setTimeout(() => { clearInterval(check); resolve(); }, 5000);
       });
-      // Pausa extra para o servidor processar o JOIN
-      await new Promise(r => setTimeout(r, 500));
-    } catch(err) {
-      console.error('[WaveWatch Ext] Erro ao criar sala:', err);
-      toast('Erro ao criar sala 😔');
-      return;
-    }
+      await new Promise(r => setTimeout(r, 400));
+    } catch(err) { toast('Erro ao criar sala 😔'); return; }
   }
 
-  // Detecta tipo de vídeo
+  // Detecta tipo — mp4/m3u8 direto, sem proxy
   const urlLower = url.toLowerCase();
   let src = 'direct';
   if (url.includes('youtube.com') || url.includes('youtu.be')) src = 'youtube';
   else if (urlLower.includes('.m3u8') || urlLower.includes('/hls/')) src = 'hls';
 
-  const video = {
-    url,
-    title: title || 'Vídeo da Extensão',
-    thumb: '',
-    src,
-    proxyUrl: referer ? `/api/stream?url=${encodeURIComponent(url)}&origin=${encodeURIComponent(referer)}` : null
-  };
-
+  const video = { url, title: title || 'Vídeo', thumb: '', src };
   send('VIDEO', { video });
-  toast(`🎬 "${video.title}" carregado da extensão!`);
+  toast(`🎬 "${video.title}" carregado!`);
 });
 </script>
 </body>
