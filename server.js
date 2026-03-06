@@ -834,7 +834,13 @@ wss.on('connection', (ws) => {
 
     if (type === 'JOIN') {
       const { roomId, user, roomName, isPublic, category, driveToken } = payload;
-      currentUser = { ...user, id: wsId, joinedAt: Date.now() };
+      // NUNCA guardar base64 no estado da sala — causa lag ao fazer broadcast
+      const safeUser = { ...user };
+      if (safeUser.avatarUrl && safeUser.avatarUrl.startsWith('data:')) {
+        safeUser.avatarUrl = null; // base64 não passa pelo WebSocket
+        safeUser.hasCustomAvatar = true; // flag para o cliente buscar via /api
+      }
+      currentUser = { ...safeUser, id: wsId, joinedAt: Date.now() };
       currentRoom = getOrCreateRoom(roomId);
       if (currentRoom.members.size === 0) {
         currentRoom.host = wsId;
@@ -884,7 +890,8 @@ wss.on('connection', (ws) => {
     }
 
     if (type === 'CHAT' && currentRoom) {
-      const imgData = payload.imgData && payload.imgData.length < 7_000_000 ? payload.imgData : null;
+      // Limita imagens no chat a 500KB para não travar o WebSocket
+      const imgData = payload.imgData && payload.imgData.length < 500_000 ? payload.imgData : null;
       const gifUrl = payload.gifUrl || null;
       // Manda pra todos EXCETO o remetente (ele já renderizou localmente)
       broadcast(currentRoom, { type: 'CHAT', payload: { id: uuid(), user: currentUser, text: payload.text || '', gifUrl, imgData, ts: Date.now() } }, wsId);
