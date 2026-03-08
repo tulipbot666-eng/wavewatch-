@@ -13,7 +13,62 @@ const bcrypt = require('bcrypt');
 
 const app = express();
 const server = createServer(app);
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ noServer: true });
+
+// ── WS DEDICADO PARA SCREEN SHARE (binário puro, sem JSON) ──
+const wsScreen = new WebSocketServer({ noServer: true });
+
+server.on('upgrade', (req, socket, head) => {
+  if (req.url.startsWith('/ws-screen')) {
+    wsScreen.handleUpgrade(req, socket, head, (ws) => {
+      wsScreen.emit('connection', ws, req);
+    });
+  } else {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit('connection', ws, req);
+    });
+  }
+});
+
+wsScreen.on('connection', (ws, req) => {
+  const url = new URL(req.url, 'http://localhost');
+  const roomId = url.searchParams.get('room');
+  let role = null; // 'host' | 'viewer'
+
+  ws.binaryType = 'nodebuffer';
+
+  ws.on('message', (data, isBinary) => {
+    if (!isBinary) {
+      // Mensagem de controle JSON (join como host ou viewer)
+      try {
+        const msg = JSON.parse(data);
+        role = msg.role;
+        if (!roomId) return;
+        const room = rooms.get(roomId);
+        if (!room) return;
+        if (!room.screenWsMembers) room.screenWsMembers = new Set();
+        room.screenWsMembers.add(ws);
+        ws._ssRole = role;
+        ws._ssRoomId = roomId;
+
+      } catch(e) {}
+      return;
+    }
+    // Dados binários — só o host manda, relay para todos os viewers
+    const room = rooms.get(ws._ssRoomId);
+    if (!room || !room.screenWsMembers) return;
+    room.screenWsMembers.forEach(member => {
+      if (member !== ws && member.readyState === 1 && member._ssRole === 'viewer') {
+        member.send(data, { binary: true });
+      }
+    });
+  });
+
+  ws.on('close', () => {
+    const room = rooms.get(ws._ssRoomId);
+    if (room && room.screenWsMembers) room.screenWsMembers.delete(ws);
+  });
+});
 
 // ─────────────────────────────────────────
 // DATABASE
@@ -146,12 +201,14 @@ initDB().catch(e => console.error('⚠️  initDB error (non-fatal):', e.message
 // ─────────────────────────────────────────
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+// Serve arquivos estáticos — procura em public/ e na raiz do projeto
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
 
 app.set('trust proxy', 1); // necessário para cookies seguros atrás do proxy do Render
 
 app.use(session({
-  store: new pgSession({ pool, tableName: 'session' }),
+  store: process.env.DATABASE_URL ? new pgSession({ pool, tableName: 'session' }) : undefined,
   secret: process.env.SESSION_SECRET || 'wavewatch-secret-change-in-prod',
   resave: false,
   saveUninitialized: false,
@@ -164,6 +221,14 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Injeta guest user no req.user se existir na sessão
+app.use((req, res, next) => {
+  if (!req.user && req.session?.guestUser) {
+    req.user = req.session.guestUser;
+  }
+  next();
+});
 
 passport.serializeUser((user, done) => done(null, user.id));
 passport.deserializeUser(async (id, done) => {
@@ -593,6 +658,23 @@ app.get('/api/drive/stream/:fileId', async (req, res) => {
 // ─────────────────────────────────────────
 // FRIENDS API
 // ─────────────────────────────────────────
+// ── GUEST LOGIN (teste local) ──────────────────────────────
+app.post('/auth/guest', (req, res) => {
+  const guestId = 'guest-' + Math.random().toString(36).slice(2, 8);
+  const guestUser = {
+    id: guestId,
+    name: 'Convidado 👁',
+    username: guestId,
+    email: null,
+    avatar_emoji: '👁',
+    avatar_url: null,
+    banner_url: null,
+    profile_complete: true,
+  };
+  req.session.guestUser = guestUser;
+  req.session.save(() => res.json({ ok: true }));
+});
+
 function requireAuth(req, res, next) {
   if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
   next();
@@ -656,6 +738,7 @@ app.delete('/api/friends/:friendId', requireAuth, async (req, res) => {
 
 // List friends (accepted + pending sent)
 app.get('/api/friends', requireAuth, async (req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ friends: [] });
   try {
     const { rows } = await pool.query(`
       SELECT u.id, u.name, u.username, u.avatar_url, u.avatar_emoji, f.status
@@ -665,11 +748,12 @@ app.get('/api/friends', requireAuth, async (req, res) => {
       ORDER BY f.status, u.name
     `, [req.user.id]);
     res.json({ friends: rows });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.json({ friends: [] }); }
 });
 
 // Pending requests received
 app.get('/api/friends/pending', requireAuth, async (req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ pending: [] });
   try {
     const { rows } = await pool.query(`
       SELECT u.id, u.name, u.username, u.avatar_url, u.avatar_emoji
@@ -678,7 +762,7 @@ app.get('/api/friends/pending', requireAuth, async (req, res) => {
       WHERE f.friend_id = $1 AND f.status = 'pending'
     `, [req.user.id]);
     res.json({ pending: rows });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.json({ pending: [] }); }
 });
 
 // ─────────────────────────────────────────
@@ -847,11 +931,29 @@ wss.on('connection', (ws) => {
         if (isPublic !== undefined) currentRoom.isPublic = !!isPublic;
         if (category) currentRoom.category = category;
       }
-      currentRoom.members.set(wsId, { ws, user: currentUser, rtt: 80 });
+      currentRoom.members.set(wsId, { ws, user: currentUser, rtt: 80, joinedAt: Date.now() });
       const state = roomInfo(currentRoom);
       state.myWsId = wsId;
       ws.send(JSON.stringify({ type: 'ROOM_STATE', payload: state }));
       broadcast(currentRoom, { type: 'USER_JOINED', payload: { user: currentUser, memberCount: currentRoom.members.size } }, wsId);
+
+      // Se screen share ativo, avisa viewer e pede restart ao host
+      if (currentRoom.screenShareHost && wsId !== currentRoom.screenShareHost) {
+        const hostUser = currentRoom.ssHostUser || { name: 'Host' };
+        const hostMember = currentRoom.members.get(currentRoom.screenShareHost);
+        setTimeout(() => {
+          // 1) Avisa viewer para preparar MediaSource
+          if (ws.readyState === 1) {
+            ws.send(JSON.stringify({ type: 'SCREEN_SHARE_START', payload: { by: hostUser, mime: currentRoom.ssMime } }));
+          }
+          // 2) Dá tempo pro viewer abrir o WS binário e se registrar, depois pede restart
+          setTimeout(() => {
+            if (hostMember && hostMember.ws.readyState === 1) {
+              hostMember.ws.send(JSON.stringify({ type: 'SS_REQUEST_RESTART', payload: {} }));
+            }
+          }, 800);
+        }, 200);
+      }
     }
 
     if (type === 'HOST_TOKEN' && currentRoom) {
@@ -952,23 +1054,19 @@ wss.on('connection', (ws) => {
     // ── WebRTC SCREEN SHARE SIGNALING ──────────────────────
     if (type === 'SCREEN_SHARE_START' && currentRoom) {
       currentRoom.screenShareHost = wsId;
-      broadcast(currentRoom, { type: 'SCREEN_SHARE_START', payload: { by: currentUser } }, wsId);
+      currentRoom.ssHostUser = currentUser;
+      currentRoom.ssMime = payload.mime || 'video/webm';
+      broadcast(currentRoom, { type: 'SCREEN_SHARE_START', payload: { by: currentUser, mime: payload.mime } }, wsId);
     }
 
     if (type === 'SCREEN_SHARE_STOP' && currentRoom) {
       currentRoom.screenShareHost = null;
-      broadcastAll(currentRoom, { type: 'SCREEN_SHARE_STOP', payload: {} });
-    }
-
-    // Targeted relay: host → specific viewer or viewer → host
-    if ((type === 'WR_OFFER' || type === 'WR_ANSWER' || type === 'WR_ICE') && currentRoom) {
-      const target = currentRoom.members.get(payload.targetId);
-      if (target && target.ws.readyState === 1) {
-        target.ws.send(JSON.stringify({
-          type,
-          payload: { ...payload, fromId: wsId }
-        }));
+      // Fecha todos os viewers do ws-screen desta sala
+      if (currentRoom.screenWsMembers) {
+        currentRoom.screenWsMembers.forEach(m => { try { m.close(); } catch(e){} });
+        currentRoom.screenWsMembers.clear();
       }
+      broadcastAll(currentRoom, { type: 'SCREEN_SHARE_STOP', payload: {} });
     }
   });
 
@@ -1123,24 +1221,35 @@ app.get('/api/yt/search', async (req, res) => {
     });
     const data = await r.json();
 
-    const contents =
-      data?.contents?.twoColumnSearchResultsRenderer?.primaryContents
-           ?.sectionListRenderer?.contents?.[0]
-           ?.itemSectionRenderer?.contents || [];
-
+    // ✅ CORREÇÃO: Iterar sobre todos os itemSectionRenderer, não apenas o primeiro
+    const sectionList = data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents || [];
+    
     const items = [];
-    for (const c of contents) {
-      const v = c.videoRenderer;
-      if (!v || !v.videoId) continue;
-      const title    = v.title?.runs?.[0]?.text || '';
-      const channel  = v.ownerText?.runs?.[0]?.text || v.longBylineText?.runs?.[0]?.text || '';
-      const duration = v.lengthText?.simpleText || '';
-      const thumb    = `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
-      const views    = v.viewCountText?.simpleText || v.shortViewCountText?.simpleText || '';
-      const published = v.publishedTimeText?.simpleText || '';
-      const channelAvatar = v.channelThumbnailSupportedRenderers
-        ?.channelThumbnailWithLinkRenderer?.thumbnail?.thumbnails?.[0]?.url || '';
-      items.push({ id: v.videoId, title, channel, duration, thumb, views, published, channelAvatar });
+    const seenIds = new Set(); // Evitar duplicatas
+
+    for (const section of sectionList) {
+      const contents = section?.itemSectionRenderer?.contents || [];
+      
+      for (const c of contents) {
+        const v = c.videoRenderer;
+        if (!v || !v.videoId || seenIds.has(v.videoId)) continue;
+        
+        // Filtra anúncios e conteúdo patrocinado
+        if (v.isAdvertisement) continue;
+        
+        seenIds.add(v.videoId);
+        const title    = v.title?.runs?.[0]?.text || '';
+        const channel  = v.ownerText?.runs?.[0]?.text || v.longBylineText?.runs?.[0]?.text || '';
+        const duration = v.lengthText?.simpleText || '';
+        const thumb    = `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
+        const views    = v.viewCountText?.simpleText || v.shortViewCountText?.simpleText || '';
+        const published = v.publishedTimeText?.simpleText || '';
+        const channelAvatar = v.channelThumbnailSupportedRenderers
+          ?.channelThumbnailWithLinkRenderer?.thumbnail?.thumbnails?.[0]?.url || '';
+        
+        items.push({ id: v.videoId, title, channel, duration, thumb, views, published, channelAvatar });
+        if (items.length >= 12) break;
+      }
       if (items.length >= 12) break;
     }
 
@@ -1245,26 +1354,214 @@ app.get('/api/probe', async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────
+// BROWSE PROXY — remove X-Frame-Options e CSP
+// Permite abrir qualquer site em iframe
+// ─────────────────────────────────────────
+app.get('/api/browse', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).send('URL obrigatória');
+
+  let targetUrl;
+  try { targetUrl = new URL(url); } catch { return res.status(400).send('URL inválida'); }
+
+  const origin = targetUrl.origin;
+  const base = origin + targetUrl.pathname.split('/').slice(0, -1).join('/') + '/';
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+        'Referer': origin + '/',
+      }
+    });
+
+    const contentType = response.headers.get('content-type') || 'text/html';
+
+    // Remove headers que bloqueiam iframe
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    // NÃO repassa: X-Frame-Options, Content-Security-Policy
+
+    if (!contentType.includes('text/html')) {
+      // Recurso estático (CSS, JS, imagem) — proxy direto
+      const buf = await response.arrayBuffer();
+      return res.send(Buffer.from(buf));
+    }
+
+    let html = await response.text();
+
+    // Reescreve URLs relativas para absolutas
+    // src="/" → src="https://site.com/"
+    html = html
+      .replace(/(src|href|action)=["']\/\//g, '$1="https://')
+      .replace(/(src|href|action)=["']\//g, `$1="${origin}/`)
+      .replace(/(src|href|action)=["'](?!https?:\/\/|\/\/|#|data:|javascript:)([^"']+)/g,
+        (m, attr, path) => `${attr}="${new URL(path, base).href}`);
+
+    // Injeta base tag e script de interceptação de navegação
+    const baseTag = `<base href="${origin}/">`;
+    const interceptScript = `
+<script>
+// WaveWatch browse proxy — intercepta navegação interna
+(function(){
+  // Intercepta cliques em links para redirecionar pelo proxy
+  document.addEventListener('click', function(e){
+    const a = e.target.closest('a');
+    if(!a || !a.href) return;
+    const href = a.href;
+    if(href.startsWith('javascript:') || href.startsWith('#')) return;
+    e.preventDefault();
+    window.parent.postMessage({ type: 'WW_BROWSE_NAV', url: href }, '*');
+  }, true);
+
+  // Avisa o pai quando detectar vídeo
+  function checkVideo(){
+    const v = document.querySelector('video');
+    if(!v) return;
+    const src = v.currentSrc || v.src;
+    if(src && !src.startsWith('blob:')){
+      window.parent.postMessage({ type: 'WW_IFRAME_VIDEO', url: src, title: document.title, referer: location.origin }, '*');
+    }
+    v.addEventListener('loadstart', function(){
+      const s = v.currentSrc || v.src;
+      if(s && !s.startsWith('blob:')) window.parent.postMessage({ type: 'WW_IFRAME_VIDEO', url: s, title: document.title, referer: '${origin}/' }, '*');
+    });
+  }
+  setTimeout(checkVideo, 1000);
+  setTimeout(checkVideo, 3000);
+  setTimeout(checkVideo, 6000);
+  new MutationObserver(checkVideo).observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script>`;
+
+    // Injeta antes do </head> ou no início
+    if (html.includes('</head>')) {
+      html = html.replace('</head>', baseTag + interceptScript + '</head>');
+    } else {
+      html = interceptScript + html;
+    }
+
+    res.send(html);
+  } catch(e) {
+    res.status(500).send('Erro ao carregar página: ' + e.message);
+  }
+});
+
 app.get('/api/stream', async (req, res) => {
   const { url, origin, h } = req.query;
   if (!url) return res.status(400).send('URL obrigatória');
 
+  // Mapa de CDN → Referer correto da página
+  const CDN_REFERERS = [
+    { match: 'tokyvideo.com',   referer: 'https://www.tokyvideo.com/' },
+    { match: 'dailymotion.com', referer: 'https://www.dailymotion.com/' },
+    { match: 'dm-event.net',    referer: 'https://www.dailymotion.com/' },
+    { match: 'akamaized.net',   referer: 'https://www.dailymotion.com/' },
+    { match: 'streamtape.com',  referer: 'https://streamtape.com/' },
+    { match: 'supervideo',      referer: 'https://supervideo.tv/' },
+    { match: 'phncdn.com',      referer: 'https://www.pornhub.com/' },
+    { match: 'pornhub.com',     referer: 'https://www.pornhub.com/' },
+    { match: 'redtube.com',     referer: 'https://www.redtube.com/' },
+    { match: 'youporn.com',     referer: 'https://www.youporn.com/' },
+    { match: 'tube8.com',       referer: 'https://www.tube8.com/' },
+    { match: 'xvideos.com',     referer: 'https://www.xvideos.com/' },
+    { match: 'xvideos-cdn.com', referer: 'https://www.xvideos.com/' },
+    { match: 'xnxx.com',        referer: 'https://www.xnxx.com/' },
+    { match: 'xhamster.com',    referer: 'https://xhamster.com/' },
+    { match: 'xhcdn.com',       referer: 'https://xhamster.com/' },
+  ];
+
+  function getReferer(u) {
+    try {
+      const hostname = new URL(u).hostname;
+      for (const { match, referer } of CDN_REFERERS) {
+        if (hostname.includes(match)) return referer;
+      }
+    } catch {}
+    return origin ? (origin.endsWith('/') ? origin : origin + '/') : null;
+  }
+
   try {
+    const referer = getReferer(url);
     const headers = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
       'Accept': '*/*',
       'Accept-Encoding': 'identity',
     };
-    if (origin) { headers['Referer'] = origin + '/'; headers['Origin'] = origin; }
+    if (referer) { headers['Referer'] = referer; headers['Origin'] = referer.replace(/\/$/, ''); }
     if (h) { try { Object.assign(headers, JSON.parse(h)); } catch(e) {} }
     if (req.headers.range) headers['Range'] = req.headers.range;
 
+    console.log(`[proxy] ${req.headers.range || 'full'} Referer=${referer} → ${url.substring(0,80)}`);
+
     const response = await fetch(url, { headers });
-    if (!response.ok) return res.status(response.status).send('Stream error');
+    if (!response.ok) return res.status(response.status).send('Stream error: ' + response.status);
+
+    const contentType = response.headers.get('content-type') || '';
+
+    // Se recebeu HTML em vez de vídeo, tenta extrair a URL real do vídeo
+    if (contentType.includes('text/html')) {
+      const html = await response.text();
+
+      // Padrões comuns para encontrar URL de vídeo em páginas
+      const patterns = [
+        /["']?(https?:\/\/[^"'\s]+\.mp4[^"'\s]*)/gi,
+        /["']?(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/gi,
+        /["']?(https?:\/\/[^"'\s]+\.webm[^"'\s]*)/gi,
+        /"file"\s*:\s*"(https?:\/\/[^"]+)"/gi,
+        /"src"\s*:\s*"(https?:\/\/[^"]+\.(mp4|m3u8|webm)[^"]*)"/gi,
+        /source\s+src=["'](https?:\/\/[^"']+)/gi,
+        /<video[^>]+src=["'](https?:\/\/[^"']+)/gi,
+      ];
+
+      let videoUrl = null;
+      for (const pattern of patterns) {
+        const match = pattern.exec(html);
+        if (match) { videoUrl = match[1]; break; }
+      }
+
+      if (videoUrl) {
+        // Redireciona o proxy para a URL real do vídeo
+        const pageOrigin = new URL(url).origin;
+        return res.redirect(`/api/stream?url=${encodeURIComponent(videoUrl)}&origin=${encodeURIComponent(pageOrigin)}`);
+      }
+
+      return res.status(422).send('Nenhuma URL de vídeo encontrada na página. Use a extensão WaveWatch para capturar o link direto.');
+    }
 
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', response.headers.get('content-type') || 'video/mp4');
     res.setHeader('Accept-Ranges', 'bytes');
+
+    // ── Reescrita de HLS m3u8 ─────────────────────────────────────────────
+    // Reescreve URLs de segmentos/sub-playlists para passarem pelo proxy,
+    // resolvendo bloqueios de CORS e Referer (Pornhub, xvideos, etc.)
+    const isM3u8 = contentType.includes('mpegurl') ||
+                   contentType.includes('x-mpegurl') ||
+                   url.split('?')[0].endsWith('.m3u8') ||
+                   contentType.includes('application/vnd.apple');
+    if (isM3u8) {
+      const m3u8Text = await response.text();
+      const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
+      const proxyBase = `${req.protocol}://${req.get('host')}/api/stream?url=`;
+      const originParam = `&origin=${encodeURIComponent(new URL(url).origin)}`;
+
+      const rewritten = m3u8Text.split('\n').map(line => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) return line;
+        let absUrl = (trimmed.startsWith('http://') || trimmed.startsWith('https://'))
+          ? trimmed : baseUrl + trimmed;
+        return proxyBase + encodeURIComponent(absUrl) + originParam;
+      }).join('\n');
+
+      res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+      return res.send(rewritten);
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
+    res.setHeader('Content-Type', contentType || 'video/mp4');
     const cl = response.headers.get('content-length');
     const cr = response.headers.get('content-range');
     if (cl) res.setHeader('Content-Length', cl);
@@ -1293,25 +1590,35 @@ setInterval(() => {
   const now = Date.now();
   rooms.forEach(room => {
     if (!room.video || room.members.size < 2) return;
+    // Se pausado, só manda sync se algum membro está com estado errado
     const expectedTime = getProjectedTime(room);
     room.members.forEach((member) => {
       if (member.ws.readyState !== 1) return;
+
+      // Janela de graça: não sincroniza nos primeiros 6s após entrar
+      const memberAge = now - (member.joinedAt || now);
+      if (memberAge < 6000) return;
+
       const timeSinceForce = now - (member.lastForcedSync || 0);
       if (timeSinceForce >= SYNC_FORCE_INTERVAL) {
-        sendStateToMember(room, member, 'SYNC_TICK');
-        member.lastForcedSync = now;
+        // Só força sync periódico se estiver tocando
+        if (room.playing) {
+          sendStateToMember(room, member, 'SYNC_TICK');
+          member.lastForcedSync = now;
+        }
         return;
       }
       if (member.clientTime == null) { sendStateToMember(room, member, 'SYNC_TICK'); return; }
       const clientAge = (now - member.clientTimeAt) / 1000;
       const projectedClient = member.clientPlaying ? member.clientTime + clientAge : member.clientTime;
       const drift = Math.abs(projectedClient - expectedTime);
+      // Só manda SYNC_TICK se drift relevante OU estado play/pause divergente
       if (drift > SYNC_DRIFT_THRESHOLD || member.clientPlaying !== room.playing) {
         sendStateToMember(room, member, 'SYNC_TICK');
       }
     });
   });
-}, 2000); // era 500ms — reduziu para 2s, menos pressão no servidor
+}, 3000); // a cada 3s
 
 app.get('/api/ping', (req, res) => res.json({ ok: true }));
 app.get('/healthz', (req, res) => res.json({ ok: true }));
@@ -1385,6 +1692,16 @@ app.delete('/api/comments/:id', requireAuth, async (req, res) => {
     await pool.query('DELETE FROM post_comments WHERE id=$1 AND user_id=$2', [req.params.id, req.user.id]);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: 'Erro interno' }); }
+});
+
+// ─────────────────────────────────────────
+// Catch-all — entrega index.html para qualquer rota não encontrada (SPA)
+// ─────────────────────────────────────────
+app.get('*', (req, res) => {
+  const pub = path.join(__dirname, 'public', 'index.html');
+  const root = path.join(__dirname, 'index.html');
+  if (require('fs').existsSync(pub)) return res.sendFile(pub);
+  return res.sendFile(root);
 });
 
 // ─────────────────────────────────────────
