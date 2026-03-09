@@ -1287,6 +1287,83 @@ const YT_DLP = process.env.YT_DLP_PATH || 'yt-dlp';
 const streamCache = new Map();
 const STREAM_CACHE_TTL = 4 * 60 * 1000;
 
+
+// ── Extração genérica via yt-dlp ─────────────────────────────────────────────
+// Usa --dump-json para ter controle total do formato escolhido.
+// Tenta passar cookies do Chrome para sites com login (Pornhub, etc.)
+const { execFile } = require('child_process');
+
+function extractWithYtDlp(pageUrl) {
+  return new Promise((resolve) => {
+    // Tenta com cookies do Chrome primeiro; se falhar, sem cookies
+    _runYtDlp(pageUrl, true).then(result => {
+      if (result.ok) return resolve(result);
+      console.log('[yt-dlp] sem cookies, tentando sem autenticação...');
+      return _runYtDlp(pageUrl, false).then(resolve);
+    }).catch(() => _runYtDlp(pageUrl, false).then(resolve));
+  });
+}
+
+function _runYtDlp(pageUrl, withCookies) {
+  return new Promise((resolve) => {
+    const args = ['--no-playlist', '--no-warnings', '--dump-json'];
+    if (withCookies) {
+      // Tenta pegar cookies do Chrome/Chromium instalado no servidor
+      args.push('--cookies-from-browser', 'chrome');
+    }
+    args.push(pageUrl);
+
+    execFile(YT_DLP, args, { timeout: 45000, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+      if (err || !stdout.trim()) {
+        console.warn('[yt-dlp] erro:', (stderr || err?.message || '').substring(0, 200));
+        return resolve({ ok: false, error: 'Não foi possível extrair o vídeo.' });
+      }
+
+      let info;
+      try { info = JSON.parse(stdout.trim()); }
+      catch { return resolve({ ok: false, error: 'yt-dlp retornou JSON inválido.' }); }
+
+      const title    = info.title || '';
+      const thumb    = info.thumbnail || '';
+      const duration = info.duration || 0;
+      const referer  = new URL(pageUrl).origin + '/';
+
+      // Pega todos os formatos com URL direta acessível
+      const formats = (info.formats || []).filter(f => f.url?.startsWith('http'));
+
+      // Preferência: formatos combinados (vídeo+áudio no mesmo arquivo)
+      const combined = formats.filter(f =>
+        f.vcodec && f.vcodec !== 'none' &&
+        f.acodec && f.acodec !== 'none'
+      );
+
+      // Descarta previews curtos (se vídeo tem >60s, ignora formatos com <30s)
+      const minDur = duration > 60 ? 30 : 0;
+      const valid  = combined.filter(f => !f.duration || f.duration > minDur);
+
+      // Ordena por resolução decrescente, prefere mp4
+      valid.sort((a, b) => {
+        const dh = (b.height || 0) - (a.height || 0);
+        if (dh !== 0) return dh;
+        return (b.ext === 'mp4' ? 1 : 0) - (a.ext === 'mp4' ? 1 : 0);
+      });
+
+      // Escolhe até 1080p, mínimo 240p
+      let chosen = valid.find(f => (f.height || 0) <= 1080 && (f.height || 0) >= 240)
+        || valid[0]
+        || formats.find(f => (f.url || '').includes('.m3u8'))
+        || formats[formats.length - 1];
+
+      if (!chosen?.url) {
+        return resolve({ ok: false, error: 'Nenhum stream válido encontrado.' });
+      }
+
+      console.log(`[yt-dlp] ${chosen.height || '?'}p ${chosen.ext || '?'} dur=${chosen.duration || duration}s cookies=${withCookies}`);
+      resolve({ ok: true, url: chosen.url, title, thumb, referer, duration });
+    });
+  });
+}
+
 async function scrapeTokyvideo(pageUrl) {
   const cached = streamCache.get(pageUrl);
   if (cached && Date.now() - cached.ts < STREAM_CACHE_TTL) return cached;
@@ -1323,7 +1400,9 @@ app.get('/api/extract', async (req, res) => {
       // e o servidor fica fora da equação
       return res.json({ ok: true, url: info.streamUrl, title: info.title, referer: 'https://www.tokyvideo.com/' });
     }
-    return res.json({ ok: false, error: 'Site não suportado' });
+    // Extração genérica via yt-dlp (Pornhub, xvideos, xhamster, etc.)
+    const extracted = await extractWithYtDlp(url);
+    return res.json(extracted);
   } catch(e) {
     console.warn('[extract]', e.message);
     return res.json({ ok: false, error: e.message });
@@ -1583,8 +1662,8 @@ function generateRoomCode() {
 // ─────────────────────────────────────────
 // SYNC HEARTBEAT — condicional por drift
 // ─────────────────────────────────────────
-const SYNC_DRIFT_THRESHOLD = 1.5;   // era 0.25 — muito sensível
-const SYNC_FORCE_INTERVAL  = 10000; // era 5000 — força sync a cada 10s
+const SYNC_DRIFT_THRESHOLD = 1.0;   // ⬇️ De volta para 1.0s (compensação melhor)
+const SYNC_FORCE_INTERVAL  = 10000; // ⬇️ De volta para 10s
 
 setInterval(() => {
   const now = Date.now();
@@ -1621,6 +1700,77 @@ setInterval(() => {
 }, 3000); // a cada 3s
 
 app.get('/api/ping', (req, res) => res.json({ ok: true }));
+
+// ── YOUTUBE PICKER POPUP PAGE ──────────────────────────────
+app.get('/yt-picker', (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html><html lang="pt-BR"><head>
+<meta charset="UTF-8">
+<title>YouTube — WaveWatch</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;background:#0f0f0f;font-family:sans-serif;}
+#topbar{height:44px;background:#0f0f0f;display:flex;align-items:center;gap:10px;
+  padding:0 14px;border-bottom:1.5px solid #222;flex-shrink:0;user-select:none;}
+#topbar-hint{flex:1;font-size:12px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#url-display{font-size:11px;color:#444;max-width:340px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+#close-btn{background:#c00;color:#fff;border:none;border-radius:6px;
+  padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;}
+#close-btn:hover{background:#e00;}
+iframe{width:100%;border:none;display:block;}
+</style>
+</head><body>
+<div id="topbar">
+  <svg viewBox="0 0 90 20" width="72" height="16" style="flex-shrink:0">
+    <path fill="#f00" d="M27.9 3.5a3.5 3.5 0 00-2.5-2.5C23.2.5 14.5.5 14.5.5s-8.7 0-10.9.6A3.5 3.5 0 001.1 3.5C.5 5.7.5 10 .5 10s0 4.3.6 6.5a3.5 3.5 0 002.5 2.5C5.8 19.5 14.5 19.5 14.5 19.5s8.7 0 10.9-.5a3.5 3.5 0 002.5-2.5c.6-2.2.6-6.5.6-6.5s0-4.3-.6-6.5z"/>
+    <path fill="#fff" d="M11.5 14.5l7-4.5-7-4.5v9z"/>
+  </svg>
+  <span id="topbar-hint">🎯 Clique em qualquer vídeo para tocar automaticamente na sala</span>
+  <span id="url-display"></span>
+  <button id="close-btn" onclick="window.close()">✕ Fechar</button>
+</div>
+<iframe id="yt-frame" src="/api/browse?url=https%3A%2F%2Fwww.youtube.com" style="height:calc(100vh - 44px)"></iframe>
+<script>
+var frame = document.getElementById('yt-frame');
+var urlDisplay = document.getElementById('url-display');
+var hint = document.getElementById('topbar-hint');
+
+function extractYT(url) {
+  var m = url.match(/(?:v=|youtu\\.be\\/|embed\\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+window.addEventListener('message', function(e) {
+  if (!e.data || !e.data.type) return;
+
+  if (e.data.type === 'WW_BROWSE_NAV') {
+    var url = e.data.url || '';
+    urlDisplay.textContent = url.length > 50 ? url.substring(0,50)+'...' : url;
+    var vid = extractYT(url);
+    if (vid) {
+      hint.textContent = '✅ Vídeo encontrado! Carregando na sala...';
+      hint.style.color = '#00e5c0';
+      window.opener && window.opener.postMessage({ type: 'WW_YT_PICKED', url: url, vid: vid }, '*');
+      setTimeout(function(){ window.close(); }, 800);
+    } else {
+      frame.src = '/api/browse?url=' + encodeURIComponent(url);
+    }
+  }
+
+  if (e.data.type === 'WW_IFRAME_VIDEO') {
+    var url = e.data.url || '';
+    var vid = extractYT(url);
+    if (vid) {
+      hint.textContent = '✅ Vídeo encontrado! Carregando na sala...';
+      hint.style.color = '#00e5c0';
+      window.opener && window.opener.postMessage({ type: 'WW_YT_PICKED', url: url, vid: vid }, '*');
+      setTimeout(function(){ window.close(); }, 800);
+    }
+  }
+});
+</script>
+</body></html>`);
+});
 app.get('/healthz', (req, res) => res.json({ ok: true }));
 
 // ─────────────────────────────────────────
