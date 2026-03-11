@@ -1063,6 +1063,10 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
         <svg viewBox="0 0 20 20" fill="none"><path d="M2 5h16M2 10h10M2 15h13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
         Feed
       </button>
+      <button class="lobby-tab" id="ltab-games" onclick="switchLobbyTab('games')">
+        <svg viewBox="0 0 20 20" fill="none"><rect x="2" y="6" width="16" height="10" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="M7 11v-2m-1 1h2M13 10h2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12.5" cy="11.5" r=".8" fill="currentColor"/></svg>
+        Jogos
+      </button>
     </div>
 
     <!-- ROOMS VIEW -->
@@ -1168,6 +1172,27 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
         </div>
       </div>
     </div><!-- /lobby-view-feed -->
+
+    <!-- GAMES VIEW -->
+    <div id="lobby-view-games" style="display:none;flex:1;overflow:hidden;min-height:0;flex-direction:column;">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:.7rem;padding:.75rem 1.2rem .5rem;flex-shrink:0;border-bottom:1px solid var(--border);">
+        <div style="font-size:.92rem;font-weight:800;">🎮 Jogos</div>
+        <div style="flex:1;">
+          <input id="game-room-search" placeholder="🔍 Buscar sala..." style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:.3rem .65rem;color:var(--text);font-size:.75rem;font-family:inherit;outline:none;" oninput="renderGameRooms()">
+        </div>
+        <select id="game-room-sort" style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:.3rem .6rem;color:var(--text);font-size:.72rem;font-family:inherit;outline:none;cursor:pointer;" onchange="renderGameRooms()">
+          <option value="players">↓ Jogadores</option>
+          <option value="new">Mais novo</option>
+        </select>
+        <button onclick="openGameCreateModal()" style="padding:.35rem .85rem;border-radius:8px;border:none;background:linear-gradient(135deg,var(--accent),var(--a2));color:#fff;font-size:.75rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">+ Criar Sala</button>
+      </div>
+      <!-- Room list -->
+      <div id="game-rooms-list" style="flex:1;overflow-y:auto;padding:.65rem .8rem;display:flex;flex-direction:column;gap:.4rem;">
+        <div style="text-align:center;padding:2rem;color:var(--sub);font-size:.8rem;">Carregando salas...</div>
+      </div>
+    </div><!-- /lobby-view-games -->
+
     </div><!-- /lobby-left -->
 
     <!-- FRIENDS SIDEBAR -->
@@ -1463,6 +1488,7 @@ input[type=range]{width:64px;height:3px;accent-color:var(--accent);cursor:pointe
         <svg viewBox="0 0 20 20" fill="none" style="width:13px;height:13px;margin-right:4px"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
         Vídeo
       </button>
+      <button class="tb-btn" onclick="openGames()" title="Minigames" style="background:linear-gradient(135deg,rgba(124,58,237,.25),rgba(0,229,192,.15));border-color:rgba(124,58,237,.35);">🎮 Jogos</button>
       <button class="tb-btn tb-leave" onclick="leaveRoom()">Sair</button>
     </div>
   </div>
@@ -1791,6 +1817,7 @@ function $(id) { return document.getElementById(id); }
 function setPbtn(txt) { const b=$('pbtn'); if(b) b.textContent=txt; }
 function ft(s) { if (!s||isNaN(s)) return '0:00'; return `${Math.floor(s/60)}:${Math.floor(s%60).toString().padStart(2,'0')}`; }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escHtml(s) { return esc(s); }
 function toast(msg,d=2500){const el=$('toast');el.textContent=msg;el.classList.add('on');setTimeout(()=>el.classList.remove('on'),d);}
 function extractYT(url){const m=url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);return m?m[1]:null;}
 function expectedNow(){if(!syncPlaying||syncWall===0)return syncTime;return syncTime+(Date.now()-syncWall)/1000;}
@@ -4007,18 +4034,204 @@ function sTab(t,el){document.querySelectorAll('.stab').forEach(s=>s.classList.re
 
 // ── LOBBY TAB SWITCHING ──
 function switchLobbyTab(tab) {
-  const rooms = $('lobby-view-rooms'), feed = $('lobby-view-feed');
-  const tr = $('ltab-rooms'), tf = $('ltab-feed');
+  const rooms = $('lobby-view-rooms'), feed = $('lobby-view-feed'), games = $('lobby-view-games');
+  const tr = $('ltab-rooms'), tf = $('ltab-feed'), tg = $('ltab-games');
+  rooms.style.display = 'none'; feed.style.display = 'none'; games.style.display = 'none';
+  tr.classList.remove('on'); tf.classList.remove('on'); tg.classList.remove('on');
+  if (tab !== 'games' && _gameRoomsInterval) { clearInterval(_gameRoomsInterval); _gameRoomsInterval = null; }
   if (tab === 'rooms') {
-    rooms.style.display = 'flex'; feed.style.display = 'none';
-    tr.classList.add('on'); tf.classList.remove('on');
-  } else {
-    rooms.style.display = 'none'; feed.style.display = 'flex';
-    tr.classList.remove('on'); tf.classList.add('on');
+    rooms.style.display = 'flex'; tr.classList.add('on');
+  } else if (tab === 'feed') {
+    feed.style.display = 'flex'; tf.classList.add('on');
     updateComposerAvatar();
     loadLobbyFeed();
+  } else if (tab === 'games') {
+    games.style.display = 'flex'; tg.classList.add('on');
+    loadGameRooms();
+    if (_gameRoomsInterval) clearInterval(_gameRoomsInterval);
+    _gameRoomsInterval = setInterval(loadGameRooms, 5000);
   }
 }
+
+function openGameLobby(game) {
+  $('games-home').style.display = 'none';
+  $('games-skribbl-lobby').style.display = 'flex';
+}
+
+function showGamesHome() {
+  $('games-home').style.display = 'block';
+  $('games-skribbl-lobby').style.display = 'none';
+}
+
+// ── GAME ROOMS LIST ──────────────────────────────────────────
+let _gameRooms = [], _gameRoomsInterval = null;
+
+async function loadGameRooms() {
+  try {
+    const r = await fetch('/api/game-rooms');
+    const { rooms } = await r.json();
+    _gameRooms = rooms || [];
+    renderGameRooms();
+  } catch(e) {}
+}
+
+function renderGameRooms() {
+  const q = ($('game-room-search') ? $('game-room-search').value : '').toLowerCase();
+  const sort = $('game-room-sort') ? $('game-room-sort').value : 'players';
+  const GAME_ICONS = { skribbl: '🎨' };
+  const STATUS_LABEL = { waiting:'⏳ Aguardando', choosing:'✏️ Escolhendo', drawing:'🖌 Jogando', between_rounds:'⏳ Entre rodadas', ended:'🏁 Encerrado' };
+  let list = (_gameRooms || []).filter(r => !q || r.name.toLowerCase().includes(q));
+  if (sort === 'players') list.sort((a,b) => b.players - a.players);
+  else list.sort((a,b) => b.createdAt - a.createdAt);
+
+  const el = $('game-rooms-list');
+  if (!el) return;
+  if (!list.length) {
+    el.innerHTML = `<div style="text-align:center;padding:2.5rem 1rem;color:var(--sub);font-size:.8rem;">
+      <div style="font-size:2rem;margin-bottom:.5rem">🎮</div>
+      ${q ? 'Nenhuma sala encontrada.' : 'Nenhuma sala aberta agora.<br>Crie a sua!'}
+    </div>`; return;
+  }
+  el.innerHTML = list.map(r => `
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:11px;padding:.6rem .8rem;display:flex;align-items:center;gap:.65rem;transition:border-color .15s;" onmouseenter="this.style.borderColor='rgba(255,255,255,.13)'" onmouseleave="this.style.borderColor='var(--border)'">
+      <div style="font-size:1.4rem;flex-shrink:0;">🎨</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;font-size:.8rem;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${escHtml(r.name)}${r.hasPassword?' 🔒':''}</div>
+        <div style="display:flex;gap:.3rem;margin-top:.25rem;flex-wrap:wrap;">
+          <span style="font-size:.58rem;padding:.1rem .38rem;border-radius:4px;background:rgba(255,255,255,.05);color:var(--sub);">${STATUS_LABEL[r.status]||r.status}</span>
+          <span style="font-size:.58rem;padding:.1rem .38rem;border-radius:4px;background:rgba(255,255,255,.05);color:var(--sub);">Rod. ${r.round||0}/${r.maxRounds}</span>
+          <span style="font-size:.58rem;padding:.1rem .38rem;border-radius:4px;background:rgba(255,255,255,.05);color:var(--sub);">${r.language==='pt'?'🇧🇷':'🇺🇸'}</span>
+        </div>
+      </div>
+      <div style="font-size:.65rem;font-family:'JetBrains Mono',monospace;color:var(--sub);white-space:nowrap;flex-shrink:0;">${r.players}/${r.maxPlayers}</div>
+      <button onclick="enterGameRoom('${r.id}',${r.hasPassword})" style="padding:.3rem .7rem;border-radius:7px;border:1px solid rgba(255,45,120,.3);background:rgba(255,45,120,.07);color:var(--accent);font-size:.7rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;font-family:inherit;">${r.players>=r.maxPlayers?'👁 Ver':'Entrar'}</button>
+    </div>`).join('');
+}
+
+function enterGameRoom(id, hasPassword) {
+  if (!loggedInUser) { toast('Faça login para jogar!'); return; }
+  const name = encodeURIComponent(loggedInUser.name || 'Jogador');
+  const avatar = encodeURIComponent(loggedInUser.avatarEmoji || '🎮');
+  if (hasPassword) {
+    const pw = prompt('🔒 Senha da sala:');
+    if (pw === null) return;
+    window.location.href = `/games?room=${id}&name=${name}&avatar=${avatar}&pw=${encodeURIComponent(pw)}`;
+  } else {
+    window.location.href = `/games?room=${id}&name=${name}&avatar=${avatar}`;
+  }
+}
+
+// ── CREATE GAME MODAL ────────────────────────────────────────
+const GAME_TYPES = [
+  { id:'skribbl', icon:'🎨', name:'Gartic', desc:'Desenhe e adivinhe palavras' },
+];
+let _selectedGameType = 'skribbl';
+
+function openGameCreateModal() {
+  if (!loggedInUser) { toast('Faça login para criar uma sala!'); return; }
+  // Show a simple modal-style panel
+  let existing = $('game-create-modal');
+  if (existing) { existing.remove(); }
+  const modal = document.createElement('div');
+  modal.id = 'game-create-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);z-index:300;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML = `
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:18px;padding:1.5rem;width:min(440px,94vw);max-height:90vh;overflow-y:auto;">
+      <div style="font-size:1rem;font-weight:800;margin-bottom:1rem;">🎮 Criar Sala</div>
+
+      <div style="font-size:.68rem;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.5rem;">Escolha o jogo</div>
+      <div id="gcm-game-list" style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:1rem;">
+        ${GAME_TYPES.map(g=>`
+          <div onclick="selectGameType('${g.id}')" id="gcm-type-${g.id}" style="display:flex;align-items:center;gap:.8rem;padding:.65rem .9rem;border-radius:11px;border:2px solid ${g.id===_selectedGameType?'var(--accent)':'var(--border)'};background:${g.id===_selectedGameType?'rgba(255,45,120,.06)':'var(--s3)'};cursor:pointer;transition:all .15s;">
+            <div style="font-size:1.8rem;">${g.icon}</div>
+            <div><div style="font-weight:700;font-size:.85rem;">${g.name}</div><div style="font-size:.72rem;color:var(--sub);">${g.desc}</div></div>
+            ${g.id===_selectedGameType?'<div style="margin-left:auto;color:var(--accent);font-size:.9rem;">✓</div>':''}
+          </div>`).join('')}
+        <div style="display:flex;align-items:center;gap:.8rem;padding:.65rem .9rem;border-radius:11px;border:2px dashed var(--border);background:var(--s3);opacity:.4;">
+          <div style="font-size:1.8rem;">🃏</div>
+          <div><div style="font-weight:700;font-size:.85rem;">Mais jogos</div><div style="font-size:.72rem;color:var(--sub);">Em breve...</div></div>
+        </div>
+      </div>
+
+      <div style="font-size:.68rem;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.5rem;">Configurações</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.6rem;">
+        <div>
+          <div style="font-size:.68rem;color:var(--sub);margin-bottom:.25rem;">Nome da sala</div>
+          <input id="gcm-name" placeholder="Ex: Desenho Louco" maxlength="32" style="width:100%;background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:.38rem .6rem;color:var(--text);font-size:.78rem;font-family:inherit;outline:none;">
+        </div>
+        <div>
+          <div style="font-size:.68rem;color:var(--sub);margin-bottom:.25rem;">Máx. jogadores</div>
+          <select id="gcm-maxp" style="width:100%;background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:.38rem .6rem;color:var(--text);font-size:.78rem;font-family:inherit;outline:none;">
+            <option value="4">4</option><option value="6">6</option><option value="8" selected>8</option><option value="10">10</option><option value="12">12</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:.68rem;color:var(--sub);margin-bottom:.25rem;">Rodadas</div>
+          <select id="gcm-rounds" style="width:100%;background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:.38rem .6rem;color:var(--text);font-size:.78rem;font-family:inherit;outline:none;">
+            <option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:.68rem;color:var(--sub);margin-bottom:.25rem;">Tempo por desenho</div>
+          <select id="gcm-time" style="width:100%;background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:.38rem .6rem;color:var(--text);font-size:.78rem;font-family:inherit;outline:none;">
+            <option value="60">60s</option><option value="80" selected>80s</option><option value="100">100s</option><option value="120">120s</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:.68rem;color:var(--sub);margin-bottom:.25rem;">Idioma</div>
+          <select id="gcm-lang" style="width:100%;background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:.38rem .6rem;color:var(--text);font-size:.78rem;font-family:inherit;outline:none;">
+            <option value="pt">🇧🇷 Português</option><option value="en">🇺🇸 English</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:.68rem;color:var(--sub);margin-bottom:.25rem;">Senha (opcional)</div>
+          <input id="gcm-pw" placeholder="Sem senha" maxlength="20" style="width:100%;background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:.38rem .6rem;color:var(--text);font-size:.78rem;font-family:inherit;outline:none;">
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1rem;">
+        <label style="display:flex;align-items:center;gap:.4rem;font-size:.77rem;color:var(--sub);cursor:pointer;">
+          <input type="checkbox" id="gcm-public" checked style="accent-color:var(--accent);">
+          Sala pública (aparece na lista)
+        </label>
+      </div>
+
+      <div style="display:flex;gap:.6rem;">
+        <button onclick="$('game-create-modal').remove()" style="flex:1;padding:.55rem;border-radius:10px;border:1px solid var(--border);background:var(--s3);color:var(--sub);font-size:.82rem;cursor:pointer;font-family:inherit;">Cancelar</button>
+        <button onclick="submitCreateGameRoom()" style="flex:1;padding:.55rem;border-radius:10px;border:none;background:linear-gradient(135deg,var(--accent),var(--a2));color:#fff;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;">🎲 Criar Sala</button>
+      </div>
+    </div>`;
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+function selectGameType(id) {
+  _selectedGameType = id;
+  openGameCreateModal(); // re-render
+}
+
+function submitCreateGameRoom() {
+  if (!loggedInUser) return;
+  const name = encodeURIComponent(loggedInUser.name || 'Jogador');
+  const avatar = encodeURIComponent(loggedInUser.avatarEmoji || '🎮');
+  const roomName = encodeURIComponent(($('gcm-name').value || '').trim() || `Sala de ${loggedInUser.name}`);
+  const maxP = $('gcm-maxp').value;
+  const rounds = $('gcm-rounds').value;
+  const time = $('gcm-time').value;
+  const lang = $('gcm-lang').value;
+  const pw = encodeURIComponent($('gcm-pw').value || '');
+  const pub = $('gcm-public').checked ? '1' : '0';
+  $('game-create-modal').remove();
+  window.location.href = `/games?create=1&game=${_selectedGameType}&name=${name}&avatar=${avatar}&roomName=${roomName}&maxP=${maxP}&rounds=${rounds}&time=${time}&lang=${lang}&pw=${pw}&pub=${pub}`;
+}
+
+function createGameRoom() { openGameCreateModal(); }
+function joinGameRoom() {
+  const code = ($('gm-join-code') ? $('gm-join-code').value : '').trim().toUpperCase();
+  if (!code) return;
+  enterGameRoom(code, false);
+}
+function showGamesHome() {}
+function openGameLobby() { openGameCreateModal(); }
 
 function switchFeedTab(tab) {
   ['friends','public'].forEach(t => {
@@ -4282,6 +4495,13 @@ async function loadLobbyFeed() {
   }
 }
 function copyCode(){navigator.clipboard.writeText(roomId).then(()=>toast('Código copiado: '+roomId));}
+
+function openGames(){
+  if(!roomId){toast('Entre em uma sala primeiro!');return;}
+  const name=encodeURIComponent(myUser?.name||'Jogador');
+  const avatar=encodeURIComponent(myUser?.avatarEmoji||'🎮');
+  window.open(`/games?room=${roomId}&name=${name}&avatar=${avatar}`,'_blank','width=1100,height=720');
+}
 // ── SCREEN SHARE — WebSocket binário dedicado ────────────────────────────
 // Host → WS binário → servidor → broadcast binário → viewers
 // Sem base64, sem JSON, sem interferir no WS principal
