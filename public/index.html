@@ -2704,15 +2704,35 @@ function handle(msg) {
     applySyncClock(syncPlaying,payload.t,Date.now());
     if(ytIframe&&!ytReady){ytPendingSeek=payload.t;return;}
     if(!amIHost && nativeVid && !nativeVid._isVjs){
-      // Para membros com vídeo direto: recarrega do novo ponto via fragmento de URL
-      // evita seek "a seco" que drena o buffer e causa low FPS
-      const currentSrc = nativeVid.src.split('#')[0];
+      // Para membros com vídeo direto: faz seek direto no currentTime (mais preciso que #t=)
       const t = payload.t;
-      console.log('[WW SEEK] membro recarregando do ponto:', t.toFixed(2));
+      const wasPlaying = syncPlaying;
+      console.log('[WW SEEK] membro seek direto para:', t.toFixed(2), '— wasPlaying:', wasPlaying);
+
+      // Cancela qualquer canplay pendente anterior
+      if(nativeVid._wwCanPlayCb){ nativeVid.removeEventListener('canplay', nativeVid._wwCanPlayCb); nativeVid._wwCanPlayCb=null; }
+
       isSyncing=true;
-      nativeVid.src = currentSrc + '#t=' + Math.floor(t);
-      nativeVid.load();
+      nativeVid.currentTime = t;
       isSyncing=false;
+
+      if(wasPlaying){
+        const _vid = nativeVid;
+        // Aguarda o vídeo bufferizar no novo ponto, depois sincroniza com o tempo real da sala
+        const onCanPlay = () => {
+          _vid.removeEventListener('canplay', onCanPlay);
+          _vid._wwCanPlayCb = null;
+          if(!syncPlaying) return;
+          // Corrige o tempo para compensar o delay de buffering
+          const now = expectedNow();
+          isSyncing=true;
+          if(Math.abs(_vid.currentTime - now) > 0.5) _vid.currentTime = Math.max(0, now);
+          _vid.play().catch(()=>{});
+          isSyncing=false;
+        };
+        nativeVid._wwCanPlayCb = onCanPlay;
+        nativeVid.addEventListener('canplay', onCanPlay);
+      }
       return;
     }
     isSyncing=true; seekTo(payload.t); isSyncing=false;
