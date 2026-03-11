@@ -835,6 +835,229 @@ app.delete('/api/posts/:id', requireAuth, async (req, res) => {
 // ─────────────────────────────────────────
 const rooms = new Map();
 
+// ─────────────────────────────────────────
+// 🎮 GAME STATE — Gartic
+// ─────────────────────────────────────────
+const gameRooms = new Map();
+
+const WORDS = {
+  pt: [
+    'gato','cachorro','casa','carro','arvore','sol','lua','estrela','peixe','passaro',
+    'pizza','bolo','sorvete','computador','celular','livro','musica','filme','jogo','danca',
+    'praia','montanha','rio','floresta','cidade','escola','hospital','mercado','parque','ponte',
+    'aviao','barco','trem','bicicleta','moto','onibus','helicoptero','foguete','navio','caminhao',
+    'maca','banana','uva','morango','melancia','laranja','limao','abacaxi','pera','manga',
+    'leao','tigre','elefante','girafa','macaco','cobra','jacare','tubarao','baleia','pinguim',
+    'guitarra','piano','bateria','violino','microfone','camera','televisao','radio','teclado','mouse',
+    'coracao','flor','nuvem','chuva','neve','arco-iris','trovao','vulcao','tornado','tsunami',
+    'hamburguer','sushi','tacos','macarrao','salada','sopa','pudim','brigadeiro','coxinha','pao',
+    'futebol','basquete','tenis','natacao','boxe','skate','surfe','xadrez','golfe','volei',
+    'castelo','piramide','torre','farol','iglu','palacio','museu','biblioteca','teatro','aquario',
+    'espelho','escada','elevador','guarda-chuva','relogio','anel','chapeu','oculos','sapato','mochila',
+    'lapis','caneta','borracha','tesoura','regua','caderno','mapa','globo','bandeira','trofeu',
+    'robo','alien','fantasma','vampiro','zumbi','fada','dragao','unicornio','sereia','ninja',
+    'chocolate','caramelo','chiclete','pirulito','algodao-doce','pacoca','cocada','mousse','waffle','crepe',
+    'polvo','lagosta','caranguejo','cavalo','zebra','rinoceronte','hipopotamo','gorila','flamingo','corvo',
+    'submarino','satelite','astronauta','dinossauro','mamute','fossil','meteoro','cometa','espaco','planeta',
+    'armario','sofa','cama','mesa','cadeira','geladeira','fogao','lampada','ventilador','tapete',
+    'mochila','carteira','almofada','cobertor','cortina','vaso','quadro','porta','janela','telhado',
+  ],
+  en: [
+    'cat','dog','house','car','tree','sun','moon','star','fish','bird',
+    'pizza','cake','ice cream','computer','phone','book','music','movie','game','dance',
+    'beach','mountain','river','forest','city','school','hospital','market','park','bridge',
+    'airplane','boat','train','bicycle','motorcycle','bus','helicopter','rocket','ship','truck',
+    'apple','banana','grape','strawberry','watermelon','orange','lemon','pineapple','pear','mango',
+    'lion','tiger','elephant','giraffe','monkey','snake','crocodile','shark','whale','penguin',
+    'guitar','piano','drums','violin','microphone','camera','television','radio','keyboard','mouse',
+    'heart','flower','cloud','rain','snow','rainbow','thunder','volcano','tornado','tsunami',
+    'hamburger','sushi','tacos','pasta','salad','soup','pudding','cookie','sandwich','bread',
+    'soccer','basketball','tennis','swimming','boxing','skateboard','surfing','chess','golf','volleyball',
+    'castle','pyramid','tower','lighthouse','igloo','palace','museum','library','theater','aquarium',
+    'mirror','stairs','elevator','umbrella','clock','ring','hat','glasses','shoe','backpack',
+    'pencil','pen','eraser','scissors','ruler','notebook','map','globe','flag','trophy',
+    'robot','alien','ghost','vampire','zombie','fairy','dragon','unicorn','mermaid','ninja',
+    'chocolate','candy','bubble gum','lollipop','cotton candy','brownie','donut','waffle','crepe','muffin',
+    'octopus','lobster','crab','horse','zebra','rhino','hippo','gorilla','flamingo','crow',
+    'submarine','satellite','astronaut','dinosaur','mammoth','fossil','meteor','comet','planet','spaceship',
+    'wardrobe','couch','bed','table','chair','fridge','stove','lamp','fan','mirror',
+    'window','door','roof','fence','garage','chimney','basement','attic','porch','balcony',
+  ],
+};
+
+function gWords(lang, n) {
+  const list = WORDS[lang] || WORDS.pt;
+  return [...list].sort(() => Math.random() - 0.5).slice(0, n || 3);
+}
+
+function maskWord(word, revealed) {
+  revealed = revealed || new Set();
+  return word.split('').map((c, i) => c === ' ' ? ' ' : (revealed.has(i) ? c : '_')).join('');
+}
+
+function gamePlayerList(game) {
+  return [...game.players.values()].map(p => ({
+    id: p.id, name: p.name, avatar: p.avatar,
+    score: p.score, hasGuessed: p.hasGuessed,
+    isDrawing: p.id === game.currentDrawerId,
+    isHost: p.id === game.hostId,
+  }));
+}
+
+function broadcastGame(game, msg, excludeId) {
+  const data = JSON.stringify(msg);
+  game.players.forEach((p, id) => {
+    if (id !== excludeId && p.ws.readyState === 1) p.ws.send(data);
+  });
+  if (game.spectators) {
+    game.spectators.forEach((s, id) => {
+      if (id !== excludeId && s.ws.readyState === 1) s.ws.send(data);
+    });
+  }
+}
+
+function publicRoomList() {
+  const list = [];
+  gameRooms.forEach(g => {
+    if (!g.isPublic) return;
+    list.push({
+      id: g.id, name: g.name, host: g.hostName,
+      players: g.players.size, maxPlayers: g.maxPlayers,
+      language: g.language, round: g.round, maxRounds: g.maxRounds,
+      status: g.status, hasPassword: !!g.password, createdAt: g.createdAt,
+    });
+  });
+  return list.sort((a, b) => b.players - a.players);
+}
+
+function broadcastRoomList() {
+  const data = JSON.stringify({ type: 'GAME_ROOM_LIST', payload: { rooms: publicRoomList() } });
+  wss.clients.forEach(ws => {
+    if (ws._watchingGameLobby && ws.readyState === 1) ws.send(data);
+  });
+}
+
+function clearTimers(game) {
+  if (game.roundTimer) { clearTimeout(game.roundTimer); game.roundTimer = null; }
+  if (game.hintTimer)  { clearInterval(game.hintTimer);  game.hintTimer  = null; }
+  if (game.chooseTimer){ clearTimeout(game.chooseTimer); game.chooseTimer= null; }
+}
+
+function endGame(game) {
+  game.status = 'ended';
+  clearTimers(game);
+  const sorted = [...game.players.values()].sort((a, b) => b.score - a.score);
+  broadcastGame(game, { type: 'GAME_END', payload: { players: sorted.map(p => ({ id: p.id, name: p.name, avatar: p.avatar, score: p.score })) } });
+  broadcastRoomList();
+  setTimeout(() => { gameRooms.delete(game.id); broadcastRoomList(); }, 120000);
+}
+
+function endRound(game) {
+  clearTimers(game);
+  const word = game.currentWord;
+  broadcastGame(game, { type: 'GAME_ROUND_END', payload: { word, players: gamePlayerList(game) } });
+  game.players.forEach(p => { p.hasGuessed = false; });
+  game.drawingData = []; game.revealedIndices = new Set();
+  game.guessedCount = 0; game.currentWord = null; game.currentDrawerId = null;
+  game.status = 'between_rounds';
+  game.drawIndex++;
+  if (game.drawIndex >= game.drawOrder.length) {
+    game.round++; game.drawIndex = 0;
+    game.drawOrder = [...game.players.keys()].sort(() => Math.random() - 0.5);
+    if (game.round > game.maxRounds) { setTimeout(() => endGame(game), 4000); return; }
+  }
+  setTimeout(() => {
+    if (game.players.size >= 2) startTurn(game);
+    else { game.status = 'waiting'; broadcastRoomList(); }
+  }, 4000);
+}
+
+function wordChosen(game, word) {
+  clearTimers(game);
+  game.currentWord = word; game.status = 'drawing';
+  game.timerEnd = Date.now() + game.drawTime * 1000;
+  game.revealedIndices = new Set(); game.guessedCount = 0;
+  broadcastRoomList();
+  const masked = maskWord(word);
+  game.players.forEach((p, id) => {
+    if (p.ws.readyState !== 1) return;
+    p.ws.send(JSON.stringify({ type: 'GAME_DRAWING_START', payload: {
+      word: id === game.currentDrawerId ? word : null,
+      masked: id === game.currentDrawerId ? word : masked,
+      timerEnd: game.timerEnd, drawTime: game.drawTime, wordLength: word.length,
+    }}));
+  });
+  if (game.spectators) game.spectators.forEach(s => {
+    if (s.ws.readyState === 1) s.ws.send(JSON.stringify({ type: 'GAME_DRAWING_START', payload: {
+      word: null, masked, timerEnd: game.timerEnd, drawTime: game.drawTime, wordLength: word.length,
+    }}));
+  });
+  const nonSpace = word.split('').map((c,i)=>({c,i})).filter(x=>x.c!==' ');
+  const maxHints = Math.max(1, Math.floor(nonSpace.length * 0.4));
+  let hintCount = 0;
+  const hintInterval = Math.floor((game.drawTime * 1000 * 0.75) / (maxHints + 1));
+  game.hintTimer = setInterval(() => {
+    if (++hintCount > maxHints || game.status !== 'drawing') { clearInterval(game.hintTimer); game.hintTimer=null; return; }
+    const pool = nonSpace.filter(x => !game.revealedIndices.has(x.i));
+    if (!pool.length) return;
+    game.revealedIndices.add(pool[Math.floor(Math.random()*pool.length)].i);
+    const h = maskWord(word, game.revealedIndices);
+    game.players.forEach((p, id) => { if (id !== game.currentDrawerId && !p.hasGuessed && p.ws.readyState===1) p.ws.send(JSON.stringify({ type:'GAME_HINT', payload:{masked:h} })); });
+    if (game.spectators) game.spectators.forEach(s => { if (s.ws.readyState===1) s.ws.send(JSON.stringify({ type:'GAME_HINT', payload:{masked:h} })); });
+  }, hintInterval);
+  game.roundTimer = setTimeout(() => { if (game.status==='drawing') endRound(game); }, game.drawTime * 1000);
+}
+
+function startTurn(game) {
+  game.drawOrder = game.drawOrder.filter(id => game.players.has(id));
+  if (!game.drawOrder.length) game.drawOrder = [...game.players.keys()];
+  if (game.drawIndex >= game.drawOrder.length) game.drawIndex = 0;
+  const drawerId = game.drawOrder[game.drawIndex];
+  const drawer = game.players.get(drawerId);
+  if (!drawer) { game.drawIndex++; setTimeout(()=>endRound(game),300); return; }
+  game.currentDrawerId = drawerId; game.status = 'choosing';
+  game.wordChoices = gWords(game.language, 3); game.drawingData = [];
+  broadcastRoomList();
+  broadcastGame(game, { type:'GAME_TURN_START', payload:{ drawerId, drawerName:drawer.name, drawerAvatar:drawer.avatar, round:game.round, maxRounds:game.maxRounds, players:gamePlayerList(game) }});
+  if (drawer.ws.readyState===1) drawer.ws.send(JSON.stringify({ type:'GAME_CHOOSE_WORD', payload:{ words:game.wordChoices }}));
+  game.chooseTimer = setTimeout(() => { if (game.status==='choosing') wordChosen(game, game.wordChoices[Math.floor(Math.random()*game.wordChoices.length)]); }, 15000);
+}
+
+function checkSpam(p) {
+  const now = Date.now();
+  if (!p._sw) p._sw = now;
+  if (!p._sc) p._sc = 0;
+  if (now - p._sw > 2000) { p._sw = now; p._sc = 0; }
+  return ++p._sc > 6;
+}
+
+function cleanupGamePlayer(wsId, ws) {
+  const gameId = ws._gameRoomId;
+  if (!gameId) return;
+  const game = gameRooms.get(gameId);
+  if (!game) return;
+  if (game.spectators && game.spectators.has(wsId)) {
+    game.spectators.delete(wsId);
+    broadcastGame(game, { type:'GAME_SPECTATOR_LEFT', payload:{ spectators: game.spectators.size } });
+    return;
+  }
+  game.players.delete(wsId);
+  if (game.players.size === 0) { clearTimers(game); gameRooms.delete(gameId); broadcastRoomList(); return; }
+  if (game.hostId === wsId) {
+    game.hostId = game.players.keys().next().value;
+    const nh = game.players.get(game.hostId);
+    if (nh) game.hostName = nh.name;
+    broadcastGame(game, { type:'GAME_HOST_CHANGED', payload:{ hostId:game.hostId, hostName:game.hostName }});
+  }
+  broadcastGame(game, { type:'GAME_PLAYER_LEFT', payload:{ playerId:wsId, players:gamePlayerList(game) }});
+  broadcastRoomList();
+  if (game.currentDrawerId === wsId && game.status === 'drawing') endRound(game);
+  if (game.players.size < 2 && !['waiting','ended'].includes(game.status)) {
+    clearTimers(game); game.status='waiting'; game.currentDrawerId=null; game.currentWord=null; game.drawingData=[];
+    broadcastGame(game, { type:'GAME_PAUSED', payload:{ reason:'Jogadores insuficientes. Aguardando...' }});
+    broadcastRoomList();
+  }
+}
 function getOrCreateRoom(roomId) {
   if (!rooms.has(roomId)) {
     rooms.set(roomId, {
@@ -1068,9 +1291,146 @@ wss.on('connection', (ws) => {
       }
       broadcastAll(currentRoom, { type: 'SCREEN_SHARE_STOP', payload: {} });
     }
-  });
+
+    // ── 🎮 GAME — Gartic ───────────────────────────────────
+    if (type === 'GAME_LOBBY_WATCH') {
+      ws._watchingGameLobby = true;
+      ws.send(JSON.stringify({ type: 'GAME_ROOM_LIST', payload: { rooms: publicRoomList() } }));
+    }
+    if (type === 'GAME_LOBBY_LEAVE') { ws._watchingGameLobby = false; }
+
+    if (type === 'GAME_CREATE') {
+      const { name, maxPlayers, maxRounds, drawTime, language, isPublic, password, user } = payload;
+      const gameId = 'GAME-' + Math.random().toString(36).slice(2,6).toUpperCase();
+      const game = {
+        id: gameId, name: name||'Sala sem nome', hostId: wsId, hostName: user.name||'Host',
+        password: password||null, isPublic: isPublic!==false,
+        maxPlayers: Math.min(12, Math.max(2, parseInt(maxPlayers)||8)),
+        maxRounds: Math.min(10, Math.max(1, parseInt(maxRounds)||3)),
+        drawTime: [60,80,100,120].includes(parseInt(drawTime)) ? parseInt(drawTime) : 80,
+        language: language||'pt', status:'waiting',
+        players: new Map(), spectators: new Map(),
+        currentDrawerId: null, currentWord: null, wordChoices: [],
+        drawingData: [], round: 0, drawOrder: [], drawIndex: 0,
+        timerEnd: 0, roundTimer: null, hintTimer: null, chooseTimer: null,
+        revealedIndices: new Set(), guessedCount: 0, createdAt: Date.now(),
+      };
+      gameRooms.set(gameId, game);
+      ws._gameRoomId = gameId; ws._watchingGameLobby = false;
+      game.players.set(wsId, { id: wsId, name: user.name||'Host', avatar: user.avatar||'🎮', score:0, ws, hasGuessed:false });
+      ws.send(JSON.stringify({ type:'GAME_JOINED', payload:{ gameId, myId:wsId, isHost:true, status:game.status, players:gamePlayerList(game), maxPlayers:game.maxPlayers, maxRounds:game.maxRounds, drawTime:game.drawTime, language:game.language, name:game.name, drawingData:[], round:0 }}));
+      broadcastRoomList();
+    }
+
+    if (type === 'GAME_JOIN') {
+      const { gameId, user, password } = payload;
+      if (!gameId) return;
+      const game = gameRooms.get(gameId);
+      if (!game) { ws.send(JSON.stringify({ type:'GAME_ERROR', payload:{ msg:'Sala não encontrada.' }})); return; }
+      if (game.password && game.password !== password) { ws.send(JSON.stringify({ type:'GAME_ERROR', payload:{ msg:'Senha incorreta.' }})); return; }
+      // If game full, join as spectator
+      if (game.players.size >= game.maxPlayers) {
+        if (!game.spectators) game.spectators = new Map();
+        ws._gameRoomId = gameId; ws._watchingGameLobby = false;
+        game.spectators.set(wsId, { id:wsId, name:user.name||'Espectador', avatar:user.avatar||'👁', ws });
+        ws.send(JSON.stringify({ type:'GAME_JOINED', payload:{ gameId, myId:wsId, isHost:false, isSpectator:true, status:game.status, players:gamePlayerList(game), maxPlayers:game.maxPlayers, maxRounds:game.maxRounds, drawTime:game.drawTime, language:game.language, name:game.name, drawingData:game.drawingData, round:game.round, currentDrawerId:game.currentDrawerId, timerEnd:game.timerEnd, masked:game.currentWord?maskWord(game.currentWord,game.revealedIndices):null, wordLength:game.currentWord?game.currentWord.length:null }}));
+        broadcastGame(game, { type:'GAME_SPECTATOR_JOINED', payload:{ name:user.name, spectators:(game.spectators.size) }}, wsId);
+        return;
+      }
+      ws._gameRoomId = gameId; ws._watchingGameLobby = false;
+      game.players.set(wsId, { id:wsId, name:user.name||'Jogador', avatar:user.avatar||'🎮', score:0, ws, hasGuessed:false });
+      ws.send(JSON.stringify({ type:'GAME_JOINED', payload:{ gameId, myId:wsId, isHost:game.hostId===wsId, status:game.status, players:gamePlayerList(game), maxPlayers:game.maxPlayers, maxRounds:game.maxRounds, drawTime:game.drawTime, language:game.language, name:game.name, drawingData:game.drawingData, round:game.round, currentDrawerId:game.currentDrawerId, timerEnd:game.timerEnd, masked:game.currentWord?maskWord(game.currentWord,game.revealedIndices):null, wordLength:game.currentWord?game.currentWord.length:null }}));
+      broadcastGame(game, { type:'GAME_PLAYER_JOINED', payload:{ player:{ id:wsId, name:user.name, avatar:user.avatar, score:0, hasGuessed:false }, players:gamePlayerList(game) }}, wsId);
+      broadcastRoomList();
+      // If game was paused waiting for players, auto-resume
+      if (game.status === 'waiting' && game.players.size >= 2 && game.round > 0) {
+        game.drawOrder = [...game.players.keys()].sort(() => Math.random() - 0.5);
+        game.drawIndex = 0; game.round = 1;
+      }
+    }
+
+    if (type === 'GAME_START') {
+      const game = ws._gameRoomId ? gameRooms.get(ws._gameRoomId) : null;
+      if (!game || game.hostId !== wsId || game.players.size < 2) return;
+      if (payload.maxRounds) game.maxRounds = Math.min(10, Math.max(1, parseInt(payload.maxRounds)||3));
+      game.round = 1; game.drawIndex = 0;
+      game.drawOrder = [...game.players.keys()].sort(() => Math.random() - 0.5);
+      game.players.forEach(p => { p.score=0; p.hasGuessed=false; });
+      broadcastGame(game, { type:'GAME_STARTED', payload:{ round:1, maxRounds:game.maxRounds, drawTime:game.drawTime }});
+      broadcastRoomList();
+      startTurn(game);
+    }
+
+    if (type === 'GAME_DRAW') {
+      const game = ws._gameRoomId ? gameRooms.get(ws._gameRoomId) : null;
+      if (!game || game.currentDrawerId !== wsId || game.status !== 'drawing') return;
+      game.drawingData.push(payload);
+      if (game.drawingData.length > 8000) game.drawingData = game.drawingData.slice(-6000);
+      broadcastGame(game, { type:'GAME_DRAW', payload }, wsId);
+    }
+
+    if (type === 'GAME_CLEAR') {
+      const game = ws._gameRoomId ? gameRooms.get(ws._gameRoomId) : null;
+      if (!game || game.currentDrawerId !== wsId) return;
+      game.drawingData = [];
+      broadcastGame(game, { type:'GAME_CLEAR', payload:{} }, wsId);
+    }
+
+    if (type === 'GAME_CHOOSE') {
+      const game = ws._gameRoomId ? gameRooms.get(ws._gameRoomId) : null;
+      if (!game || game.currentDrawerId !== wsId || game.status !== 'choosing') return;
+      if (!game.wordChoices.includes(payload.word)) return;
+      wordChosen(game, payload.word);
+    }
+
+    if (type === 'GAME_GUESS') {
+      const game = ws._gameRoomId ? gameRooms.get(ws._gameRoomId) : null;
+      if (!game || game.status !== 'drawing') return;
+      const player = game.players.get(wsId);
+      if (!player || player.hasGuessed || wsId === game.currentDrawerId) return;
+      if (checkSpam(player)) return;
+      const norm = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      const nText = norm(payload.text), nWord = norm(game.currentWord);
+      // Bloqueia palpite que contém a palavra mas não é exatamente ela (spoiler parcial)
+      if (nText !== nWord && nText.includes(nWord)) {
+        if (player.ws.readyState === 1) player.ws.send(JSON.stringify({ type:'GAME_ERROR', payload:{ msg:'🚫 Não pode revelar a palavra no palpite!' }}));
+        return;
+      }
+      if (nText === nWord) {
+        player.hasGuessed = true; game.guessedCount++;
+        const elapsed = Math.min(game.drawTime, (Date.now()-(game.timerEnd-game.drawTime*1000))/1000);
+        const points = Math.max(50, Math.round(500*(1-elapsed/game.drawTime)));
+        player.score += points;
+        const drawer = game.players.get(game.currentDrawerId);
+        if (drawer) drawer.score += 40;
+        broadcastGame(game, { type:'GAME_GUESSED', payload:{ playerId:wsId, playerName:player.name, playerAvatar:player.avatar, points, players:gamePlayerList(game) }});
+        const nonDrawers = [...game.players.values()].filter(p=>p.id!==game.currentDrawerId);
+        if (nonDrawers.length>0 && nonDrawers.every(p=>p.hasGuessed)) endRound(game);
+      } else {
+        broadcastGame(game, { type:'GAME_CHAT', payload:{ playerId:wsId, name:player.name, avatar:player.avatar, text:payload.text, ts:Date.now() }});
+      }
+    }
+
+    if (type === 'GAME_CHAT_MSG') {
+      const game = ws._gameRoomId ? gameRooms.get(ws._gameRoomId) : null;
+      if (!game) return;
+      const player = game.players.get(wsId) || (game.spectators && game.spectators.get(wsId));
+      if (!player || checkSpam(player)) return;
+      // Proteção: bloqueia mensagem que contenha a palavra atual
+      const norm = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      if (game.currentWord && game.status === 'drawing' && norm(payload.text||'').includes(norm(game.currentWord))) {
+        if (player.ws.readyState === 1) player.ws.send(JSON.stringify({ type:'GAME_ERROR', payload:{ msg:'🚫 Não pode revelar a palavra no chat!' }}));
+        return;
+      }
+      broadcastGame(game, { type:'GAME_CHAT', payload:{ playerId:wsId, name:player.name, avatar:player.avatar, text:payload.text, ts:Date.now() }});
+    }
+
+    if (type === 'GAME_LEAVE') { cleanupGamePlayer(wsId, ws); }
+
+  }); // end ws.on('message')
 
   ws.on('close', () => {
+    cleanupGamePlayer(wsId, ws);
     if (!currentRoom) return;
     currentRoom.members.delete(wsId);
     if (currentRoom.host === wsId && currentRoom.members.size > 0) {
@@ -1700,6 +2060,17 @@ setInterval(() => {
 }, 3000); // a cada 3s
 
 app.get('/api/ping', (req, res) => res.json({ ok: true }));
+
+// ── PUBLIC GAME ROOMS LIST ──────────────────────────────────
+app.get('/api/game-rooms', (req, res) => res.json({ rooms: publicRoomList() }));
+
+// ── GAMES PAGE ─────────────────────────────────────────────
+app.get('/games', (req, res) => {
+  const pub = path.join(__dirname, 'public', 'games.html');
+  const root = path.join(__dirname, 'games.html');
+  if (require('fs').existsSync(pub)) return res.sendFile(pub);
+  return res.sendFile(root);
+});
 
 // ── YOUTUBE PICKER POPUP PAGE ──────────────────────────────
 app.get('/yt-picker', (req, res) => {
